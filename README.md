@@ -1,4 +1,4 @@
-## Mediproject Frontend
+## MediAI Frontend
 
 This project is set up with:
 
