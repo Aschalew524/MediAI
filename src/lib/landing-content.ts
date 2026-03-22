@@ -23,6 +23,7 @@ export type NavItem = {
   label: string;
   href: string;
   icon?: LucideIcon;
+  
 };
 
 export type BenefitItem = {
