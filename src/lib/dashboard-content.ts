@@ -94,19 +94,45 @@ export function getProfileName(profile: DashboardProfile) {
   return profile.preferredName.trim() || "Joe";
 }
 
+/** Total inches → centimetres (for imperial → metric display). */
+function heightImperialToCm(feet: number, inches: number): number {
+  const totalIn = feet * 12 + inches;
+  return Math.round(totalIn * 2.54);
+}
+
+/** Pounds → kilograms (one decimal) for display. */
+function weightLbsToKg(lbs: number): number {
+  return Math.round((lbs / 2.2046226218) * 10) / 10;
+}
+
+/** General Information always shows metric (cm / kg), converting when needed. */
 export function getProfileHeight(profile: DashboardProfile) {
-  if (profile.measurementSystem === "metric") {
-    return profile.heightCm ? `${profile.heightCm} cm` : "170 cm";
+  const cmRaw = profile.heightCm?.trim();
+  if (cmRaw && Number(cmRaw) > 0) {
+    return `${cmRaw} cm`;
   }
 
-  const feet = profile.heightFeet || "5";
-  const inches = profile.heightInches || "6";
-  return `${feet}' ${inches}"`;
+  const feet = Number(profile.heightFeet) || 0;
+  const inches = Number(profile.heightInches) || 0;
+  if (feet > 0 || inches > 0) {
+    return `${heightImperialToCm(feet, inches)} cm`;
+  }
+
+  return "170 cm";
 }
 
 export function getProfileWeight(profile: DashboardProfile) {
-  const value = profile.weight || "77";
-  return profile.measurementSystem === "metric" ? `${value} kg` : `${value} lbs`;
+  const raw = profile.weight?.trim() || "0";
+  const value = Number(raw) || 0;
+  if (value <= 0) {
+    return "—";
+  }
+
+  if (profile.measurementSystem === "metric") {
+    return `${raw} kg`;
+  }
+
+  return `${weightLbsToKg(value)} kg`;
 }
 
 export function getProfileSex(profile: DashboardProfile) {
