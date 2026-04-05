@@ -1,35 +1,25 @@
-import type { LucideIcon } from "lucide-react";
-import {
-  Activity,
-  ArrowRight,
-  BadgeCheck,
-  BookOpenText,
-  Bot,
-  BrainCircuit,
-  ChevronDown,
-  FlaskConical,
-  Globe2,
-  HeartHandshake,
-  HeartPulse,
-  Languages,
-  MessageCircleHeart,
-  ShieldCheck,
-  Sparkles,
-  Stethoscope,
-  UserRoundSearch,
-} from "lucide-react";
+export type LandingIconKey =
+  | "chevronDown"
+  | "heartPulse"
+  | "globe2"
+  | "languages"
+  | "userRoundSearch"
+  | "shieldCheck"
+  | "stethoscope"
+  | "brainCircuit"
+  | "flaskConical"
+  | "heartHandshake";
 
 export type NavItem = {
   label: string;
   href: string;
-  icon?: LucideIcon;
-  
+  icon?: LandingIconKey;
 };
 
 export type BenefitItem = {
   title: string;
   description: string;
-  icon: LucideIcon;
+  icon: LandingIconKey;
 };
 
 export type ShowcaseKey =
@@ -50,7 +40,7 @@ export type ShowcaseItem = {
 export type SecurityItem = {
   title: string;
   description: string;
-  icon: LucideIcon;
+  icon: LandingIconKey;
 };
 
 export type Testimonial = {
@@ -70,9 +60,9 @@ export type FooterColumn = {
 };
 
 export const navItems: NavItem[] = [
-  { label: "Solutions", href: "#solutions", icon: ChevronDown },
+  { label: "Solutions", href: "#solutions", icon: "chevronDown" },
   { label: "Pricing", href: "#pricing" },
-  { label: "Resources", href: "#resources", icon: ChevronDown },
+  { label: "Resources", href: "#resources", icon: "chevronDown" },
   { label: "For Labs", href: "#labs" },
 ];
 
@@ -81,19 +71,19 @@ export const benefitItems: BenefitItem[] = [
     title: "Personalized Health Insights",
     description:
       "Get AI-powered virtual health assistance tailored to your medical history, symptoms, and lab results.",
-    icon: HeartPulse,
+    icon: "heartPulse",
   },
   {
     title: "Expert Second Opinions",
     description:
       "Validate your health insights with top US and European doctors to make more confident health decisions.",
-    icon: Globe2,
+    icon: "globe2",
   },
   {
     title: "24/7 Accessibility",
     description:
       "Access your AI health assistant anytime, anywhere, and in your native language.",
-    icon: Languages,
+    icon: "languages",
   },
 ];
 
@@ -139,19 +129,19 @@ export const securityItems: SecurityItem[] = [
     title: "Personally identifiable information is optional",
     description:
       "You can use the platform without sharing unnecessary personal details, which helps patients stay in control of their privacy.",
-    icon: UserRoundSearch,
+    icon: "userRoundSearch",
   },
   {
     title: "Protected by enterprise-grade security",
     description:
       "All data is protected by advanced security controls and aligned with HIPAA, GDPR, and SOC 2 expectations.",
-    icon: ShieldCheck,
+    icon: "shieldCheck",
   },
   {
     title: "Guidance, not a replacement for clinicians",
     description:
       "The platform is designed to support informed decisions, not replace professional diagnosis, treatment, or emergency care.",
-    icon: Stethoscope,
+    icon: "stethoscope",
   },
 ];
 
@@ -253,17 +243,15 @@ export const footerColumns: FooterColumn[] = [
 
 export const heroHighlights = [
   {
-    icon: BrainCircuit,
+    icon: "brainCircuit" as const,
     label: "AI symptom guidance",
   },
   {
-    icon: FlaskConical,
+    icon: "flaskConical" as const,
     label: "Lab interpretation",
   },
   {
-    icon: HeartHandshake,
+    icon: "heartHandshake" as const,
     label: "Second opinions",
   },
 ];
-
-export const socialIcons = [Sparkles, Activity, BookOpenText, ArrowRight, Bot, BadgeCheck, MessageCircleHeart];
