@@ -1,0 +1,129 @@
+"use client";
+
+import { useState, type ReactNode } from "react";
+
+import Link from "next/link";
+import { Bell, CircleUserRound, MessageCircleMore, ShieldCheck } from "lucide-react";
+
+import { getProfileName } from "@/lib/dashboard-content";
+import { cn } from "@/lib/utils";
+
+import { useDashboardProfile } from "./use-dashboard-profile";
+
+export function DashboardShell({ children }: { children: ReactNode }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const profile = useDashboardProfile();
+  const name = getProfileName(profile);
+  const email = `${name.toLowerCase().replace(/\s+/g, "")}@gmail.com`;
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-primary/10 bg-background/95 backdrop-blur">
+        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-8">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 text-sm font-medium text-foreground"
+          >
+            <span className="text-primary">🏠</span>
+            <span>My DashBoard</span>
+          </Link>
+
+          <Link
+            href="/dashboard"
+            className="text-4xl font-semibold tracking-tight text-primary"
+          >
+            MediAI
+          </Link>
+
+          <div className="relative flex items-center gap-3">
+            <HeaderIconButton aria-label="Messages">
+              <MessageCircleMore className="size-4" />
+            </HeaderIconButton>
+            <HeaderIconButton aria-label="Notifications">
+              <Bell className="size-4" />
+            </HeaderIconButton>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-label="Open profile menu"
+              className="inline-flex items-center gap-2 rounded-full border border-primary/10 px-2 py-1 transition-colors hover:bg-muted"
+            >
+              <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
+                Free
+              </span>
+              <CircleUserRound className="size-5 text-muted-foreground" />
+            </button>
+
+            {menuOpen ? (
+              <div className="absolute right-0 top-14 z-20 w-80 rounded-[1.5rem] border border-primary/12 bg-white p-6 shadow-[0_24px_80px_-45px_rgba(73,96,188,0.75)]">
+                <div className="flex items-center gap-4">
+                  <div className="relative inline-flex size-16 items-center justify-center rounded-full bg-muted text-primary">
+                    <CircleUserRound className="size-7" />
+                    <span className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                      Free
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-3xl font-semibold">{email}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Account ID: 292556
+                    </p>
+                  </div>
+                </div>
+
+                <div className="my-6 h-px bg-primary/15" />
+
+                <nav className="space-y-3">
+                  {[
+                    "Help & Support",
+                    "Billing",
+                    "Account Settings",
+                    "Sign Out",
+                  ].map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className="block text-left text-2xl font-medium transition-colors hover:text-primary"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </nav>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </header>
+
+      {children}
+    </div>
+  );
+}
+
+function HeaderIconButton({
+  children,
+  className,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "inline-flex size-9 items-center justify-center rounded-full border border-primary/10 text-muted-foreground transition-colors hover:bg-muted hover:text-primary",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function TrustBadge() {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full bg-primary/6 px-3 py-1.5 text-xs font-medium text-primary">
+      <ShieldCheck className="size-4" />
+      <span>Privacy-first health profile</span>
+    </div>
+  );
+}

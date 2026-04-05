@@ -1,32 +1,47 @@
+"use client";
+
+import type { ComponentType } from "react";
+
 import Link from "next/link";
 
 import {
   ArrowRight,
+  BrainCircuit,
   ChevronRight,
+  ChevronDown,
   CircleUserRound,
   ClipboardPlus,
+  FlaskConical,
+  Globe2,
+  HeartHandshake,
+  HeartPulse,
+  Languages,
   Menu,
   MoveRight,
   Quote,
   Send,
   Shield,
+  ShieldCheck,
   Sparkles,
+  Stethoscope,
   Twitter,
   Facebook,
   Instagram,
   Linkedin,
+  UserRoundSearch,
 } from "lucide-react";
 
 import {
-  benefitItems,
-  faqItems,
-  footerColumns,
-  heroHighlights,
-  navItems,
-  securityItems,
-  showcaseItems,
-  testimonialItems,
+  type BenefitItem,
+  type FAQItem,
+  type FooterColumn,
+  type LandingIconKey,
+  type NavItem,
+  type SecurityItem,
+  type ShowcaseItem,
+  type Testimonial,
 } from "@/lib/landing-content";
+import { useLandingConfig } from "@/lib/hooks/use-app-config";
 import { cn } from "@/lib/utils";
 
 import {
@@ -37,24 +52,39 @@ import {
 } from "./primitives";
 
 export function LandingPage() {
+  const { data } = useLandingConfig();
+
   return (
     <div className="bg-background text-foreground">
-      <SiteHeader />
+      <SiteHeader navItems={data.navItems} />
       <main>
-        <HeroSection />
-        <BenefitsSection />
-        <ShowcaseSections />
-        <SecuritySection />
-        <TestimonialsSection />
-        <FaqSection />
+        <HeroSection heroHighlights={data.heroHighlights} />
+        <BenefitsSection benefitItems={data.benefitItems} />
+        <ShowcaseSections showcaseItems={data.showcaseItems} />
+        <SecuritySection securityItems={data.securityItems} />
+        <TestimonialsSection testimonialItems={data.testimonialItems} />
+        <FaqSection faqItems={data.faqItems} />
         <BottomCtaSection />
       </main>
-      <SiteFooter />
+      <SiteFooter footerColumns={data.footerColumns} />
     </div>
   );
 }
 
-function SiteHeader() {
+const iconMap: Record<LandingIconKey, ComponentType<{ className?: string }>> = {
+  chevronDown: ChevronDown,
+  heartPulse: HeartPulse,
+  globe2: Globe2,
+  languages: Languages,
+  userRoundSearch: UserRoundSearch,
+  shieldCheck: ShieldCheck,
+  stethoscope: Stethoscope,
+  brainCircuit: BrainCircuit,
+  flaskConical: FlaskConical,
+  heartHandshake: HeartHandshake,
+};
+
+function SiteHeader({ navItems }: { navItems: NavItem[] }) {
   return (
     <header className="sticky top-0 z-40 border-b border-transparent bg-background/90 backdrop-blur-md">
       <Container className="flex h-20 items-center justify-between gap-6">
@@ -67,7 +97,7 @@ function SiteHeader() {
 
         <nav className="hidden items-center gap-8 lg:flex">
           {navItems.map((item) => {
-            const Icon = item.icon;
+            const Icon = item.icon ? iconMap[item.icon] : null;
 
             return (
               <Link
@@ -89,7 +119,7 @@ function SiteHeader() {
           >
             Sign In
           </Link>
-          <LinkButton href="#cta" size="lg">
+          <LinkButton href="/onboarding" size="lg">
             Get Started For Free
           </LinkButton>
         </div>
@@ -106,10 +136,14 @@ function SiteHeader() {
   );
 }
 
-function HeroSection() {
+function HeroSection({
+  heroHighlights,
+}: {
+  heroHighlights: { icon: LandingIconKey; label: string }[];
+}) {
   return (
     <SectionShell className="overflow-hidden pb-12 sm:pb-16" >
-      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[38rem] bg-[radial-gradient(circle_at_top,_rgba(111,139,255,0.16),_transparent_55%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-152 bg-[radial-gradient(circle_at_top,rgba(111,139,255,0.16),transparent_55%)]" />
       <Container className="space-y-14">
         <div
           id="hero"
@@ -129,7 +163,7 @@ function HeroSection() {
 
           <div className="flex flex-wrap items-center justify-center gap-3">
             {heroHighlights.map((item) => {
-              const Icon = item.icon;
+              const Icon = iconMap[item.icon];
 
               return (
                 <div
@@ -162,7 +196,7 @@ function AssistantDemo() {
     <div className="mx-auto w-full max-w-5xl rounded-[2rem] border border-primary/10 bg-[linear-gradient(180deg,rgba(241,244,255,0.95),rgba(243,246,255,0.8))] p-6 shadow-[0_35px_90px_-55px_rgba(73,96,188,0.5)] sm:p-8 lg:p-10">
       <div className="space-y-8 rounded-[1.5rem] bg-white/50 p-6 backdrop-blur sm:p-8">
         <div className="flex flex-col items-center space-y-4 text-center">
-          <div className="relative flex size-28 items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,_rgba(113,133,255,0.95),rgba(44,52,96,1)_72%)] shadow-[0_28px_48px_-24px_rgba(57,78,171,0.85)]">
+          <div className="relative flex size-28 items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,rgba(113,133,255,0.95),rgba(44,52,96,1)_72%)] shadow-[0_28px_48px_-24px_rgba(57,78,171,0.85)]">
             <div className="absolute inset-4 rounded-full border border-white/10" />
             <div className="flex w-16 items-center justify-center gap-3 rounded-full bg-[#10173A] px-3 py-2 shadow-inner">
               <span className="h-2.5 w-4 rounded-full bg-white shadow-[0_0_12px_rgba(120,140,255,0.95)]" />
@@ -201,7 +235,7 @@ function AssistantDemo() {
   );
 }
 
-function BenefitsSection() {
+function BenefitsSection({ benefitItems }: { benefitItems: BenefitItem[] }) {
   return (
     <SectionShell id="solutions" className="pt-8 sm:pt-10">
       <Container className="space-y-10">
@@ -212,7 +246,7 @@ function BenefitsSection() {
 
         <div className="grid gap-5 lg:grid-cols-3">
           {benefitItems.map((item) => {
-            const Icon = item.icon;
+            const Icon = iconMap[item.icon];
 
             return (
               <article
@@ -232,7 +266,7 @@ function BenefitsSection() {
         </div>
 
         <div className="text-center">
-          <LinkButton href="#cta" size="lg">
+          <LinkButton href="/onboarding" size="lg">
             Try MediAI For Free
           </LinkButton>
         </div>
@@ -241,7 +275,7 @@ function BenefitsSection() {
   );
 }
 
-function ShowcaseSections() {
+function ShowcaseSections({ showcaseItems }: { showcaseItems: ShowcaseItem[] }) {
   return (
     <SectionShell>
       <Container className="space-y-20">
@@ -260,11 +294,7 @@ function ShowcaseSections() {
   );
 }
 
-function ShowcaseBlock({
-  item,
-}: {
-  item: (typeof showcaseItems)[number];
-}) {
+function ShowcaseBlock({ item }: { item: ShowcaseItem }) {
   const { key: showcaseKey, title, description, ctaLabel, href, reverse } = item;
 
   return (
@@ -296,7 +326,7 @@ function ShowcaseBlock({
       </div>
 
       <div className="relative">
-        <div className="pointer-events-none absolute inset-0 -z-10 rounded-[2rem] bg-[radial-gradient(circle_at_center,_rgba(112,136,255,0.12),_transparent_60%)]" />
+        <div className="pointer-events-none absolute inset-0 -z-10 rounded-[2rem] bg-[radial-gradient(circle_at_center,rgba(112,136,255,0.12),transparent_60%)]" />
         {showcaseKey === "insights" ? <InsightsVisual /> : null}
         {showcaseKey === "labs" ? <LabsVisual /> : null}
         {showcaseKey === "symptoms" ? <SymptomsVisual /> : null}
@@ -394,8 +424,8 @@ function LabsVisual() {
   ];
 
   return (
-    <div className="relative mx-auto min-h-[28rem] max-w-xl rounded-[2rem] bg-[linear-gradient(180deg,rgba(245,247,255,0.95),rgba(255,255,255,0.95))] p-6">
-      <div className="absolute inset-0 -z-10 rounded-[2rem] bg-[radial-gradient(circle_at_center,_rgba(111,139,255,0.16),_transparent_65%)]" />
+    <div className="relative mx-auto min-h-112 max-w-xl rounded-[2rem] bg-[linear-gradient(180deg,rgba(245,247,255,0.95),rgba(255,255,255,0.95))] p-6">
+      <div className="absolute inset-0 -z-10 rounded-[2rem] bg-[radial-gradient(circle_at_center,rgba(111,139,255,0.16),transparent_65%)]" />
       <div className="grid gap-4 md:grid-cols-2">
         {cards.map((card, index) => (
           <div
@@ -481,7 +511,7 @@ function OpinionsVisual() {
       </div>
 
       <div className="grid items-center gap-6 md:grid-cols-[1.2fr_0.8fr]">
-        <div className="relative h-72 rounded-[2rem] bg-[radial-gradient(circle_at_top,_rgba(121,145,255,0.22),_rgba(121,145,255,0.04)_65%,_transparent_66%)]">
+        <div className="relative h-72 rounded-[2rem] bg-[radial-gradient(circle_at_top,rgba(121,145,255,0.22),rgba(121,145,255,0.04)_65%,transparent_66%)]">
           <div className="absolute left-10 top-12 flex size-28 items-center justify-center rounded-full bg-white shadow-[0_24px_60px_-35px_rgba(73,96,188,0.9)]">
             <CircleUserRound className="size-16 text-primary/75" />
           </div>
@@ -508,7 +538,7 @@ function OpinionsVisual() {
   );
 }
 
-function SecuritySection() {
+function SecuritySection({ securityItems }: { securityItems: SecurityItem[] }) {
   return (
     <SectionShell>
       <Container>
@@ -526,7 +556,7 @@ function SecuritySection() {
 
             <div className="space-y-6">
               {securityItems.map((item) => {
-                const Icon = item.icon;
+                const Icon = iconMap[item.icon];
 
                 return (
                   <div
@@ -553,7 +583,11 @@ function SecuritySection() {
   );
 }
 
-function TestimonialsSection() {
+function TestimonialsSection({
+  testimonialItems,
+}: {
+  testimonialItems: Testimonial[];
+}) {
   return (
     <SectionShell>
       <Container className="space-y-10">
@@ -595,7 +629,7 @@ function TestimonialsSection() {
   );
 }
 
-function FaqSection() {
+function FaqSection({ faqItems }: { faqItems: FAQItem[] }) {
   return (
     <SectionShell className="pt-6">
       <Container className="max-w-4xl space-y-10">
@@ -645,7 +679,7 @@ function BottomCtaSection() {
               Are you ready to take control of your health?
             </h2>
             <div>
-              <LinkButton href="#hero" size="lg" variant="light">
+              <LinkButton href="/onboarding" size="lg" variant="light">
                 Try MediAI For Free
               </LinkButton>
             </div>
@@ -656,7 +690,7 @@ function BottomCtaSection() {
   );
 }
 
-function SiteFooter() {
+function SiteFooter({ footerColumns }: { footerColumns: FooterColumn[] }) {
   const socialLinks = [
     { label: "Twitter", href: "#", icon: Twitter },
     { label: "Facebook", href: "#", icon: Facebook },
