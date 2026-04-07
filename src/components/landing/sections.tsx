@@ -2,6 +2,7 @@
 
 import type { ComponentType } from "react";
 
+import Image from "next/image";
 import Link from "next/link";
 
 import {
@@ -204,15 +205,8 @@ function AssistantDemo() {
     <div className="mx-auto w-full max-w-5xl rounded-[2rem] border border-primary/10 bg-[linear-gradient(180deg,rgba(241,244,255,0.95),rgba(243,246,255,0.8))] p-6 shadow-[0_35px_90px_-55px_rgba(73,96,188,0.5)] sm:p-8 lg:p-10">
       <div className="space-y-8 rounded-[1.5rem] bg-white/50 p-6 backdrop-blur sm:p-8">
         <div className="flex flex-col items-center space-y-4 text-center">
-          <div className="relative flex size-28 items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,rgba(113,133,255,0.95),rgba(44,52,96,1)_72%)] shadow-[0_28px_48px_-24px_rgba(57,78,171,0.85)]">
-            <div className="absolute inset-4 rounded-full border border-white/10" />
-            <div className="flex w-16 items-center justify-center gap-3 rounded-full bg-[#10173A] px-3 py-2 shadow-inner">
-              <span className="h-2.5 w-4 rounded-full bg-white shadow-[0_0_12px_rgba(120,140,255,0.95)]" />
-              <span className="h-2.5 w-4 rounded-full bg-white shadow-[0_0_12px_rgba(120,140,255,0.95)]" />
-            </div>
-            <div className="absolute bottom-7 h-5 w-10 rounded-full bg-[#10173A] shadow-inner">
-              <div className="mx-auto mt-1 h-2 w-4 rounded-full bg-white/95" />
-            </div>
+          <div className="relative flex size-28 items-center justify-center">
+            <Image src="/bot-logo.png" alt="Assistant Bot" width={112} height={112} className="object-contain" />
           </div>
 
           <div className="space-y-2">

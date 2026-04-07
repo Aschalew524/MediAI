@@ -1,0 +1,37 @@
+<svg width="900" height="675" viewBox="0 0 900 675" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="900" y2="675" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EAF0FF"/>
+      <stop offset="1" stop-color="#FDFEFF"/>
+    </linearGradient>
+    <linearGradient id="coat" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E9EDFA"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="675" rx="40" fill="url(#bg)"/>
+  <rect x="0" y="0" width="220" height="675" fill="#2F9D66"/>
+  <rect x="75" y="0" width="145" height="675" fill="#F4C645"/>
+  <rect x="150" y="0" width="70" height="675" fill="#3B6AE8" opacity="0.8"/>
+
+  <circle cx="470" cy="210" r="92" fill="#D6A17F"/>
+  <path d="M390 205C390 143 430 112 472 112C522 112 552 152 552 205V230H390V205Z" fill="#1B2434"/>
+  <ellipse cx="438" cy="208" rx="8" ry="6" fill="#17202E"/>
+  <ellipse cx="500" cy="208" rx="8" ry="6" fill="#17202E"/>
+  <path d="M440 252C450 270 490 270 500 252" stroke="#9D5A3A" stroke-width="8" stroke-linecap="round"/>
+
+  <path d="M340 630C350 480 388 382 470 382C552 382 590 480 600 630H340Z" fill="url(#coat)"/>
+  <path d="M422 382L470 462L518 382H422Z" fill="#2F4C9A"/>
+  <path d="M385 630L420 430M555 630L520 430" stroke="#CBD5F1" stroke-width="12"/>
+
+  <circle cx="610" cy="470" r="38" fill="#E7ECFB" stroke="#A5B4E8" stroke-width="6"/>
+  <path d="M610 438V502M578 470H642" stroke="#6B7BD8" stroke-width="8" stroke-linecap="round"/>
+
+  <rect x="610" y="80" width="220" height="110" rx="16" fill="#FFFFFF" stroke="#C9D4F7"/>
+  <rect x="630" y="104" width="180" height="14" rx="7" fill="#DCE4FA"/>
+  <rect x="630" y="130" width="140" height="14" rx="7" fill="#E8EEFC"/>
+
+  <rect x="640" y="540" width="170" height="95" rx="14" fill="#FFFFFF" stroke="#C9D4F7"/>
+  <rect x="655" y="560" width="90" height="12" rx="6" fill="#DCE4FA"/>
+  <rect x="655" y="582" width="130" height="12" rx="6" fill="#E8EEFC"/>
+</svg>

@@ -66,7 +66,7 @@ export const dashboardCards = [
 export const consultDoctorsCard = {
   title: "Consult Top Doctors",
   description: "Online Consultation with top Doctors from the US and Europe.",
-  href: "#",
+  href: "/dashboard/top-doctors",
 };
 
 export const mainHealthInfoSections = [
