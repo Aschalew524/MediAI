@@ -55,7 +55,7 @@ const drAshenafiProfileBase: Omit<TopDoctor, "id"> = {
     video: 490,
     written: 490,
   },
-  heroImageUrl: "/doctor-portrait.svg",
+  heroImageUrl: "/sample_doc_photo.png",
   education: {
     degree: "MD: University of Zurich",
     year: "2001",

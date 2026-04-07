@@ -4,9 +4,7 @@ import {
   consultDoctorsCard,
   dashboardCards,
   defaultDashboardProfile,
-  labInterpretationCategories,
   mainHealthInfoSections,
-  uploadHighlights,
 } from "@/lib/dashboard-content";
 
 export async function GET() {
@@ -15,7 +13,5 @@ export async function GET() {
     dashboardCards,
     consultDoctorsCard,
     mainHealthInfoSections,
-    labInterpretationCategories,
-    uploadHighlights,
   });
 }

@@ -7,7 +7,6 @@ export type LandingIconKey =
   | "shieldCheck"
   | "stethoscope"
   | "brainCircuit"
-  | "flaskConical"
   | "heartHandshake";
 
 export type NavItem = {
@@ -24,7 +23,6 @@ export type BenefitItem = {
 
 export type ShowcaseKey =
   | "insights"
-  | "labs"
   | "symptoms"
   | "opinions";
 
@@ -63,14 +61,14 @@ export const navItems: NavItem[] = [
   { label: "Solutions", href: "#solutions", icon: "chevronDown" },
   { label: "Pricing", href: "#pricing" },
   { label: "Resources", href: "#resources", icon: "chevronDown" },
-  { label: "For Labs", href: "#labs" },
+  { label: "For Patients", href: "#symptoms" },
 ];
 
 export const benefitItems: BenefitItem[] = [
   {
     title: "Personalized Health Insights",
     description:
-      "Get AI-powered virtual health assistance tailored to your medical history, symptoms, and lab results.",
+      "Get AI-powered virtual health assistance tailored to your medical history and symptoms.",
     icon: "heartPulse",
   },
   {
@@ -92,18 +90,9 @@ export const showcaseItems: ShowcaseItem[] = [
     key: "insights",
     title: "Personalized Health Insights",
     description:
-      "Get AI-powered virtual health assistance tailored to your medical history, symptoms, and lab results.",
+      "Get AI-powered virtual health assistance tailored to your medical history and symptoms.",
     ctaLabel: "Chat With AI Doctor",
     href: "#hero",
-  },
-  {
-    key: "labs",
-    title: "Lab Test Interpretation",
-    description:
-      "Upload your blood, urine, or other lab results and receive AI-powered analysis, biomarker explanations, and personalized interpretation reports.",
-    ctaLabel: "Interpret Lab Results",
-    href: "#labs",
-    reverse: true,
   },
   {
     key: "symptoms",
@@ -154,7 +143,7 @@ export const testimonialItems: Testimonial[] = [
   },
   {
     quote:
-      "The symptom summaries are easy to understand and the lab explanations make follow-up visits more productive. It feels like having a calm assistant before every appointment.",
+      "The symptom summaries are easy to understand and make follow-up visits more productive. It feels like having a calm assistant before every appointment.",
     name: "Meron A.",
     role: "Parent",
   },
@@ -182,24 +171,7 @@ export const faqItems: FAQItem[] = [
   {
     question: "Who can use this platform, patients only or also clinicians?",
     answer:
-      "The landing page is designed primarily for patients, but parts of the platform can also support clinicians, labs, and care teams.",
-  },
-  {
-    question:
-      "Can this system explain lab results from Ethiopian hospitals and clinics?",
-    answer:
-      "Yes. Lab explanations can be adapted to uploaded reports and reference ranges, while still encouraging confirmation with local clinicians.",
-  },
-  {
-    question:
-      "Are the normal ranges based on Ethiopian laboratory standards?",
-    answer:
-      "Reference intervals can vary by lab, equipment, and population. The platform should always present interpretation as contextual and not absolute.",
-  },
-  {
-    question: "What does “out of range” mean in my blood test results?",
-    answer:
-      "It means a marker sits outside the reference interval listed by the lab. That does not always indicate disease, but it is a strong signal to review context and discuss it with a clinician.",
+      "The landing page is designed primarily for patients, but parts of the platform can also support clinicians and care teams.",
   },
 ];
 
@@ -209,7 +181,6 @@ export const footerColumns: FooterColumn[] = [
     links: [
       { label: "AI Health Assistant", href: "#hero" },
       { label: "AI Doctor", href: "#solutions" },
-      { label: "Lab Test Interpretation", href: "#labs" },
       { label: "Symptom Checker", href: "#symptoms" },
       { label: "Second Opinion", href: "#opinions" },
     ],
@@ -217,7 +188,7 @@ export const footerColumns: FooterColumn[] = [
   {
     title: "Professional Solutions",
     links: [
-      { label: "Lab Software", href: "#labs" },
+      { label: "Clinical Support", href: "#opinions" },
       { label: "Doctor Platform", href: "#opinions" },
     ],
   },
@@ -247,8 +218,8 @@ export const heroHighlights = [
     label: "AI symptom guidance",
   },
   {
-    icon: "flaskConical" as const,
-    label: "Lab interpretation",
+    icon: "stethoscope" as const,
+    label: "Patient care support",
   },
   {
     icon: "heartHandshake" as const,

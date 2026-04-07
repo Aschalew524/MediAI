@@ -2,7 +2,6 @@ export type MeasurementSystem = "imperial" | "metric";
 export type SexAtBirth = "male" | "female" | "other" | null;
 export type PreferredFeature =
   | "ai-doctor"
-  | "lab-interpretation"
   | "top-doctors"
   | null;
 
@@ -42,12 +41,6 @@ export const dashboardCards = [
     accent: "bot" as const,
   },
   {
-    title: "Lab Tests & Screening",
-    description: "",
-    href: "/dashboard/profile/lab-test-interpretation",
-    accent: "lab" as const,
-  },
-  {
     title: "Check Up Plan",
     description: "Coming Soon",
     href: "#",
@@ -55,10 +48,10 @@ export const dashboardCards = [
     muted: true,
   },
   {
-    title: "Check Up Plan",
+    title: "Health Reports",
     description: "Coming Soon",
     href: "#",
-    accent: "bot" as const,
+    accent: "lab" as const,
     muted: true,
   },
 ] as const;
@@ -73,21 +66,6 @@ export const mainHealthInfoSections = [
   "General Information",
   "Medications",
   "Life patterns and Habits",
-] as const;
-
-export const labInterpretationCategories = [
-  "Blood",
-  "Urine",
-  "Pap Smear",
-  "Semen Analysis",
-  "Stool Test",
-  "Swab Test",
-] as const;
-
-export const uploadHighlights = [
-  "Upload your results",
-  "Receive detailed interpretation",
-  "Get insights and recommendations",
 ] as const;
 
 export function getProfileName(profile: DashboardProfile) {

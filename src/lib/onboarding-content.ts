@@ -75,7 +75,7 @@ export const sexOptions: SexOption[] = [
 ];
 
 export type FeatureOption = {
-  id: "ai-doctor" | "lab-interpretation" | "top-doctors";
+  id: "ai-doctor" | "top-doctors";
   title: string;
   description: string;
 };
@@ -85,11 +85,6 @@ export const featureOptions: FeatureOption[] = [
     id: "ai-doctor",
     title: "Personal AI Doctor",
     description: "Ask any health questions and get tailored insights.",
-  },
-  {
-    id: "lab-interpretation",
-    title: "Lab Test Interpretation",
-    description: "Easily understand and interpret your lab test results.",
   },
   {
     id: "top-doctors",

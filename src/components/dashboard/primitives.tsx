@@ -1,7 +1,7 @@
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ export function DashboardContainer({
 }: ComponentPropsWithoutRef<"div">) {
   return (
     <div
-      className={cn("mx-auto w-full max-w-5xl px-6 lg:px-8", className)}
+      className={cn("mx-auto w-full max-w-6xl px-5 sm:px-6 lg:px-8", className)}
       {...props}
     />
   );
@@ -24,7 +24,7 @@ export function DashboardPage({
   children: ReactNode;
   className?: string;
 }) {
-  return <main className={cn("py-6 sm:py-8", className)}>{children}</main>;
+  return <main className={cn("py-7 sm:py-9", className)}>{children}</main>;
 }
 
 export function DashboardPanel({
@@ -37,7 +37,7 @@ export function DashboardPanel({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-primary/15 bg-white p-5 shadow-[0_24px_60px_-40px_rgba(76,104,220,0.3)]",
+        "rounded-3xl border border-primary/12 bg-white p-5 sm:p-6 shadow-[0_26px_70px_-46px_rgba(76,104,220,0.35)]",
         className,
       )}
     >
@@ -77,7 +77,7 @@ export function CompletionRing({
           {value}%
         </div>
       </div>
-      {label ? <span className="text-sm text-muted-foreground">{label}</span> : null}
+      {label ? <span className="text-sm font-medium text-muted-foreground">{label}</span> : null}
     </div>
   );
 }
@@ -90,14 +90,14 @@ export function CompletionBar({
   label?: string;
 }) {
   return (
-    <div className="flex items-center gap-4">
-      <div className="h-2 w-48 overflow-hidden rounded-full bg-muted">
+    <div className="flex items-center gap-3">
+      <div className="h-2.5 w-48 overflow-hidden rounded-full bg-muted">
         <div
           className="h-full rounded-full bg-primary"
           style={{ width: `${Math.max(0, Math.min(value, 100))}%` }}
         />
       </div>
-      <span className="text-sm font-medium text-primary">
+      <span className="text-sm font-semibold text-primary">
         {value}% {label ?? ""}
       </span>
     </div>
@@ -116,9 +116,9 @@ export function DashboardSectionHeader({
   return (
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">{title}</h1>
         {description ? (
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{description}</p>
         ) : null}
       </div>
       {trailing}
@@ -134,17 +134,17 @@ export function DashboardBackTitle({
   description?: string;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <Link
         href="/dashboard"
-        className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
+        aria-label="Back to dashboard"
+        className="inline-flex size-10 items-center justify-center rounded-full border border-primary/15 text-foreground/80 transition-colors hover:bg-muted hover:text-primary"
       >
-        <span className="text-lg">←</span>
-        <span>My Dashboard</span>
+        <ArrowLeft className="size-4" />
       </Link>
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">{title}</h1>
       {description ? (
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{description}</p>
       ) : null}
     </div>
   );
@@ -160,11 +160,11 @@ export function DashboardListRow({
   trailing?: ReactNode;
 }) {
   const content = (
-    <div className="flex items-center justify-between gap-4 py-4">
-      <span className="text-base font-medium">{title}</span>
-      <div className="flex items-center gap-4 text-muted-foreground">
+    <div className="flex items-center justify-between gap-4 py-4.5">
+      <span className="text-[15px] font-medium sm:text-base">{title}</span>
+      <div className="flex items-center gap-3 text-muted-foreground">
         {trailing}
-        <ChevronRight className="size-5" />
+        <ChevronRight className="size-4.5" />
       </div>
     </div>
   );
@@ -191,7 +191,7 @@ export function DashboardActionButton({
   return (
     <button
       className={cn(
-        "inline-flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}

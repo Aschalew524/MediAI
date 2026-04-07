@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 
 import {
   dashboardProfileStorageKey,
@@ -10,22 +10,24 @@ import { useDashboardConfig } from "@/lib/hooks/use-app-config";
 
 export function useDashboardProfile() {
   const { data: config } = useDashboardConfig();
+  const fallback = config.defaultDashboardProfile;
+  const [profile, setProfile] = useState<DashboardProfile>(fallback);
 
-  return useMemo(() => {
-    const fallback = config.defaultDashboardProfile;
+  useEffect(() => {
+    setProfile(fallback);
+  }, [fallback]);
 
-    if (typeof window === "undefined") {
-      return fallback;
-    }
-
+  useEffect(() => {
     try {
       const stored = window.localStorage.getItem(dashboardProfileStorageKey);
-      if (!stored) return fallback;
+      if (!stored) return;
 
       const parsed = JSON.parse(stored) as Partial<DashboardProfile>;
-      return { ...fallback, ...parsed };
+      setProfile({ ...fallback, ...parsed });
     } catch {
-      return fallback;
+      setProfile(fallback);
     }
-  }, [config.defaultDashboardProfile]);
+  }, [fallback]);
+
+  return profile;
 }

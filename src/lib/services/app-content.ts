@@ -61,8 +61,6 @@ export type DashboardConfigResponse = {
     href: string;
   };
   mainHealthInfoSections: string[];
-  labInterpretationCategories: string[];
-  uploadHighlights: string[];
 };
 
 export type ChatConfigResponse = {
