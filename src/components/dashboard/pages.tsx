@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 
 import Image from "next/image";
 import Link from "next/link";
 import {
+  ChevronDown,
+  CircleHelp,
+  ClipboardPlus,
+  FileText,
+  FlaskConical,
+  History,
   Pencil,
   Stethoscope,
+  Users,
   X,
 } from "lucide-react";
 
@@ -15,6 +22,7 @@ import {
   type DashboardProfile,
   getProfileHeight,
   getProfileName,
+  getProfessionalName,
   getProfileSex,
   getProfileWeight,
 } from "@/lib/dashboard-content";
@@ -30,7 +38,6 @@ import {
   DashboardListRow,
   DashboardPage,
   DashboardPanel,
-  DashboardSectionHeader,
 } from "./primitives";
 import { useDashboardProfile } from "./use-dashboard-profile";
 
@@ -38,6 +45,10 @@ export function DashboardHomePage() {
   const profile = useDashboardProfile();
   const { data: config } = useDashboardConfig();
   const name = getProfileName(profile);
+
+  if (profile.professionalProfile) {
+    return <ProfessionalDashboardHomePage profile={profile} />;
+  }
 
   return (
     <DashboardPage>
@@ -74,6 +85,279 @@ export function DashboardHomePage() {
         />
       </DashboardContainer>
     </DashboardPage>
+  );
+}
+
+function ProfessionalDashboardHomePage({
+  profile,
+}: {
+  profile: DashboardProfile;
+}) {
+  const professionalName = getProfessionalName(profile);
+  const [selectedPatient, setSelectedPatient] = useState("");
+  const patientOption =
+    profile.preferredName.trim() || "Patient profile";
+
+  return (
+    <DashboardPage>
+      <DashboardContainer className="max-w-7xl px-6 py-1">
+        <div className="grid gap-8 lg:grid-cols-[170px_minmax(0,1fr)]">
+          <aside className="space-y-8 pt-6">
+            <ProfessionalSidebarSection
+              title="Patients"
+              items={[
+                {
+                  label: "Patients",
+                  href: "/dashboard/profile",
+                  icon: <Users className="size-4" />,
+                },
+              ]}
+            />
+
+            <ProfessionalSidebarSection
+              title="AI Assistant"
+              items={[
+                {
+                  label: "Clinical Assistant",
+                  href: "/dashboard/ai-doctor",
+                  icon: <ClipboardPlus className="size-4" />,
+                },
+                {
+                  label: "Research Assistant",
+                  href: "/dashboard/ai-doctor/general",
+                  icon: <FileText className="size-4" />,
+                },
+                {
+                  label: "Conversation History",
+                  href: "/dashboard/ai-doctor/history",
+                  icon: <History className="size-4" />,
+                },
+              ]}
+            />
+
+            <ProfessionalSidebarSection
+              title="Lab tests and Screenings"
+              items={[
+                {
+                  label: "Add new screening",
+                  href: "/dashboard/lab-test-interpretation",
+                  icon: <ClipboardPlus className="size-4" />,
+                },
+                {
+                  label: "Previous Tests",
+                  href: "/dashboard/lab-test-interpretation",
+                  icon: <FileText className="size-4" />,
+                },
+                {
+                  label: "Biomakers Overview",
+                  href: "/dashboard/lab-test-interpretation",
+                  icon: <FlaskConical className="size-4" />,
+                },
+              ]}
+            />
+
+            <ProfessionalSidebarSection
+              items={[
+                {
+                  label: "Help and support",
+                  href: "/dashboard",
+                  icon: <CircleHelp className="size-4" />,
+                },
+              ]}
+            />
+          </aside>
+
+          <main className="space-y-5">
+            <div className="space-y-5 pt-6">
+              <h1 className="text-[2.1rem] font-semibold tracking-tight text-foreground">
+                👋 Hello {professionalName}!
+              </h1>
+
+              <div className="relative">
+                <select
+                  value={selectedPatient}
+                  onChange={(event) => setSelectedPatient(event.target.value)}
+                  className="h-12 w-full appearance-none rounded-xl border border-primary/12 bg-white px-4 pr-10 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                >
+                  <option value="">Select a patient or add new</option>
+                  <option value={patientOption}>{patientOption}</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <ProfessionalDashboardCard
+                title="AI Medical Assistant"
+                href="/dashboard/ai-doctor"
+                visual={<AssistantOrbVisual />}
+              />
+              <ProfessionalDashboardCard
+                title="Lab Tests & Screening"
+                href="/dashboard/lab-test-interpretation"
+                visual={<LabSheetVisual />}
+              />
+              <ProfessionalDashboardCard
+                title="Medical Notes"
+                description="Coming Soon"
+                href="#"
+                muted
+                visual={<NotesVisual />}
+              />
+              <ProfessionalDashboardCard
+                title="Patients"
+                href="/dashboard/profile"
+                visual={<PatientsVisual />}
+              />
+            </div>
+          </main>
+        </div>
+      </DashboardContainer>
+    </DashboardPage>
+  );
+}
+
+function ProfessionalSidebarSection({
+  title,
+  items,
+}: {
+  title?: string;
+  items: {
+    label: string;
+    href: string;
+    icon: ReactNode;
+  }[];
+}) {
+  return (
+    <div className="space-y-3">
+      {title ? (
+        <p className="text-sm font-medium text-muted-foreground">{title}</p>
+      ) : null}
+      <div className="space-y-2">
+        {items.map((item) => (
+          <Link
+            key={item.label}
+            href={item.href}
+            className="flex items-center gap-2.5 text-[15px] font-medium text-foreground/90 transition-colors hover:text-primary"
+          >
+            <span className="text-primary/80">{item.icon}</span>
+            <span>{item.label}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProfessionalDashboardCard({
+  title,
+  description,
+  href,
+  muted,
+  visual,
+}: {
+  title: string;
+  description?: string;
+  href: string;
+  muted?: boolean;
+  visual: ReactNode;
+}) {
+  const content = (
+    <DashboardPanel className="min-h-44 overflow-hidden rounded-[1.2rem] border-primary/20 px-7 py-6 shadow-none">
+      <div className="flex h-full items-center justify-between gap-6">
+        <div className="space-y-2">
+          <h2 className="max-w-xs text-[2rem] font-semibold leading-tight tracking-tight text-foreground">
+            {title}
+          </h2>
+          {description ? (
+            <p className="text-sm text-muted-foreground">
+              {muted ? `○ ${description}` : description}
+            </p>
+          ) : null}
+        </div>
+        <div className="shrink-0">{visual}</div>
+      </div>
+    </DashboardPanel>
+  );
+
+  if (href === "#") {
+    return content;
+  }
+
+  return (
+    <Link href={href} className="block transition-transform hover:-translate-y-px">
+      {content}
+    </Link>
+  );
+}
+
+function AssistantOrbVisual() {
+  return (
+    <div className="relative flex size-28 items-center justify-center">
+      <div className="absolute inset-3 rounded-full bg-primary/10 blur-3xl" />
+      <div className="relative flex size-20 items-center justify-center rounded-full bg-white shadow-[0_24px_80px_-38px_rgba(76,104,220,0.9)]">
+        <div className="absolute inset-1 rounded-full bg-primary/6" />
+        <div className="relative flex size-14 items-center justify-center rounded-full bg-primary/95 text-primary-foreground shadow-inner">
+          <Stethoscope className="size-7" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LabSheetVisual() {
+  return (
+    <div className="relative flex size-28 items-center justify-center">
+      <div className="absolute inset-2 rounded-full bg-primary/7 blur-3xl" />
+      <div className="relative rotate-6 rounded-[1.4rem] border border-primary/20 bg-white px-4 py-4 shadow-[0_24px_80px_-42px_rgba(76,104,220,0.7)]">
+        <div className="-rotate-6 space-y-2">
+          <div className="h-1.5 w-14 rounded-full bg-primary/80" />
+          <div className="h-1.5 w-10 rounded-full bg-primary/35" />
+          <div className="mt-2 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/8">
+            <FlaskConical className="size-7 text-primary" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NotesVisual() {
+  return (
+    <div className="relative flex size-28 items-center justify-center">
+      <div className="absolute inset-4 rounded-full bg-primary/6 blur-3xl" />
+      <div className="relative flex items-end gap-2">
+        <div className="rounded-[1.2rem] border border-primary/15 bg-white p-4 shadow-[0_20px_60px_-40px_rgba(76,104,220,0.55)]">
+          <FileText className="size-8 text-primary" />
+        </div>
+        <div className="rounded-full bg-primary p-1 text-primary-foreground shadow-[0_16px_35px_-20px_rgba(76,104,220,0.75)]">
+          <ClipboardPlus className="size-4" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PatientsVisual() {
+  return (
+    <div className="relative flex size-28 items-center justify-center">
+      <div className="absolute inset-3 rounded-full bg-primary/6 blur-3xl" />
+      <div className="relative flex items-end gap-4">
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex size-12 items-center justify-center rounded-full bg-primary/12 text-primary">
+            <Users className="size-6" />
+          </div>
+          <div className="h-10 w-7 rounded-t-full bg-primary/65" />
+        </div>
+        <div className="mb-2 h-12 w-px bg-primary/20" />
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex size-12 items-center justify-center rounded-full bg-primary/12 text-primary">
+            <Users className="size-6" />
+          </div>
+          <div className="h-10 w-7 rounded-t-full bg-primary/45" />
+        </div>
+      </div>
+    </div>
   );
 }
 

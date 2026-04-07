@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, LoaderCircle } from "lucide-react";
 
+import { aiDoctorSetupStorageKey } from "@/lib/dashboard-content";
 import { useAIDoctorConfig } from "@/lib/hooks/use-app-config";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +16,8 @@ import {
   DashboardContainer,
   DashboardPage,
 } from "./primitives";
+import { ChatOptionsPage } from "./chat-pages";
+import { useAIDoctorSetupStatus } from "./use-ai-doctor-setup";
 import { useDashboardProfile } from "./use-dashboard-profile";
 
 type Choice = "yes" | "no" | null;
@@ -28,15 +31,48 @@ type StepAnswer = {
 
 type AnswersState = Record<string, StepAnswer>;
 
+export function AIDoctorEntryPage() {
+  const searchParams = useSearchParams();
+  const { hasResolved, isSetupComplete } = useAIDoctorSetupStatus();
+  const skipSetup = searchParams.get("skipSetup") === "1";
+
+  if (!hasResolved) {
+    return (
+      <DashboardPage>
+        <DashboardContainer>
+          <section className="flex min-h-[calc(100vh-12rem)] items-center justify-center">
+            <LoaderCircle className="size-8 animate-spin text-primary" />
+          </section>
+        </DashboardContainer>
+      </DashboardPage>
+    );
+  }
+
+  if (!isSetupComplete && !skipSetup) {
+    return <AIDoctorSetupPage />;
+  }
+
+  return <ChatOptionsPage />;
+}
+
 export function AIDoctorSetupPage() {
   const router = useRouter();
   const { data: config } = useAIDoctorConfig();
+  const { hasResolved, isSetupComplete } = useAIDoctorSetupStatus();
   const profile = useDashboardProfile();
   const [started, setStarted] = useState(false);
   const [completed, setCompleted] = useState(false);
 
   useEffect(() => {
+    if (!hasResolved || !isSetupComplete) return;
+
+    router.replace("/dashboard/ai-doctor");
+  }, [hasResolved, isSetupComplete, router]);
+
+  useEffect(() => {
     if (!completed) return;
+
+    window.localStorage.setItem(aiDoctorSetupStorageKey, "true");
 
     const timeout = window.setTimeout(() => {
       router.push("/dashboard/ai-doctor");
@@ -48,24 +84,36 @@ export function AIDoctorSetupPage() {
   return (
     <DashboardPage>
       <DashboardContainer>
-        {completed ? (
-          <MedicalHistorySuccess
-            name={profile.preferredName || "Joe"}
-            totalSteps={config.medicalHistoryTotalSteps}
-          />
-        ) : started ? (
-          <MedicalHistoryWizard
-            medicalHistorySteps={config.medicalHistorySteps}
-            medicalHistoryTotalSteps={config.medicalHistoryTotalSteps}
-            onComplete={() => setCompleted(true)}
-            onSaveAndExit={() => router.push("/dashboard")}
-          />
-        ) : (
-          <AIDoctorIntro
-            aiDoctorBenefits={config.aiDoctorBenefits}
-            onStart={() => setStarted(true)}
-          />
-        )}
+        {!hasResolved ? (
+          <section className="flex min-h-[calc(100vh-12rem)] items-center justify-center">
+            <LoaderCircle className="size-8 animate-spin text-primary" />
+          </section>
+        ) : null}
+
+        {hasResolved && !isSetupComplete
+          ? completed
+            ? (
+                <MedicalHistorySuccess
+                  name={profile.preferredName || "Joe"}
+                  totalSteps={config.medicalHistoryTotalSteps}
+                />
+              )
+            : started
+              ? (
+                  <MedicalHistoryWizard
+                    medicalHistorySteps={config.medicalHistorySteps}
+                    medicalHistoryTotalSteps={config.medicalHistoryTotalSteps}
+                    onComplete={() => setCompleted(true)}
+                    onSaveAndExit={() => router.push("/dashboard")}
+                  />
+                )
+              : (
+                  <AIDoctorIntro
+                    aiDoctorBenefits={config.aiDoctorBenefits}
+                    onStart={() => setStarted(true)}
+                  />
+                )
+          : null}
       </DashboardContainer>
     </DashboardPage>
   );
@@ -109,7 +157,7 @@ function AIDoctorIntro({
               Complete Health Profile
             </DashboardActionButton>
             <Link
-              href="/dashboard/ai-doctor"
+              href="/dashboard/ai-doctor?skipSetup=1"
               className="pl-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
             >
               Skip for Now

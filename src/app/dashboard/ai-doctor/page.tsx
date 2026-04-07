@@ -1,5 +1,5 @@
-import { ChatOptionsPage } from "@/components/dashboard/chat-pages";
+import { AIDoctorEntryPage } from "@/components/dashboard/ai-doctor";
 
 export default function AIDoctorRoute() {
-  return <ChatOptionsPage />;
+  return <AIDoctorEntryPage />;
 }

@@ -12,7 +12,6 @@ import {
   MapPinned,
   MoveRight,
   UserRound,
-  Waves,
 } from "lucide-react";
 
 import {
@@ -36,6 +35,7 @@ import {
   StepNotice,
   StepTitle,
 } from "./primitives";
+import { ProfessionalOnboardingFlow } from "./professional-flow";
 
 type UserRole = UserRoleOption["id"] | null;
 type MeasurementSystem = MeasurementSystemOption["id"] | null;
@@ -119,6 +119,21 @@ export function OnboardingWizard() {
   const continueLabel =
     currentStep === onboardingStepCount - 1 ? "Next" : "Continue";
 
+  if (form.role === "professional" && currentStep > 0) {
+    return (
+      <OnboardingShell>
+        <BrandMark />
+        <ProfessionalOnboardingFlow
+          config={config}
+          onBackToRoleSelection={() => {
+            setCurrentStep(0);
+            setForm((current) => ({ ...current, role: "professional" }));
+          }}
+        />
+      </OnboardingShell>
+    );
+  }
+
   function completeOnboarding() {
     const payload = {
       preferredName: form.preferredName,
@@ -140,6 +155,11 @@ export function OnboardingWizard() {
 
     if (form.preferredFeature === "ai-doctor") {
       router.push("/dashboard/ai-doctor");
+      return;
+    }
+
+    if (form.preferredFeature === "lab-test-interpretation") {
+      router.push("/dashboard/lab-test-interpretation");
       return;
     }
 
@@ -197,7 +217,17 @@ export function OnboardingWizard() {
             </StepNotice>
 
             <div className="flex justify-center">
-              <PrimaryButton disabled={!isStepValid} onClick={nextStep}>
+              <PrimaryButton
+                disabled={!isStepValid}
+                onClick={() => {
+                  if (form.role === "professional") {
+                    setCurrentStep(1);
+                    return;
+                  }
+
+                  nextStep();
+                }}
+              >
                 {continueLabel}
               </PrimaryButton>
             </div>
@@ -630,58 +660,69 @@ export function OnboardingWizard() {
       ) : null}
 
       {currentStep === 7 ? (
-        <OnboardingCard className="max-w-3xl">
-          <div className="space-y-8">
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-muted-foreground">
-                👌 {form.preferredName || "Friend"}, your general information is
-                set!
+        <OnboardingCard className="max-w-4xl">
+          <div className="mx-auto flex w-full max-w-[560px] flex-col items-center space-y-7">
+            <div className="w-full space-y-2">
+              <p className="text-[13px] font-medium leading-5 text-muted-foreground">
+                👌 {form.preferredName || "Friend"} (Nickname), your general
+                information is set!
               </p>
-              <h2 className="text-xl font-semibold">
-                Which MediAI feature would you like to explore first?
+              <h2 className="text-[24px] font-semibold leading-8 tracking-tight text-foreground">
+                Which Docus AI feature would you like to explore first?
               </h2>
             </div>
 
-            <div className="space-y-4">
-              {config.featureOptions.map((option) => (
-                <OptionCard
-                  key={option.id}
-                  title={option.title}
-                  description={option.description}
-                  selected={form.preferredFeature === option.id}
-                  onClick={() =>
-                    setForm((current) => ({
-                      ...current,
-                      preferredFeature: option.id,
-                    }))
-                  }
-                  className="min-h-0 max-w-none"
-                />
-              ))}
+            <div className="w-full space-y-4">
+              {config.featureOptions.map((option) => {
+                const selected = form.preferredFeature === option.id;
+
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() =>
+                      setForm((current) => ({
+                        ...current,
+                        preferredFeature: option.id,
+                      }))
+                    }
+                    className={cn(
+                      "w-full rounded-[18px] border px-8 py-6 text-left text-primary-foreground shadow-[0_20px_50px_-34px_rgba(76,104,220,0.72)] transition-all",
+                      "bg-primary hover:bg-primary/90",
+                      selected
+                        ? "border-white/85 bg-primary/70 ring-[3px] ring-[#dbe4ff]"
+                        : "border-primary/10",
+                    )}
+                  >
+                    <div className="max-w-[320px] space-y-2">
+                      <h3 className="text-[15px] font-semibold leading-6">
+                        {option.title}
+                      </h3>
+                      <p className="text-[13px] leading-5 text-primary-foreground/80">
+                        {option.description}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
 
-            <div className="flex flex-col items-center gap-4">
-              <PrimaryButton disabled={!isStepValid} onClick={nextStep}>
+            <div className="flex flex-col items-center gap-5 pt-2">
+              <PrimaryButton
+                className="h-11 min-w-24 rounded-xl px-7 text-sm font-medium"
+                disabled={!isStepValid}
+                onClick={nextStep}
+              >
                 Next
               </PrimaryButton>
 
               <button
                 type="button"
                 onClick={completeOnboarding}
-                className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                className="text-sm font-medium text-primary underline underline-offset-2 hover:opacity-90"
               >
                 Skip to My Dashboard
               </button>
-            </div>
-
-            <div className="rounded-2xl border border-primary/10 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-3">
-                <Waves className="size-4 text-primary" />
-                <span>
-                  Your selection can be used to personalize the first experience
-                  after onboarding.
-                </span>
-              </div>
             </div>
           </div>
         </OnboardingCard>

@@ -2,8 +2,31 @@ export type MeasurementSystem = "imperial" | "metric";
 export type SexAtBirth = "male" | "female" | "other" | null;
 export type PreferredFeature =
   | "ai-doctor"
+  | "lab-test-interpretation"
   | "top-doctors"
   | null;
+
+export type ProfessionalTitle = "dr" | "prof" | "mr" | "ms" | string;
+
+export type ProfessionalProfile = {
+  title: ProfessionalTitle;
+  fullName: string;
+  specialty: string;
+  region: string;
+  invitePatient?: boolean;
+  patientEmail?: string;
+  patientHistory?: string;
+  familyHistory?: string;
+  medicationsHistory?: string;
+  allergies?: string;
+  smokingIntensity?: string;
+  alcoholIntake?: string;
+  physicalActivity?: string;
+  dietaryHabits?: string;
+  sleepPattern?: string;
+  stressLevel?: string;
+  attachedHistoryFileName?: string;
+};
 
 export type DashboardProfile = {
   preferredName: string;
@@ -16,9 +39,11 @@ export type DashboardProfile = {
   heightCm: string;
   sexAtBirth: SexAtBirth;
   preferredFeature: PreferredFeature;
+  professionalProfile?: ProfessionalProfile;
 };
 
 export const dashboardProfileStorageKey = "mediai-onboarding-profile";
+export const aiDoctorSetupStorageKey = "mediai-ai-doctor-setup-completed";
 
 export const defaultDashboardProfile: DashboardProfile = {
   preferredName: "Joe",
@@ -39,6 +64,12 @@ export const dashboardCards = [
     description: "",
     href: "/dashboard/ai-doctor",
     accent: "bot" as const,
+  },
+  {
+    title: "Lab Tests & Screening",
+    description: "",
+    href: "/dashboard/lab-test-interpretation",
+    accent: "lab" as const,
   },
   {
     title: "Check Up Plan",
@@ -70,6 +101,29 @@ export const mainHealthInfoSections = [
 
 export function getProfileName(profile: DashboardProfile) {
   return profile.preferredName.trim() || "Joe";
+}
+
+function getProfessionalTitleLabel(title?: ProfessionalTitle) {
+  switch (title) {
+    case "dr":
+      return "Dr.";
+    case "prof":
+      return "Prof.";
+    case "mr":
+      return "Mr.";
+    case "ms":
+      return "Ms.";
+    default:
+      return title ?? "";
+  }
+}
+
+export function getProfessionalName(profile: DashboardProfile) {
+  const professional = profile.professionalProfile;
+  if (!professional) return getProfileName(profile);
+
+  const title = getProfessionalTitleLabel(professional.title);
+  return [title, professional.fullName.trim()].filter(Boolean).join(" ").trim();
 }
 
 /** Total inches → centimetres (for imperial → metric display). */

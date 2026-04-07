@@ -13,6 +13,7 @@ import type { DashboardProfile } from "@/lib/dashboard-content";
 import type {
   FeatureOption,
   MeasurementSystemOption,
+  ProfessionalTitleOption,
   SexOption,
   UserRoleOption,
 } from "@/lib/onboarding-content";
@@ -44,6 +45,15 @@ export type OnboardingConfigResponse = {
   sexOptions: SexOption[];
   featureOptions: FeatureOption[];
   generalInformationSteps: string[];
+  professionalTitleOptions: ProfessionalTitleOption[];
+  professionalSpecialtyOptions: string[];
+  professionalCompletionItems: string[];
+  smokingIntensityOptions: string[];
+  alcoholIntakeOptions: string[];
+  physicalActivityOptions: string[];
+  dietaryHabitOptions: string[];
+  sleepPatternOptions: string[];
+  stressLevelOptions: string[];
 };
 
 export type DashboardConfigResponse = {
