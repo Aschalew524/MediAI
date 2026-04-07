@@ -29,7 +29,7 @@ export function BrandMark() {
   return (
     <Link
       href="/"
-      className="inline-flex text-4xl font-semibold tracking-tight text-primary"
+      className="inline-flex text-2xl font-bold tracking-tight text-primary"
     >
       MediAI
     </Link>
@@ -65,12 +65,12 @@ export function StepTitle({
   align?: "left" | "center";
 }) {
   return (
-    <div className={cn("space-y-3", align === "center" && "text-center")}>
-      <h1 className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+    <div className={cn("space-y-2", align === "center" && "text-center")}>
+      <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
         {title}
       </h1>
       {description ? (
-        <p className="text-base leading-7 text-muted-foreground sm:text-lg">
+        <p className="text-sm leading-6 text-muted-foreground sm:text-base">
           {description}
         </p>
       ) : null}
@@ -106,7 +106,7 @@ export function PrimaryButton({
   return (
     <button
       className={cn(
-        "inline-flex h-12 items-center justify-center rounded-xl bg-primary px-6 text-base font-medium text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       disabled={disabled}
@@ -122,7 +122,7 @@ export function SecondaryButton({
   return (
     <button
       className={cn(
-        "inline-flex h-11 items-center justify-center rounded-xl border border-border bg-white px-5 text-sm font-medium text-foreground transition-colors hover:bg-muted",
+        "inline-flex h-10 items-center justify-center rounded-lg border border-border bg-white px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted",
         className,
       )}
       {...props}
@@ -148,16 +148,16 @@ export function OptionCard({
       type="button"
       onClick={onClick}
       className={cn(
-        "min-h-32 rounded-3xl border p-6 text-left transition-all",
+        "min-h-24 rounded-2xl border p-5 text-left transition-all",
         selected
-          ? "border-primary bg-primary/80 text-primary-foreground shadow-[0_20px_50px_-34px_rgba(76,104,220,0.9)] ring-4 ring-primary/15"
+          ? "border-primary bg-primary/80 text-primary-foreground shadow-[0_20px_50px_-34px_rgba(76,104,220,0.9)] ring-2 ring-primary/15"
           : "border-primary/10 bg-primary text-primary-foreground shadow-[0_20px_50px_-34px_rgba(76,104,220,0.72)] hover:bg-primary/90",
         className,
       )}
     >
-      <h3 className="text-xl font-semibold">{title}</h3>
+      <h3 className="text-lg font-semibold">{title}</h3>
       {description ? (
-        <p className="mt-3 max-w-xs text-sm leading-6 text-primary-foreground/85">
+        <p className="mt-2 max-w-xs text-sm leading-5 text-primary-foreground/85">
           {description}
         </p>
       ) : null}

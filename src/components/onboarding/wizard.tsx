@@ -148,6 +148,11 @@ export function OnboardingWizard() {
       return;
     }
 
+    if (form.preferredFeature === "top-doctors") {
+      router.push("/dashboard/top-doctors");
+      return;
+    }
+
     router.push("/dashboard");
   }
 
@@ -225,8 +230,8 @@ export function OnboardingWizard() {
                       preferredName: event.target.value,
                     }))
                   }
-                  placeholder="Preferred nick Name or name"
-                  className="h-13 w-full rounded-2xl border border-input bg-white px-4 text-base outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+                  placeholder="Preferred nickname or name"
+                  className="h-12 w-full rounded-xl border border-input bg-white px-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
                 />
               </label>
 
@@ -284,7 +289,7 @@ export function OnboardingWizard() {
                       region: event.target.value,
                     }))
                   }
-                  className="h-14 w-full appearance-none rounded-2xl border border-input bg-white px-4 pr-12 text-base text-foreground outline-none transition-colors focus:border-primary"
+                  className="h-12 w-full appearance-none rounded-xl border border-input bg-white px-4 pr-10 text-sm text-foreground outline-none transition-colors focus:border-primary"
                 >
                   <option value="">Select your Region</option>
                   {config.ethiopianRegions.map((region) => (
@@ -320,21 +325,7 @@ export function OnboardingWizard() {
               align="center"
             />
 
-            <div className="mx-auto flex flex-col items-center gap-5">
-              <div className="relative flex size-28 items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,rgba(113,133,255,0.95),rgba(44,52,96,1)_72%)] shadow-[0_28px_48px_-24px_rgba(57,78,171,0.85)]">
-                <div className="flex w-16 items-center justify-center gap-3 rounded-full bg-[#10173A] px-3 py-2 shadow-inner">
-                  <span className="h-2.5 w-4 rounded-full bg-white shadow-[0_0_12px_rgba(120,140,255,0.95)]" />
-                  <span className="h-2.5 w-4 rounded-full bg-white shadow-[0_0_12px_rgba(120,140,255,0.95)]" />
-                </div>
-                <div className="absolute bottom-7 h-5 w-10 rounded-full bg-[#10173A] shadow-inner">
-                  <div className="mx-auto mt-1 h-2 w-4 rounded-full bg-white/95" />
-                </div>
-              </div>
 
-              <div className="rounded-full border border-primary/15 bg-white px-4 py-2 text-sm text-muted-foreground shadow-sm">
-                Hi! I am your Doctor.
-              </div>
-            </div>
 
             <p className="mx-auto max-w-3xl text-base leading-7 text-muted-foreground">
               We&apos;re going to ask you some health related questions to
@@ -370,8 +361,8 @@ export function OnboardingWizard() {
 
             <div className="space-y-6">
               <div className="space-y-2">
-                <h2 className="text-2xl font-semibold">Age</h2>
-                <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+                <h2 className="text-xl font-semibold">Age</h2>
+                <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
                   Age is a key factor in health assessment, influencing the
                   range of potential risks and appropriate wellness strategies.
                 </p>
@@ -390,7 +381,7 @@ export function OnboardingWizard() {
                     }))
                   }
                   placeholder="e.g. 48"
-                  className="h-14 w-full rounded-2xl border border-input bg-white px-4 pr-20 text-base outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+                  className="h-12 w-full rounded-xl border border-input bg-white px-4 pr-16 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
                 />
                 <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
                   Years
@@ -445,8 +436,8 @@ export function OnboardingWizard() {
 
             <div className="space-y-7">
               <div className="space-y-2">
-                <h2 className="text-2xl font-semibold">Measurement system</h2>
-                <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+                <h2 className="text-xl font-semibold">Measurement system</h2>
+                <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
                   Select your preferred measurement system to accurately record
                   your height and weight.
                 </p>
@@ -494,7 +485,7 @@ export function OnboardingWizard() {
                       placeholder={
                         form.measurementSystem === "metric" ? "e.g. 70" : "e.g. 155"
                       }
-                      className="h-14 w-full rounded-2xl border border-input bg-white px-4 pr-20 text-base outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+                      className="h-12 w-full rounded-xl border border-input bg-white px-4 pr-16 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
                     />
                     <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
                       {form.measurementSystem === "metric" ? "kg" : "lb"}
@@ -524,7 +515,7 @@ export function OnboardingWizard() {
                           }))
                         }
                         placeholder="e.g. 170"
-                        className="h-14 w-full rounded-2xl border border-input bg-white px-4 pr-20 text-base outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+                        className="h-12 w-full rounded-xl border border-input bg-white px-4 pr-16 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
                       />
                       <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
                         cm
@@ -550,7 +541,7 @@ export function OnboardingWizard() {
                             }))
                           }
                           placeholder="e.g. 5"
-                          className="h-14 w-full rounded-2xl border border-input bg-white px-4 pr-14 text-base outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+                          className="h-12 w-full rounded-xl border border-input bg-white px-4 pr-12 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
                         />
                         <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
                           ft
@@ -569,7 +560,7 @@ export function OnboardingWizard() {
                             }))
                           }
                           placeholder="e.g. 6"
-                          className="h-14 w-full rounded-2xl border border-input bg-white px-4 pr-14 text-base outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+                          className="h-12 w-full rounded-xl border border-input bg-white px-4 pr-12 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
                         />
                         <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
                           in
@@ -602,8 +593,8 @@ export function OnboardingWizard() {
 
             <div className="space-y-7">
               <div className="space-y-2">
-                <h2 className="text-2xl font-semibold">Sex assigned at birth</h2>
-                <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+                <h2 className="text-xl font-semibold">Sex assigned at birth</h2>
+                <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
                   Biological sex can impact risk for certain conditions and
                   response to treatments.
                 </p>
@@ -621,9 +612,9 @@ export function OnboardingWizard() {
                       }))
                     }
                     className={cn(
-                      "w-full rounded-2xl border bg-primary px-5 py-5 text-left text-lg font-medium text-primary-foreground transition-all hover:bg-primary/90",
+                      "w-full rounded-xl border bg-primary px-5 py-4 text-left text-base font-medium text-primary-foreground transition-all hover:bg-primary/90",
                       form.sexAtBirth === option.id &&
-                        "ring-4 ring-primary/15 border-primary bg-primary/80",
+                        "ring-2 ring-primary/15 border-primary bg-primary/80",
                       form.sexAtBirth !== option.id && "border-primary/10",
                     )}
                   >
@@ -651,7 +642,7 @@ export function OnboardingWizard() {
                 👌 {form.preferredName || "Friend"}, your general information is
                 set!
               </p>
-              <h2 className="text-2xl font-semibold">
+              <h2 className="text-xl font-semibold">
                 Which MediAI feature would you like to explore first?
               </h2>
             </div>

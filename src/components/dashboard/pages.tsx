@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   Activity,
@@ -46,10 +47,10 @@ export function DashboardHomePage() {
   return (
     <DashboardPage>
       <DashboardContainer className="space-y-6">
-        <DashboardPanel className="flex items-center justify-between px-8 py-7">
+        <DashboardPanel className="flex items-center justify-between px-6 py-5">
           <div>
-            <h1 className="text-5xl font-semibold tracking-tight">{name}&rsquo;s</h1>
-            <p className="mt-2 text-lg text-muted-foreground">Health Profile</p>
+            <h1 className="text-3xl font-semibold tracking-tight">{name}&rsquo;s</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Health Profile</p>
           </div>
           <CompletionRing value={3} />
         </DashboardPanel>
@@ -97,18 +98,18 @@ function DashboardShortcutCard({
   const cardContent = (
     <DashboardPanel
       className={cn(
-        "group relative overflow-hidden px-8 py-8",
-        wide && "min-h-40",
-        !wide && "min-h-36",
+        "group relative overflow-hidden px-6 py-5",
+        wide && "min-h-32",
+        !wide && "min-h-28",
       )}
     >
       <div className="relative z-10 flex min-h-24 flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div className="space-y-2">
-          <h2 className="max-w-xs text-3xl font-semibold leading-tight">
+        <div className="space-y-1">
+          <h2 className="max-w-xs text-xl font-semibold leading-tight">
             {title}
           </h2>
           {description ? (
-            <p className="max-w-md text-base text-muted-foreground">
+            <p className="max-w-md text-sm text-muted-foreground">
               {muted ? `○ ${description}` : description}
             </p>
           ) : null}
@@ -130,38 +131,32 @@ function DashboardShortcutCard({
 function VisualAccent({ accent }: { accent: "bot" | "lab" | "doctors" }) {
   if (accent === "bot") {
     return (
-      <div className="relative flex size-28 items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,rgba(113,133,255,0.95),rgba(44,52,96,1)_72%)] shadow-[0_24px_50px_-30px_rgba(57,78,171,0.85)]">
-        <div className="flex w-14 items-center justify-center gap-2 rounded-full bg-[#10173A] px-3 py-2 shadow-inner">
-          <span className="h-2.5 w-3.5 rounded-full bg-white shadow-[0_0_12px_rgba(120,140,255,0.95)]" />
-          <span className="h-2.5 w-3.5 rounded-full bg-white shadow-[0_0_12px_rgba(120,140,255,0.95)]" />
-        </div>
-        <div className="absolute bottom-6 h-4 w-8 rounded-full bg-[#10173A] shadow-inner">
-          <div className="mx-auto mt-1 h-1.5 w-3 rounded-full bg-white/95" />
-        </div>
+      <div className="relative flex size-20 items-center justify-center">
+        <Image src="/bot-logo.png" alt="Bot Icon" width={80} height={80} className="object-contain" />
       </div>
     );
   }
 
   if (accent === "lab") {
     return (
-      <div className="relative flex size-28 items-center justify-center">
+      <div className="relative flex size-20 items-center justify-center">
         <div className="absolute inset-3 rounded-full bg-primary/8 blur-2xl" />
-        <div className="rounded-[1.5rem] border border-primary/15 bg-white p-5 shadow-[0_20px_50px_-35px_rgba(76,104,220,0.7)]">
-          <FileText className="size-12 text-primary" />
+        <div className="rounded-2xl border border-primary/15 bg-white p-4 shadow-[0_20px_50px_-35px_rgba(76,104,220,0.7)]">
+          <FileText className="size-8 text-primary" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="relative flex size-32 items-center justify-center">
+    <div className="relative flex size-24 items-center justify-center">
       <div className="absolute inset-2 rounded-full bg-primary/8 blur-3xl" />
-      <div className="flex -space-x-4">
-        <div className="flex size-20 items-center justify-center rounded-full border border-primary/10 bg-white shadow-[0_20px_50px_-35px_rgba(76,104,220,0.75)]">
-          <UserRound className="size-9 text-primary/80" />
+      <div className="flex -space-x-3">
+        <div className="flex size-14 items-center justify-center rounded-full border border-primary/10 bg-white shadow-[0_20px_50px_-35px_rgba(76,104,220,0.75)]">
+          <UserRound className="size-6 text-primary/80" />
         </div>
-        <div className="mt-6 flex size-20 items-center justify-center rounded-full border border-primary/10 bg-white shadow-[0_20px_50px_-35px_rgba(76,104,220,0.75)]">
-          <Stethoscope className="size-9 text-primary/60" />
+        <div className="mt-4 flex size-14 items-center justify-center rounded-full border border-primary/10 bg-white shadow-[0_20px_50px_-35px_rgba(76,104,220,0.75)]">
+          <Stethoscope className="size-6 text-primary/60" />
         </div>
       </div>
     </div>
@@ -182,10 +177,10 @@ export function HealthProfilePage() {
           <CompletionBar value={3} label="Completed" />
         </div>
 
-        <DashboardPanel className="space-y-6 px-8 py-7">
+        <DashboardPanel className="space-y-4 px-6 py-5">
           <div>
-            <h2 className="text-3xl font-semibold">General Information</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Health Profile</p>
+            <h2 className="text-xl font-semibold">General Information</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Health Profile</p>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[1fr_180px_1fr] lg:items-center">
@@ -216,16 +211,16 @@ export function HealthProfilePage() {
         </DashboardPanel>
 
         <Link href="/dashboard/profile/main-health-information" className="block transition-transform hover:-translate-y-px">
-          <DashboardPanel className="flex items-center gap-5 px-8 py-6">
+          <DashboardPanel className="flex items-center gap-4 px-6 py-5">
             <CompletionRing value={20} size="sm" />
-            <h3 className="text-3xl font-semibold">Main Health Information</h3>
+            <h3 className="text-xl font-semibold">Main Health Information</h3>
           </DashboardPanel>
         </Link>
 
         <Link href="/dashboard/profile/lab-test-interpretation" className="block transition-transform hover:-translate-y-px">
-          <DashboardPanel className="flex items-center gap-5 px-8 py-6">
+          <DashboardPanel className="flex items-center gap-4 px-6 py-5">
             <CompletionRing value={0} size="sm" />
-            <h3 className="text-3xl font-semibold">Lab Test Interpretation</h3>
+            <h3 className="text-xl font-semibold">Lab Test Interpretation</h3>
           </DashboardPanel>
         </Link>
       </DashboardContainer>
@@ -255,7 +250,7 @@ export function MainHealthInformationPage() {
           description="Complete your main health information to personalize your AI Doctor, explore your health risks and get personal checkup plan."
         />
 
-        <DashboardPanel className="px-8 py-4">
+        <DashboardPanel className="px-6 py-4">
           {config.mainHealthInfoSections.map((section) => (
             <DashboardListRow key={section} title={section} />
           ))}
@@ -279,12 +274,12 @@ export function LabTestInterpretationPage() {
           description="Complete your main health information to personalize your AI Doctor, to explore your health risks and get personal checkup plan."
         />
 
-        <DashboardPanel className="px-8 py-4">
+        <DashboardPanel className="px-6 py-4">
           {config.labInterpretationCategories.map((category) => (
             <DashboardListRow
               key={category}
               title={category}
-              trailing={<span className="text-lg font-medium text-foreground">0</span>}
+              trailing={<span className="text-base font-medium text-foreground">0</span>}
             />
           ))}
         </DashboardPanel>
@@ -310,17 +305,17 @@ export function LabTestsPage() {
     <>
       <DashboardPage>
         <DashboardContainer className="space-y-10">
-          <DashboardPanel className="overflow-hidden px-8 py-10">
+          <DashboardPanel className="overflow-hidden px-6 py-8">
             <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-center">
               <div className="space-y-6">
-                <div className="flex size-24 items-center justify-center rounded-[1.75rem] bg-primary/8">
-                  <TestTube2 className="size-11 text-primary" />
+                <div className="flex size-20 items-center justify-center rounded-2xl bg-primary/8">
+                  <TestTube2 className="size-9 text-primary" />
                 </div>
-                <div className="space-y-3">
-                  <h1 className="text-4xl font-semibold tracking-tight">
+                <div className="space-y-2">
+                  <h1 className="text-2xl font-semibold tracking-tight">
                     Lab Test and Screening Interpretations
                   </h1>
-                  <p className="text-base text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     Turn medical tests to actionable insights.
                   </p>
                 </div>
@@ -367,7 +362,7 @@ export function LabTestsPage() {
 function UploadMethodModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-[2rem] bg-white p-8 shadow-[0_35px_100px_-50px_rgba(0,0,0,0.45)]">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-[0_35px_100px_-50px_rgba(0,0,0,0.45)]">
         <div className="flex justify-end">
           <button
             type="button"
@@ -385,17 +380,17 @@ function UploadMethodModal({ onClose }: { onClose: () => void }) {
             description="You can attach documents directly or enter details manually."
           />
 
-          <div className="space-y-5 pt-2">
+          <div className="space-y-4 pt-2">
             <button
               type="button"
-              className="flex h-18 w-full items-center justify-center gap-4 rounded-[1.25rem] bg-primary px-6 text-2xl font-medium text-primary-foreground transition-opacity hover:opacity-95"
+              className="flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-primary px-4 text-base font-medium text-primary-foreground transition-opacity hover:opacity-95"
             >
-              <Upload className="size-8" />
+              <Upload className="size-5" />
               Upload File
             </button>
             <button
               type="button"
-              className="flex h-18 w-full items-center justify-center rounded-[1.25rem] border border-primary px-6 text-2xl font-medium text-foreground transition-colors hover:bg-muted"
+              className="flex h-14 w-full items-center justify-center rounded-xl border border-primary px-4 text-base font-medium text-foreground transition-colors hover:bg-muted"
             >
               Enter Manually
             </button>

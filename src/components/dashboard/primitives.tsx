@@ -11,7 +11,7 @@ export function DashboardContainer({
 }: ComponentPropsWithoutRef<"div">) {
   return (
     <div
-      className={cn("mx-auto w-full max-w-6xl px-6 lg:px-8", className)}
+      className={cn("mx-auto w-full max-w-5xl px-6 lg:px-8", className)}
       {...props}
     />
   );
@@ -24,7 +24,7 @@ export function DashboardPage({
   children: ReactNode;
   className?: string;
 }) {
-  return <main className={cn("py-10 sm:py-12", className)}>{children}</main>;
+  return <main className={cn("py-6 sm:py-8", className)}>{children}</main>;
 }
 
 export function DashboardPanel({
@@ -37,7 +37,7 @@ export function DashboardPanel({
   return (
     <section
       className={cn(
-        "rounded-[1.75rem] border border-primary/15 bg-white p-6 shadow-[0_24px_60px_-40px_rgba(76,104,220,0.3)]",
+        "rounded-2xl border border-primary/15 bg-white p-5 shadow-[0_24px_60px_-40px_rgba(76,104,220,0.3)]",
         className,
       )}
     >
@@ -55,8 +55,8 @@ export function CompletionRing({
   label?: string;
   size?: "sm" | "md";
 }) {
-  const dimension = size === "sm" ? "size-14" : "size-18";
-  const inner = size === "sm" ? "size-10 text-xs" : "size-13 text-sm";
+  const dimension = size === "sm" ? "size-10" : "size-12";
+  const inner = size === "sm" ? "size-8 text-[10px]" : "size-10 text-xs";
   const degrees = Math.max(0, Math.min(value, 100)) * 3.6;
 
   return (
@@ -116,9 +116,9 @@ export function DashboardSectionHeader({
   return (
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
       <div className="space-y-2">
-        <h1 className="text-4xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {description ? (
-          <p className="text-base text-muted-foreground">{description}</p>
+          <p className="text-sm text-muted-foreground">{description}</p>
         ) : null}
       </div>
       {trailing}
@@ -142,9 +142,9 @@ export function DashboardBackTitle({
         <span className="text-lg">←</span>
         <span>My Dashboard</span>
       </Link>
-      <h1 className="text-4xl font-semibold tracking-tight">{title}</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
       {description ? (
-        <p className="text-base text-muted-foreground">{description}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
       ) : null}
     </div>
   );
@@ -160,8 +160,8 @@ export function DashboardListRow({
   trailing?: ReactNode;
 }) {
   const content = (
-    <div className="flex items-center justify-between gap-4 py-5">
-      <span className="text-lg font-medium">{title}</span>
+    <div className="flex items-center justify-between gap-4 py-4">
+      <span className="text-base font-medium">{title}</span>
       <div className="flex items-center gap-4 text-muted-foreground">
         {trailing}
         <ChevronRight className="size-5" />
@@ -191,7 +191,7 @@ export function DashboardActionButton({
   return (
     <button
       className={cn(
-        "inline-flex h-12 items-center justify-center rounded-xl bg-primary px-6 text-base font-medium text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}

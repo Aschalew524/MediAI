@@ -19,7 +19,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-primary/10 bg-background/95 backdrop-blur">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-8">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 lg:px-8">
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 text-sm font-medium text-foreground"
@@ -30,7 +30,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
           <Link
             href="/dashboard"
-            className="text-4xl font-semibold tracking-tight text-primary"
+            className="text-xl font-bold tracking-tight text-primary"
           >
             MediAI
           </Link>
@@ -55,17 +55,17 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             </button>
 
             {menuOpen ? (
-              <div className="absolute right-0 top-14 z-20 w-80 rounded-[1.5rem] border border-primary/12 bg-white p-6 shadow-[0_24px_80px_-45px_rgba(73,96,188,0.75)]">
-                <div className="flex items-center gap-4">
-                  <div className="relative inline-flex size-16 items-center justify-center rounded-full bg-muted text-primary">
+              <div className="absolute right-0 top-12 z-20 w-64 rounded-2xl border border-primary/12 bg-white p-5 shadow-[0_24px_80px_-45px_rgba(73,96,188,0.75)]">
+                <div className="flex items-center gap-3">
+                  <div className="relative inline-flex size-12 items-center justify-center rounded-full bg-muted text-primary">
                     <CircleUserRound className="size-7" />
                     <span className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
                       Free
                     </span>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-3xl font-semibold">{email}</p>
-                    <p className="text-sm text-muted-foreground">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-semibold text-foreground">{email}</p>
+                    <p className="text-xs text-muted-foreground">
                       Account ID: 292556
                     </p>
                   </div>
@@ -83,7 +83,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                     <button
                       key={item}
                       type="button"
-                      className="block text-left text-2xl font-medium transition-colors hover:text-primary"
+                      className="block text-left text-sm font-medium transition-colors hover:text-primary"
                     >
                       {item}
                     </button>

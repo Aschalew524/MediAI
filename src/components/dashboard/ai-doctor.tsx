@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, LoaderCircle } from "lucide-react";
@@ -85,18 +86,18 @@ function AIDoctorIntro({
         </div>
 
         <div className="max-w-2xl space-y-7">
-          <div className="space-y-3">
-            <h1 className="text-5xl font-semibold tracking-tight">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold tracking-tight">
               Personalize Your AI Doctor
             </h1>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               Get answers to all your health questions
             </p>
           </div>
 
-          <ul className="space-y-4">
+          <ul className="space-y-3">
             {aiDoctorBenefits.map((benefit) => (
-              <li key={benefit} className="flex items-center gap-3 text-lg">
+              <li key={benefit} className="flex items-center gap-2 text-base">
                 <CheckCircle2 className="size-5 text-primary" />
                 <span>{benefit}</span>
               </li>
@@ -227,11 +228,11 @@ function MedicalHistoryWizard({
           totalSteps={medicalHistoryTotalSteps}
         />
 
-        <div className="space-y-6">
-          <div className="space-y-3">
-            <h2 className="text-2xl font-semibold">{step.title}</h2>
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold">{step.title}</h2>
             {step.description ? (
-              <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
                 {step.description}
               </p>
             ) : null}
@@ -245,16 +246,16 @@ function MedicalHistoryWizard({
                   type="button"
                   onClick={() => updateAnswer({ selectedOption: option.label })}
                   className={cn(
-                    "w-full rounded-2xl border bg-primary px-6 py-5 text-left text-xl font-medium text-primary-foreground transition-all",
+                    "w-full rounded-2xl border bg-primary px-5 py-4 text-left text-lg font-medium text-primary-foreground transition-all",
                     answer.selectedOption === option.label
-                      ? "border-primary bg-primary/75 ring-4 ring-primary/15"
+                      ? "border-primary bg-primary/75 ring-2 ring-primary/15"
                       : "border-primary/10 hover:bg-primary/90",
                   )}
                 >
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <p>{option.label}</p>
                     {option.description ? (
-                      <p className="text-sm leading-6 text-primary-foreground/85">
+                      <p className="text-sm leading-5 text-primary-foreground/85">
                         {option.description}
                       </p>
                     ) : null}
@@ -284,15 +285,15 @@ function MedicalHistoryWizard({
                   {step.options.map((option) => (
                     <label
                       key={option}
-                      className="flex cursor-pointer items-center gap-4 rounded-2xl border border-primary/20 bg-white px-4 py-4"
+                      className="flex cursor-pointer items-center gap-3 rounded-2xl border border-primary/20 bg-white px-4 py-3"
                     >
                       <input
                         type="checkbox"
                         checked={answer.selections.includes(option)}
                         onChange={() => toggleSelection(option)}
-                        className="size-5 rounded border-border text-primary"
+                        className="size-4 rounded border-border text-primary"
                       />
-                      <span className="text-lg font-medium">{option}</span>
+                      <span className="text-base font-medium">{option}</span>
                     </label>
                   ))}
 
@@ -300,7 +301,7 @@ function MedicalHistoryWizard({
                     value={answer.details}
                     onChange={(event) => updateAnswer({ details: event.target.value })}
                     placeholder={step.placeholder}
-                    className="h-14 w-full rounded-2xl border border-primary/15 bg-white px-4 text-base outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+                    className="h-12 w-full rounded-2xl border border-primary/15 bg-white px-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
                   />
                 </div>
               ) : null}
@@ -310,7 +311,7 @@ function MedicalHistoryWizard({
                   value={answer.details}
                   onChange={(event) => updateAnswer({ details: event.target.value })}
                   placeholder={step.placeholder}
-                  className="h-14 w-full rounded-2xl border border-primary/15 bg-white px-4 text-base outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+                  className="h-12 w-full rounded-2xl border border-primary/15 bg-white px-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
                 />
               ) : null}
             </>
@@ -379,9 +380,9 @@ function ChoiceButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "h-18 rounded-2xl border text-xl font-medium transition-all",
+        "h-14 rounded-2xl border text-lg font-medium transition-all",
         selected
-          ? "border-primary bg-primary/75 text-primary-foreground ring-4 ring-primary/15"
+          ? "border-primary bg-primary/75 text-primary-foreground ring-2 ring-primary/15"
           : "border-primary/10 bg-primary text-primary-foreground hover:bg-primary/90",
       )}
     >
@@ -392,15 +393,8 @@ function ChoiceButton({
 
 function DoctorOrb() {
   return (
-    <div className="relative flex size-40 items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,rgba(113,133,255,0.95),rgba(44,52,96,1)_72%)] shadow-[0_28px_58px_-24px_rgba(57,78,171,0.85)]">
-      <div className="absolute inset-4 rounded-full border border-white/10" />
-      <div className="flex w-20 items-center justify-center gap-3 rounded-full bg-[#10173A] px-3 py-2 shadow-inner">
-        <span className="h-3 w-4 rounded-full bg-white shadow-[0_0_12px_rgba(120,140,255,0.95)]" />
-        <span className="h-3 w-4 rounded-full bg-white shadow-[0_0_12px_rgba(120,140,255,0.95)]" />
-      </div>
-      <div className="absolute bottom-8 h-5 w-10 rounded-full bg-[#10173A] shadow-inner">
-        <div className="mx-auto mt-1 h-2 w-4 rounded-full bg-white/95" />
-      </div>
+    <div className="relative flex size-24 items-center justify-center">
+      <Image src="/bot-logo.png" alt="Doctor Bot" width={96} height={96} className="object-contain" />
     </div>
   );
 }
@@ -414,12 +408,12 @@ function MedicalHistorySuccess({
 }) {
   return (
     <section className="flex min-h-[calc(100vh-12rem)] items-center justify-center py-8">
-      <div className="w-full max-w-3xl space-y-10 text-center">
+      <div className="w-full max-w-2xl space-y-8 text-center">
         <div className="space-y-4">
-          <h1 className="text-5xl font-semibold tracking-tight">
+          <h1 className="text-3xl font-bold tracking-tight">
             🎉 Great, {name}!
           </h1>
-          <div className="mx-auto max-w-lg">
+          <div className="mx-auto max-w-md">
             <MedicalHistoryProgress
               currentStep={totalSteps}
               sectionTitle="Life Patterns & Habits"
@@ -428,13 +422,13 @@ function MedicalHistorySuccess({
           </div>
         </div>
 
-        <div className="space-y-6">
-          <p className="text-2xl font-medium">
-            You have successfully answerd all questions!
+        <div className="space-y-4">
+          <p className="text-lg font-medium">
+            You have successfully answered all questions!
           </p>
-          <div className="flex flex-col items-center gap-4 text-muted-foreground">
-            <LoaderCircle className="size-14 animate-spin text-primary" />
-            <p className="text-lg">Creating {name}&rsquo;s Health profile...</p>
+          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+            <LoaderCircle className="size-10 animate-spin text-primary" />
+            <p className="text-base">Creating {name}&rsquo;s Health profile...</p>
           </div>
         </div>
       </div>
