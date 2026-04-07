@@ -16,9 +16,7 @@ import {
   consultDoctorsCard as fallbackConsultDoctorsCard,
   dashboardCards as fallbackDashboardCards,
   defaultDashboardProfile as fallbackDefaultDashboardProfile,
-  labInterpretationCategories as fallbackLabInterpretationCategories,
   mainHealthInfoSections as fallbackMainHealthInfoSections,
-  uploadHighlights as fallbackUploadHighlights,
 } from "@/lib/dashboard-content";
 import {
   benefitItems as fallbackBenefitItems,
@@ -91,8 +89,6 @@ export function useDashboardConfig() {
       dashboardCards: fallbackDashboardCards.map((item) => ({ ...item })),
       consultDoctorsCard: fallbackConsultDoctorsCard,
       mainHealthInfoSections: [...fallbackMainHealthInfoSections],
-      labInterpretationCategories: [...fallbackLabInterpretationCategories],
-      uploadHighlights: [...fallbackUploadHighlights],
     }),
     [],
   );

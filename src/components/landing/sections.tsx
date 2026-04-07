@@ -12,7 +12,6 @@ import {
   ChevronDown,
   CircleUserRound,
   ClipboardPlus,
-  FlaskConical,
   Globe2,
   HeartHandshake,
   HeartPulse,
@@ -81,7 +80,6 @@ const iconMap: Record<LandingIconKey, ComponentType<{ className?: string }>> = {
   shieldCheck: ShieldCheck,
   stethoscope: Stethoscope,
   brainCircuit: BrainCircuit,
-  flaskConical: FlaskConical,
   heartHandshake: HeartHandshake,
 };
 
@@ -302,9 +300,7 @@ function ShowcaseBlock({ item }: { item: ShowcaseItem }) {
   return (
     <section
       id={
-        showcaseKey === "labs"
-          ? "labs"
-          : showcaseKey === "symptoms"
+        showcaseKey === "symptoms"
             ? "symptoms"
             : showcaseKey === "opinions"
               ? "opinions"
@@ -330,7 +326,6 @@ function ShowcaseBlock({ item }: { item: ShowcaseItem }) {
       <div className="relative">
         <div className="pointer-events-none absolute inset-0 -z-10 rounded-[2rem] bg-[radial-gradient(circle_at_center,rgba(112,136,255,0.12),transparent_60%)]" />
         {showcaseKey === "insights" ? <InsightsVisual /> : null}
-        {showcaseKey === "labs" ? <LabsVisual /> : null}
         {showcaseKey === "symptoms" ? <SymptomsVisual /> : null}
         {showcaseKey === "opinions" ? <OpinionsVisual /> : null}
       </div>
@@ -392,73 +387,6 @@ function ChatBubble({
         )}
       >
         {children}
-      </div>
-    </div>
-  );
-}
-
-function LabsVisual() {
-  const cards = [
-    {
-      title: "Haemoglobin",
-      value: "10.2 g/dL",
-      range: "12 - 16 g/dL",
-      status: "Normal",
-      color: "border-lime-300 shadow-[0_20px_40px_-28px_rgba(155,201,96,0.85)]",
-      textColor: "text-lime-600",
-    },
-    {
-      title: "Blood Glucose",
-      value: "135 mg/dL",
-      range: "70 - 110 mg/dL",
-      status: "High",
-      color: "border-rose-300 shadow-[0_20px_40px_-28px_rgba(231,102,125,0.8)]",
-      textColor: "text-rose-600",
-    },
-    {
-      title: "White Blood Cells",
-      value: "13,500 cells/μL",
-      range: "4,000 - 11,000",
-      status: "High",
-      color: "border-rose-300 shadow-[0_20px_40px_-28px_rgba(231,102,125,0.8)]",
-      textColor: "text-rose-600",
-    },
-  ];
-
-  return (
-    <div className="relative mx-auto min-h-112 max-w-xl rounded-[2rem] bg-[linear-gradient(180deg,rgba(245,247,255,0.95),rgba(255,255,255,0.95))] p-6">
-      <div className="absolute inset-0 -z-10 rounded-[2rem] bg-[radial-gradient(circle_at_center,rgba(111,139,255,0.16),transparent_65%)]" />
-      <div className="grid gap-4 md:grid-cols-2">
-        {cards.map((card, index) => (
-          <div
-            key={card.title}
-            className={cn(
-              "rounded-[1.5rem] border bg-white p-5",
-              card.color,
-              index === 2 && "md:col-span-2 md:max-w-[62%]",
-            )}
-          >
-            <h4 className="text-lg font-semibold">{card.title}</h4>
-            <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-              <p>
-                Test name: <span className="font-medium text-foreground">{card.title}</span>
-              </p>
-              <p>
-                User value: <span className="font-medium text-foreground">{card.value}</span>
-              </p>
-              <p>
-                Normal range:{" "}
-                <span className="font-medium text-foreground">{card.range}</span>
-              </p>
-              <p>
-                Status:{" "}
-                <span className={cn("font-semibold", card.textColor)}>
-                  {card.status}
-                </span>
-              </p>
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );

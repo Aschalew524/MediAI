@@ -138,11 +138,6 @@ export function OnboardingWizard() {
       JSON.stringify(payload),
     );
 
-    if (form.preferredFeature === "lab-interpretation") {
-      router.push("/dashboard/lab-tests");
-      return;
-    }
-
     if (form.preferredFeature === "ai-doctor") {
       router.push("/dashboard/ai-doctor");
       return;
