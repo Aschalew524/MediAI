@@ -114,7 +114,7 @@ function SiteHeader({ navItems }: { navItems: NavItem[] }) {
 
         <div className="hidden items-center gap-4 lg:flex">
           <Link
-            href="#contact"
+            href="/signin"
             className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
           >
             Sign In
@@ -124,13 +124,21 @@ function SiteHeader({ navItems }: { navItems: NavItem[] }) {
           </LinkButton>
         </div>
 
-        <button
-          type="button"
-          aria-label="Open navigation menu"
-          className="inline-flex size-11 items-center justify-center rounded-xl border border-border bg-white text-foreground shadow-sm lg:hidden"
-        >
-          <Menu className="size-5" />
-        </button>
+        <div className="flex items-center gap-3 lg:hidden">
+          <Link
+            href="/signin"
+            className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
+          >
+            Sign In
+          </Link>
+          <button
+            type="button"
+            aria-label="Open navigation menu"
+            className="inline-flex size-11 items-center justify-center rounded-xl border border-border bg-white text-foreground shadow-sm"
+          >
+            <Menu className="size-5" />
+          </button>
+        </div>
       </Container>
     </header>
   );
