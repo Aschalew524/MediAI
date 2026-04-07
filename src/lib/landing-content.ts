@@ -58,10 +58,10 @@ export type FooterColumn = {
 };
 
 export const navItems: NavItem[] = [
-  { label: "Solutions", href: "#solutions", icon: "chevronDown" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "Resources", href: "#resources", icon: "chevronDown" },
-  { label: "For Patients", href: "#symptoms" },
+  { label: "Solutions", href: "/#solutions", icon: "chevronDown" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "Resources", href: "/#resources", icon: "chevronDown" },
+  { label: "For Labs", href: "/#labs" },
 ];
 
 export const benefitItems: BenefitItem[] = [
@@ -92,7 +92,16 @@ export const showcaseItems: ShowcaseItem[] = [
     description:
       "Get AI-powered virtual health assistance tailored to your medical history and symptoms.",
     ctaLabel: "Chat With AI Doctor",
-    href: "#hero",
+    href: "/#hero",
+  },
+  {
+    key: "labs",
+    title: "Lab Test Interpretation",
+    description:
+      "Upload your blood, urine, or other lab results and receive AI-powered analysis, biomarker explanations, and personalized interpretation reports.",
+    ctaLabel: "Interpret Lab Results",
+    href: "/#labs",
+    reverse: true,
   },
   {
     key: "symptoms",
@@ -100,7 +109,7 @@ export const showcaseItems: ShowcaseItem[] = [
     description:
       "Describe your symptoms in everyday language and get instant AI-powered insights into possible conditions, plus personalized recommendations on what to do next.",
     ctaLabel: "Check My Symptoms",
-    href: "#symptoms",
+    href: "/#symptoms",
   },
   {
     key: "opinions",
@@ -108,7 +117,7 @@ export const showcaseItems: ShowcaseItem[] = [
     description:
       "Get the confidence to move forward with your local doctor by validating your diagnosis or treatment strategy with a top medical expert from the US or Europe.",
     ctaLabel: "Get Second Opinion",
-    href: "#opinions",
+    href: "/#opinions",
     reverse: true,
   },
 ];
@@ -179,35 +188,36 @@ export const footerColumns: FooterColumn[] = [
   {
     title: "Patient Product",
     links: [
-      { label: "AI Health Assistant", href: "#hero" },
-      { label: "AI Doctor", href: "#solutions" },
-      { label: "Symptom Checker", href: "#symptoms" },
-      { label: "Second Opinion", href: "#opinions" },
+      { label: "AI Health Assistant", href: "/#hero" },
+      { label: "AI Doctor", href: "/#solutions" },
+      { label: "Lab Test Interpretation", href: "/#labs" },
+      { label: "Symptom Checker", href: "/#symptoms" },
+      { label: "Second Opinion", href: "/#opinions" },
     ],
   },
   {
     title: "Professional Solutions",
     links: [
-      { label: "Clinical Support", href: "#opinions" },
-      { label: "Doctor Platform", href: "#opinions" },
+      { label: "Lab Software", href: "/#labs" },
+      { label: "Doctor Platform", href: "/#opinions" },
     ],
   },
   {
     title: "Resources",
     links: [
-      { label: "Blog", href: "#resources" },
-      { label: "Knowledge Base", href: "#resources" },
-      { label: "Symptoms Guide", href: "#resources" },
-      { label: "Glossary", href: "#resources" },
+      { label: "Blog", href: "/#resources" },
+      { label: "Knowledge Base", href: "/#resources" },
+      { label: "Symptoms Guide", href: "/#resources" },
+      { label: "Glossary", href: "/#resources" },
     ],
   },
   {
     title: "Company",
     links: [
-      { label: "About Us", href: "#about" },
-      { label: "Pricing", href: "#pricing" },
+      { label: "About Us", href: "/#about" },
+      { label: "Pricing", href: "/pricing" },
       { label: "Contact", href: "#contact" },
-      { label: "Glossary", href: "#resources" },
+      { label: "Glossary", href: "/#resources" },
     ],
   },
 ];

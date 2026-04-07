@@ -83,12 +83,12 @@ const iconMap: Record<LandingIconKey, ComponentType<{ className?: string }>> = {
   heartHandshake: HeartHandshake,
 };
 
-function SiteHeader({ navItems }: { navItems: NavItem[] }) {
+export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
   return (
     <header className="sticky top-0 z-40 border-b border-transparent bg-background/90 backdrop-blur-md">
       <Container className="flex h-20 items-center justify-between gap-6">
         <Link
-          href="#hero"
+          href="/#hero"
           className="text-3xl font-semibold tracking-tight text-primary"
         >
           MediAI
@@ -588,7 +588,7 @@ function FaqSection({ faqItems }: { faqItems: FAQItem[] }) {
         <div className="flex items-center justify-between rounded-2xl border border-primary/10 bg-primary/5 px-5 py-4 text-sm sm:text-base">
           <p className="font-medium text-foreground">
             Have more questions?{" "}
-            <Link href="#contact" className="text-primary underline-offset-4 hover:underline">
+            <Link href="/#contact" className="text-primary underline-offset-4 hover:underline">
               Contact us
             </Link>
           </p>
@@ -620,7 +620,7 @@ function BottomCtaSection() {
   );
 }
 
-function SiteFooter({ footerColumns }: { footerColumns: FooterColumn[] }) {
+export function SiteFooter({ footerColumns }: { footerColumns: FooterColumn[] }) {
   const socialLinks = [
     { label: "Twitter", href: "#", icon: Twitter },
     { label: "Facebook", href: "#", icon: Facebook },
@@ -633,7 +633,7 @@ function SiteFooter({ footerColumns }: { footerColumns: FooterColumn[] }) {
       <Container className="grid gap-12 py-16 lg:grid-cols-[1.2fr_2fr]">
         <div className="space-y-5">
           <div>
-            <Link href="#hero" className="text-4xl font-semibold text-primary">
+            <Link href="/#hero" className="text-4xl font-semibold text-primary">
               MediAI
             </Link>
           </div>
