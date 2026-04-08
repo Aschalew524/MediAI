@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ArrowLeft,
+  Bell,
   ChevronDown,
   CircleHelp,
   ClipboardPlus,
@@ -14,6 +16,7 @@ import {
   History,
   Pencil,
   Stethoscope,
+  Trash2,
   Users,
   X,
 } from "lucide-react";
@@ -834,3 +837,117 @@ export function MainHealthInformationPage() {
     </DashboardPage>
   );
 }
+
+export function NotificationsPage() {
+  return (
+    <DashboardPage>
+      <DashboardContainer className="space-y-12">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard"
+            aria-label="Back to dashboard"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-primary/15 text-foreground/80 transition-colors hover:bg-muted hover:text-primary"
+          >
+            <ArrowLeft className="size-4" />
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">Notifications</h1>
+        </div>
+
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="mb-6 rounded-full bg-primary/5 p-6">
+            <Bell className="size-10 text-muted-foreground/40" />
+          </div>
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground">You don&rsquo;t have any notification yet</h2>
+          <p className="mt-2 text-sm text-muted-foreground">There are currently no notifications to display.</p>
+          <Link href="/dashboard" className="mt-8">
+            <button className="inline-flex h-12 items-center justify-center rounded-xl bg-primary px-8 text-[15px] font-medium text-primary-foreground transition-opacity hover:opacity-95">
+              Go to My Dashboard
+            </button>
+          </Link>
+        </div>
+      </DashboardContainer>
+    </DashboardPage>
+  );
+}
+
+export function AccountSettingsPage() {
+  const profile = useDashboardProfile();
+  const email = `${getProfileName(profile).toLowerCase().replace(/\s+/g, "")}@gmail.com`;
+
+  return (
+    <DashboardPage>
+      <DashboardContainer className="space-y-8">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard"
+            aria-label="Back to dashboard"
+            className="inline-flex size-10 items-center justify-center rounded-full border border-primary/15 text-foreground/80 transition-colors hover:bg-muted hover:text-primary"
+          >
+            <ArrowLeft className="size-4" />
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">Account Settings</h1>
+        </div>
+
+        <DashboardPanel className="divide-y divide-primary/10 bg-white p-0">
+          <section className="space-y-4 px-8 py-8">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">User details</h2>
+              <button className="text-sm font-semibold text-primary/95 transition-colors hover:text-primary hover:underline">
+                Change
+              </button>
+            </div>
+            <div className="space-y-1 text-sm">
+              <p className="text-muted-foreground">
+                User ID: <span className="text-foreground/80">292556</span>
+              </p>
+              <p className="text-muted-foreground">
+                Email: <span className="text-foreground/80">{email}</span>
+              </p>
+              <p className="text-muted-foreground">
+                Subscription plan:{" "}
+                <span className="rounded-full bg-primary/15 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                  Free
+                </span>
+              </p>
+            </div>
+          </section>
+
+          <section className="space-y-4 px-8 py-8">
+            <h2 className="text-lg font-semibold text-foreground">Account</h2>
+            <div className="space-y-4 text-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-muted-foreground">
+                  Nickname:{" "}
+                  <span className="text-foreground/80">
+                    {getProfileName(profile).toLowerCase() || "mik"}
+                  </span>
+                </p>
+                <button className="text-sm font-semibold text-primary/95 transition-colors hover:text-primary hover:underline">
+                  Edit
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-muted-foreground">Password</p>
+                <button className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary/95 transition-colors hover:text-primary hover:underline">
+                  Reset
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-3 px-8 py-8">
+            <h2 className="text-lg font-semibold text-foreground">Delete Account</h2>
+            <p className="text-sm text-muted-foreground">
+              Permanently remove your account and all related data from our platform.
+            </p>
+            <button className="inline-flex items-center gap-2 text-sm font-semibold text-destructive transition-colors hover:opacity-80 hover:underline">
+              <Trash2 className="size-4" />
+              Delete Account
+            </button>
+          </section>
+        </DashboardPanel>
+      </DashboardContainer>
+    </DashboardPage>
+  );
+}
+
