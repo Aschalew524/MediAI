@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -84,6 +84,21 @@ const iconMap: Record<LandingIconKey, ComponentType<{ className?: string }>> = {
 };
 
 export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      if (navRef.current && !navRef.current.contains(event.target as Node)) {
+        setOpenMenu(null);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
+
   return (
     <header className="sticky top-0 z-40 border-b border-transparent bg-background/90 backdrop-blur-md">
       <Container className="flex h-20 items-center justify-between gap-6">
@@ -94,9 +109,61 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
           MediAI
         </Link>
 
-        <nav className="hidden items-center gap-8 lg:flex">
+        <nav ref={navRef} className="hidden items-center gap-8 lg:flex">
           {navItems.map((item) => {
             const Icon = item.icon ? iconMap[item.icon] : null;
+
+            if (item.items?.length) {
+              return (
+                <div key={item.label} className="relative">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenMenu((current) =>
+                        current === item.label ? null : item.label,
+                      )
+                    }
+                    className="inline-flex items-center gap-1 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
+                  >
+                    <span>{item.label}</span>
+                    {Icon ? (
+                      <Icon
+                        className={cn(
+                          "size-4 transition-transform",
+                          openMenu === item.label && "rotate-180",
+                        )}
+                      />
+                    ) : null}
+                  </button>
+
+                  {openMenu === item.label ? (
+                    <div className="absolute left-1/2 top-full z-50 mt-4 w-[430px] -translate-x-1/2 rounded-sm border border-primary/15 bg-white p-5 shadow-[0_28px_80px_-40px_rgba(73,96,188,0.4)]">
+                      <div className="space-y-5">
+                        {item.items.map((subItem) => {
+                          const SubIcon = subItem.icon
+                            ? iconMap[subItem.icon]
+                            : null;
+
+                          return (
+                            <Link
+                              key={subItem.label}
+                              href={subItem.href}
+                              onClick={() => setOpenMenu(null)}
+                              className="flex items-center gap-4 text-[17px] font-medium text-foreground transition-colors hover:text-primary"
+                            >
+                              {SubIcon ? (
+                                <SubIcon className="size-7 shrink-0 text-primary" />
+                              ) : null}
+                              <span>{subItem.label}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            }
 
             return (
               <Link
@@ -133,12 +200,52 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
           <button
             type="button"
             aria-label="Open navigation menu"
+            onClick={() => setMobileMenuOpen((open) => !open)}
             className="inline-flex size-11 items-center justify-center rounded-xl border border-border bg-white text-foreground shadow-sm"
           >
             <Menu className="size-5" />
           </button>
         </div>
       </Container>
+
+      {mobileMenuOpen ? (
+        <div className="border-t border-primary/10 bg-background lg:hidden">
+          <Container className="space-y-4 py-5">
+            {navItems.map((item) => (
+              <div key={item.label} className="space-y-3">
+                <Link
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-semibold text-foreground"
+                >
+                  {item.label}
+                </Link>
+
+                {item.items?.length ? (
+                  <div className="space-y-2 pl-4">
+                    {item.items.map((subItem) => (
+                      <Link
+                        key={subItem.label}
+                        href={subItem.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block text-sm text-muted-foreground transition-colors hover:text-primary"
+                      >
+                        {subItem.label}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+
+            <div className="flex flex-col gap-3 pt-2">
+              <LinkButton href="/onboarding" size="lg">
+                Get Started For Free
+              </LinkButton>
+            </div>
+          </Container>
+        </div>
+      ) : null}
     </header>
   );
 }

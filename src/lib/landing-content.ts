@@ -13,6 +13,7 @@ export type NavItem = {
   label: string;
   href: string;
   icon?: LandingIconKey;
+  items?: { label: string; href: string; icon?: LandingIconKey }[];
 };
 
 export type BenefitItem = {
@@ -58,9 +59,40 @@ export type FooterColumn = {
 };
 
 export const navItems: NavItem[] = [
-  { label: "Solutions", href: "/#solutions", icon: "chevronDown" },
+  {
+    label: "Solutions",
+    href: "/#solutions",
+    icon: "chevronDown",
+    items: [
+      {
+        label: "AI Doctor",
+        href: "/dashboard/ai-doctor",
+        icon: "brainCircuit",
+      },
+      {
+        label: "Lab Test Interpretation",
+        href: "/dashboard/lab-test-interpretation",
+        icon: "heartPulse",
+      },
+      {
+        label: "Second Opinion",
+        href: "/dashboard/top-doctors",
+        icon: "userRoundSearch",
+      },
+    ],
+  },
   { label: "Pricing", href: "/pricing" },
-  { label: "Resources", href: "/#resources", icon: "chevronDown" },
+  {
+    label: "Resources",
+    href: "/#resources",
+    icon: "chevronDown",
+    items: [
+      { label: "Blog", href: "/blog" },
+      { label: "Symptom Guide", href: "/symptom-guide" },
+      { label: "Knowledge Base", href: "/knowledge-base" },
+      { label: "Glossary", href: "/glossary" },
+    ],
+  },
   { label: "For Labs", href: "/#labs" },
 ];
 
@@ -205,10 +237,10 @@ export const footerColumns: FooterColumn[] = [
   {
     title: "Resources",
     links: [
-      { label: "Blog", href: "/#resources" },
-      { label: "Knowledge Base", href: "/#resources" },
-      { label: "Symptoms Guide", href: "/#resources" },
-      { label: "Glossary", href: "/#resources" },
+      { label: "Blog", href: "/blog" },
+      { label: "Knowledge Base", href: "/knowledge-base" },
+      { label: "Symptom Guide", href: "/symptom-guide" },
+      { label: "Glossary", href: "/glossary" },
     ],
   },
   {
@@ -217,7 +249,7 @@ export const footerColumns: FooterColumn[] = [
       { label: "About Us", href: "/#about" },
       { label: "Pricing", href: "/pricing" },
       { label: "Contact", href: "#contact" },
-      { label: "Glossary", href: "/#resources" },
+      { label: "Glossary", href: "/glossary" },
     ],
   },
 ];

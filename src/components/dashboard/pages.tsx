@@ -4,6 +4,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ChevronDown,
   CircleHelp,
@@ -100,93 +101,128 @@ function ProfessionalDashboardHomePage({
 
   return (
     <DashboardPage>
-      <DashboardContainer className="max-w-7xl px-6 py-1">
-        <div className="grid gap-8 lg:grid-cols-[170px_minmax(0,1fr)]">
-          <aside className="space-y-8 pt-6">
-            <ProfessionalSidebarSection
-              title="Patients"
-              items={[
-                {
-                  label: "Patients",
-                  href: "/dashboard/profile",
-                  icon: <Users className="size-4" />,
-                },
-              ]}
-            />
+      <DashboardContainer className="max-w-screen-2xl px-6 sm:px-8 xl:px-10">
+        <div className="grid gap-8 xl:grid-cols-[240px_minmax(0,1fr)]">
+          <aside className="pt-6">
+            <DashboardPanel className="sticky top-24 rounded-[1.5rem] border-primary/10 bg-primary/3 px-5 py-6 shadow-none">
+              <div className="space-y-6">
+                <div className="space-y-3 rounded-[1.15rem] border border-primary/10 bg-white px-4 py-4 shadow-[0_18px_40px_-34px_rgba(76,104,220,0.22)]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/75">
+                    Professional Workspace
+                  </p>
+                  <div className="space-y-1">
+                    <p className="text-base font-semibold text-foreground">
+                      {professionalName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {profile.professionalProfile?.specialty || "Health Professional"}
+                    </p>
+                  </div>
+                </div>
 
-            <ProfessionalSidebarSection
-              title="AI Assistant"
-              items={[
-                {
-                  label: "Clinical Assistant",
-                  href: "/dashboard/ai-doctor",
-                  icon: <ClipboardPlus className="size-4" />,
-                },
-                {
-                  label: "Research Assistant",
-                  href: "/dashboard/ai-doctor/general",
-                  icon: <FileText className="size-4" />,
-                },
-                {
-                  label: "Conversation History",
-                  href: "/dashboard/ai-doctor/history",
-                  icon: <History className="size-4" />,
-                },
-              ]}
-            />
+                <ProfessionalSidebarSection
+                  title="Patients"
+                  items={[
+                    {
+                      label: "Patients",
+                      href: "/dashboard/profile",
+                      icon: <Users className="size-4" />,
+                    },
+                  ]}
+                />
 
-            <ProfessionalSidebarSection
-              title="Lab tests and Screenings"
-              items={[
-                {
-                  label: "Add new screening",
-                  href: "/dashboard/lab-test-interpretation",
-                  icon: <ClipboardPlus className="size-4" />,
-                },
-                {
-                  label: "Previous Tests",
-                  href: "/dashboard/lab-test-interpretation",
-                  icon: <FileText className="size-4" />,
-                },
-                {
-                  label: "Biomakers Overview",
-                  href: "/dashboard/lab-test-interpretation",
-                  icon: <FlaskConical className="size-4" />,
-                },
-              ]}
-            />
+                <ProfessionalSidebarSection
+                  title="AI Assistant"
+                  items={[
+                    {
+                      label: "Clinical Assistant",
+                      href: "/dashboard/ai-doctor",
+                      icon: <ClipboardPlus className="size-4" />,
+                    },
+                    {
+                      label: "Research Assistant",
+                      href: "/dashboard/ai-doctor/general",
+                      icon: <FileText className="size-4" />,
+                    },
+                    {
+                      label: "Conversation History",
+                      href: "/dashboard/ai-doctor/history",
+                      icon: <History className="size-4" />,
+                    },
+                  ]}
+                />
 
-            <ProfessionalSidebarSection
-              items={[
-                {
-                  label: "Help and support",
-                  href: "/dashboard",
-                  icon: <CircleHelp className="size-4" />,
-                },
-              ]}
-            />
+                <ProfessionalSidebarSection
+                  title="Lab tests and Screenings"
+                  items={[
+                    {
+                      label: "Add new screening",
+                      href: "/dashboard/lab-test-interpretation",
+                      icon: <ClipboardPlus className="size-4" />,
+                    },
+                    {
+                      label: "Previous Tests",
+                      href: "/dashboard/lab-test-interpretation",
+                      icon: <FileText className="size-4" />,
+                    },
+                    {
+                      label: "Biomarkers Overview",
+                      href: "/dashboard/lab-test-interpretation",
+                      icon: <FlaskConical className="size-4" />,
+                    },
+                  ]}
+                />
+
+                <ProfessionalSidebarSection
+                  items={[
+                    {
+                      label: "Help and support",
+                      href: "/dashboard",
+                      icon: <CircleHelp className="size-4" />,
+                    },
+                  ]}
+                />
+
+                <div className="rounded-[1.15rem] border border-primary/10 bg-white px-4 py-4">
+                  <p className="text-sm font-semibold text-foreground">
+                    Need help?
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    Get support, review billing, or manage your account settings.
+                  </p>
+                </div>
+              </div>
+            </DashboardPanel>
           </aside>
 
-          <main className="space-y-5">
-            <div className="space-y-5 pt-6">
-              <h1 className="text-[2.1rem] font-semibold tracking-tight text-foreground">
-                👋 Hello {professionalName}!
-              </h1>
+          <main className="space-y-6 pt-6">
+            <DashboardPanel className="rounded-[1.6rem] px-7 py-7 shadow-none">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <h1 className="text-[2.4rem] font-semibold tracking-tight text-foreground">
+                    👋 Hello {professionalName}!
+                  </h1>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    Manage patients, screenings, and assistant workflows from one
+                    place.
+                  </p>
+                </div>
 
-              <div className="relative">
-                <select
-                  value={selectedPatient}
-                  onChange={(event) => setSelectedPatient(event.target.value)}
-                  className="h-12 w-full appearance-none rounded-xl border border-primary/12 bg-white px-4 pr-10 text-sm text-foreground outline-none transition-colors focus:border-primary"
-                >
-                  <option value="">Select a patient or add new</option>
-                  <option value={patientOption}>{patientOption}</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <div className="relative max-w-3xl">
+                  <select
+                    value={selectedPatient}
+                    onChange={(event) => setSelectedPatient(event.target.value)}
+                    className="h-13 w-full appearance-none rounded-xl border border-primary/12 bg-white px-4 pr-10 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                  >
+                    <option value="">Select a patient or add new</option>
+                    <option value={patientOption}>{patientOption}</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                </div>
               </div>
-            </div>
+            </DashboardPanel>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-5 xl:grid-cols-2">
               <ProfessionalDashboardCard
                 title="AI Medical Assistant"
                 href="/dashboard/ai-doctor"
@@ -228,22 +264,47 @@ function ProfessionalSidebarSection({
     icon: ReactNode;
   }[];
 }) {
+  const pathname = usePathname();
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 border-t border-primary/8 pt-5 first:border-t-0 first:pt-0">
       {title ? (
-        <p className="text-sm font-medium text-muted-foreground">{title}</p>
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/90">
+          {title}
+        </p>
       ) : null}
       <div className="space-y-2">
-        {items.map((item) => (
-          <Link
-            key={item.label}
-            href={item.href}
-            className="flex items-center gap-2.5 text-[15px] font-medium text-foreground/90 transition-colors hover:text-primary"
-          >
-            <span className="text-primary/80">{item.icon}</span>
-            <span>{item.label}</span>
-          </Link>
-        ))}
+        {items.map((item) => {
+          const isActive =
+            item.href !== "/dashboard"
+              ? pathname === item.href || pathname.startsWith(`${item.href}/`)
+              : pathname === "/dashboard";
+
+          return (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={cn(
+                "group flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium transition-all",
+                isActive
+                  ? "bg-white text-primary shadow-[0_16px_34px_-28px_rgba(76,104,220,0.5)] ring-1 ring-primary/10"
+                  : "text-foreground/85 hover:bg-white/90 hover:text-primary",
+              )}
+            >
+              <span
+                className={cn(
+                  "inline-flex size-8 items-center justify-center rounded-lg transition-colors",
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "bg-primary/6 text-primary/80 group-hover:bg-primary/10 group-hover:text-primary",
+                )}
+              >
+                {item.icon}
+              </span>
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
@@ -263,10 +324,10 @@ function ProfessionalDashboardCard({
   visual: ReactNode;
 }) {
   const content = (
-    <DashboardPanel className="min-h-44 overflow-hidden rounded-[1.2rem] border-primary/20 px-7 py-6 shadow-none">
-      <div className="flex h-full items-center justify-between gap-6">
+    <DashboardPanel className="min-h-52 overflow-hidden rounded-[1.35rem] border-primary/20 px-8 py-7 shadow-none">
+      <div className="flex h-full items-center justify-between gap-8">
         <div className="space-y-2">
-          <h2 className="max-w-xs text-[2rem] font-semibold leading-tight tracking-tight text-foreground">
+          <h2 className="max-w-sm text-[2rem] font-semibold leading-tight tracking-tight text-foreground">
             {title}
           </h2>
           {description ? (
@@ -293,12 +354,12 @@ function ProfessionalDashboardCard({
 
 function AssistantOrbVisual() {
   return (
-    <div className="relative flex size-28 items-center justify-center">
+    <div className="relative flex size-32 items-center justify-center">
       <div className="absolute inset-3 rounded-full bg-primary/10 blur-3xl" />
-      <div className="relative flex size-20 items-center justify-center rounded-full bg-white shadow-[0_24px_80px_-38px_rgba(76,104,220,0.9)]">
+      <div className="relative flex size-24 items-center justify-center rounded-full bg-white shadow-[0_24px_80px_-38px_rgba(76,104,220,0.9)]">
         <div className="absolute inset-1 rounded-full bg-primary/6" />
-        <div className="relative flex size-14 items-center justify-center rounded-full bg-primary/95 text-primary-foreground shadow-inner">
-          <Stethoscope className="size-7" />
+        <div className="relative flex size-16 items-center justify-center rounded-full bg-primary/95 text-primary-foreground shadow-inner">
+          <Stethoscope className="size-8" />
         </div>
       </div>
     </div>
@@ -307,7 +368,7 @@ function AssistantOrbVisual() {
 
 function LabSheetVisual() {
   return (
-    <div className="relative flex size-28 items-center justify-center">
+    <div className="relative flex size-32 items-center justify-center">
       <div className="absolute inset-2 rounded-full bg-primary/7 blur-3xl" />
       <div className="relative rotate-6 rounded-[1.4rem] border border-primary/20 bg-white px-4 py-4 shadow-[0_24px_80px_-42px_rgba(76,104,220,0.7)]">
         <div className="-rotate-6 space-y-2">
@@ -324,7 +385,7 @@ function LabSheetVisual() {
 
 function NotesVisual() {
   return (
-    <div className="relative flex size-28 items-center justify-center">
+    <div className="relative flex size-32 items-center justify-center">
       <div className="absolute inset-4 rounded-full bg-primary/6 blur-3xl" />
       <div className="relative flex items-end gap-2">
         <div className="rounded-[1.2rem] border border-primary/15 bg-white p-4 shadow-[0_20px_60px_-40px_rgba(76,104,220,0.55)]">
@@ -340,7 +401,7 @@ function NotesVisual() {
 
 function PatientsVisual() {
   return (
-    <div className="relative flex size-28 items-center justify-center">
+    <div className="relative flex size-32 items-center justify-center">
       <div className="absolute inset-3 rounded-full bg-primary/6 blur-3xl" />
       <div className="relative flex items-end gap-4">
         <div className="flex flex-col items-center gap-2">
