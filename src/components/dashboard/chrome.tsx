@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, type ReactNode } from "react";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Bell, CircleUserRound, MessageCircleMore, ShieldCheck } from "lucide-react";
 
 import { getProfileName } from "@/lib/dashboard-content";
@@ -13,6 +14,7 @@ import { useDashboardProfile } from "./use-dashboard-profile";
 export function DashboardShell({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
   const profile = useDashboardProfile();
   const name = getProfileName(profile);
   const email = `${name.toLowerCase().replace(/\s+/g, "")}@gmail.com`;
@@ -43,6 +45,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     };
   }, [menuOpen]);
 
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
   return (
     <div className="min-h-screen bg-background">
       <header className="relative z-40 border-b border-primary/10 bg-background/95 backdrop-blur">
@@ -66,9 +72,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             <HeaderIconButton aria-label="Messages">
               <MessageCircleMore className="size-4" />
             </HeaderIconButton>
-            <HeaderIconButton aria-label="Notifications">
-              <Bell className="size-4" />
-            </HeaderIconButton>
+            <Link href="/dashboard/notifications">
+              <HeaderIconButton aria-label="Notifications">
+                <Bell className="size-4" />
+              </HeaderIconButton>
+            </Link>
             <div className="relative" ref={menuRef}>
               <button
                 type="button"
@@ -100,17 +108,21 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   <div className="my-6 h-px bg-primary/15" />
 
                   <nav className="space-y-3">
-                    {["Help & Support", "Billing", "Account Settings", "Sign Out"].map(
-                      (item) => (
-                        <button
-                          key={item}
-                          type="button"
-                          className="block text-left text-sm font-medium transition-colors hover:text-primary"
-                        >
-                          {item}
-                        </button>
-                      ),
-                    )}
+                    {[
+                      { label: "Help & Support", href: "#" },
+                      { label: "Billing", href: "#" },
+                      { label: "Account Settings", href: "/dashboard/account-settings" },
+                      { label: "Sign Out", href: "#" },
+                    ].map((item) => (
+                      <Link
+                        key={item.label}
+                        href={item.href}
+                        onClick={() => setMenuOpen(false)}
+                        className="block text-left text-sm font-medium transition-colors hover:text-primary"
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
                   </nav>
                 </div>
               ) : null}
