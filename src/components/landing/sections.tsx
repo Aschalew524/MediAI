@@ -83,6 +83,48 @@ const iconMap: Record<LandingIconKey, ComponentType<{ className?: string }>> = {
   heartHandshake: HeartHandshake,
 };
 
+function isHashHref(href: string) {
+  return href.startsWith("#") || href.startsWith("/#");
+}
+
+function LandingHrefLink({
+  href,
+  className,
+  children,
+  onClick,
+  ariaLabel,
+}: {
+  href: string;
+  className?: string;
+  children: React.ReactNode;
+  onClick?: () => void;
+  ariaLabel?: string;
+}) {
+  if (isHashHref(href)) {
+    return (
+      <a
+        href={href}
+        className={className}
+        onClick={onClick}
+        aria-label={ariaLabel}
+      >
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      className={className}
+      onClick={onClick}
+      aria-label={ariaLabel}
+    >
+      {children}
+    </Link>
+  );
+}
+
 export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -102,12 +144,12 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
   return (
     <header className="sticky top-0 z-40 border-b border-transparent bg-background/90 backdrop-blur-md">
       <Container className="flex h-20 items-center justify-between gap-6">
-        <Link
+        <LandingHrefLink
           href="/#hero"
           className="text-3xl font-semibold tracking-tight text-primary"
         >
           MediAI
-        </Link>
+        </LandingHrefLink>
 
         <nav ref={navRef} className="hidden items-center gap-8 lg:flex">
           {navItems.map((item) => {
@@ -145,7 +187,7 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
                             : null;
 
                           return (
-                            <Link
+                            <LandingHrefLink
                               key={subItem.label}
                               href={subItem.href}
                               onClick={() => setOpenMenu(null)}
@@ -155,7 +197,7 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
                                 <SubIcon className="size-7 shrink-0 text-primary" />
                               ) : null}
                               <span>{subItem.label}</span>
-                            </Link>
+                            </LandingHrefLink>
                           );
                         })}
                       </div>
@@ -166,14 +208,14 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
             }
 
             return (
-              <Link
+              <LandingHrefLink
                 key={item.label}
                 href={item.href}
                 className="inline-flex items-center gap-1 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
               >
                 <span>{item.label}</span>
                 {Icon ? <Icon className="size-4" /> : null}
-              </Link>
+              </LandingHrefLink>
             );
           })}
         </nav>
@@ -213,25 +255,25 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
           <Container className="space-y-4 py-5">
             {navItems.map((item) => (
               <div key={item.label} className="space-y-3">
-                <Link
+                <LandingHrefLink
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className="block text-sm font-semibold text-foreground"
                 >
                   {item.label}
-                </Link>
+                </LandingHrefLink>
 
                 {item.items?.length ? (
                   <div className="space-y-2 pl-4">
                     {item.items.map((subItem) => (
-                      <Link
+                      <LandingHrefLink
                         key={subItem.label}
                         href={subItem.href}
                         onClick={() => setMobileMenuOpen(false)}
                         className="block text-sm text-muted-foreground transition-colors hover:text-primary"
                       >
                         {subItem.label}
-                      </Link>
+                      </LandingHrefLink>
                     ))}
                   </div>
                 ) : null}
@@ -407,7 +449,9 @@ function ShowcaseBlock({ item }: { item: ShowcaseItem }) {
   return (
     <section
       id={
-        showcaseKey === "symptoms"
+        showcaseKey === "labs"
+          ? "labs"
+          : showcaseKey === "symptoms"
             ? "symptoms"
             : showcaseKey === "opinions"
               ? "opinions"
@@ -577,7 +621,7 @@ function OpinionsVisual() {
 
 function SecuritySection({ securityItems }: { securityItems: SecurityItem[] }) {
   return (
-    <SectionShell>
+    <SectionShell id="about">
       <Container>
         <div className="overflow-hidden rounded-[2rem] bg-primary px-6 py-10 text-primary-foreground shadow-[0_30px_70px_-40px_rgba(76,104,220,0.85)] sm:px-10 lg:px-14 lg:py-14">
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14">
@@ -668,7 +712,7 @@ function TestimonialsSection({
 
 function FaqSection({ faqItems }: { faqItems: FAQItem[] }) {
   return (
-    <SectionShell className="pt-6">
+    <SectionShell id="resources" className="pt-6">
       <Container className="max-w-4xl space-y-10">
         <SectionHeading
           title="Have questions? Let’s find answers"
@@ -695,9 +739,12 @@ function FaqSection({ faqItems }: { faqItems: FAQItem[] }) {
         <div className="flex items-center justify-between rounded-2xl border border-primary/10 bg-primary/5 px-5 py-4 text-sm sm:text-base">
           <p className="font-medium text-foreground">
             Have more questions?{" "}
-            <Link href="/#contact" className="text-primary underline-offset-4 hover:underline">
+            <LandingHrefLink
+              href="/#contact"
+              className="text-primary underline-offset-4 hover:underline"
+            >
               Contact us
-            </Link>
+            </LandingHrefLink>
           </p>
           <ChevronRight className="size-5 text-muted-foreground" />
         </div>
@@ -740,9 +787,9 @@ export function SiteFooter({ footerColumns }: { footerColumns: FooterColumn[] })
       <Container className="grid gap-12 py-16 lg:grid-cols-[1.2fr_2fr]">
         <div className="space-y-5">
           <div>
-            <Link href="/#hero" className="text-4xl font-semibold text-primary">
+            <LandingHrefLink href="/#hero" className="text-4xl font-semibold text-primary">
               MediAI
-            </Link>
+            </LandingHrefLink>
           </div>
           <p className="text-lg font-medium text-foreground/85">
             Empowering healthcare with AI.
@@ -757,14 +804,14 @@ export function SiteFooter({ footerColumns }: { footerColumns: FooterColumn[] })
               const Icon = item.icon;
 
               return (
-                <Link
+                <LandingHrefLink
                   key={item.label}
                   href={item.href}
-                  aria-label={item.label}
+                  ariaLabel={item.label}
                   className="inline-flex size-10 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-primary/20 hover:bg-primary/5 hover:text-primary"
                 >
                   <Icon className="size-4" />
-                </Link>
+                </LandingHrefLink>
               );
             })}
           </div>
@@ -779,12 +826,12 @@ export function SiteFooter({ footerColumns }: { footerColumns: FooterColumn[] })
               <ul className="space-y-3">
                 {column.links.map((link) => (
                   <li key={link.label}>
-                    <Link
+                    <LandingHrefLink
                       href={link.href}
                       className="text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
                       {link.label}
-                    </Link>
+                    </LandingHrefLink>
                   </li>
                 ))}
               </ul>
