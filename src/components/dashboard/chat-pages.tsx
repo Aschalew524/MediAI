@@ -26,6 +26,11 @@ import {
 import { cn } from "@/lib/utils";
 
 import { DashboardActionButton, DashboardContainer, DashboardPage, DashboardPanel } from "./primitives";
+import {
+  ProfessionalChatConversationPage,
+  ProfessionalChatHistoryPage,
+  ProfessionalChatOptionsPage,
+} from "./professional-chat-pages";
 import { useDashboardProfile } from "./use-dashboard-profile";
 
 type ConversationMessage = {
@@ -38,6 +43,11 @@ export function ChatOptionsPage() {
   const profile = useDashboardProfile();
   const { data: config } = useChatConfig();
   const name = getProfileName(profile);
+  const isProfessional = Boolean(profile.professionalProfile);
+
+  if (isProfessional) {
+    return <ProfessionalChatOptionsPage />;
+  }
 
   return (
     <DashboardPage>
@@ -111,6 +121,7 @@ export function ChatConversationPage({
   const profile = useDashboardProfile();
   const { data: config } = useChatConfig();
   const name = getProfileName(profile);
+  const isProfessional = Boolean(profile.professionalProfile);
   const [messages, setMessages] = useState<ConversationMessage[]>(
     initialSeededConversation && mode === "personal"
       ? [...config.seededPersonalConversation]
@@ -122,6 +133,15 @@ export function ChatConversationPage({
   const [issueDraft, setIssueDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [submittingIssue, setSubmittingIssue] = useState(false);
+
+  if (isProfessional) {
+    return (
+      <ProfessionalChatConversationPage
+        mode={mode}
+        initialSeededConversation={initialSeededConversation}
+      />
+    );
+  }
 
   async function submitMessage() {
     const trimmed = draft.trim();
@@ -380,9 +400,10 @@ function DoctorTypeMenu({
 }
 
 export function ChatHistoryPage() {
+  const profile = useDashboardProfile();
   const { data: config } = useChatConfig();
   const [filter, setFilter] = useState<"all" | ChatMode>("all");
-
+  const isProfessional = Boolean(profile.professionalProfile);
   const items = useMemo(
     () =>
       config.chatHistoryItems.filter((item) =>
@@ -390,6 +411,10 @@ export function ChatHistoryPage() {
       ),
     [config.chatHistoryItems, filter],
   );
+
+  if (isProfessional) {
+    return <ProfessionalChatHistoryPage />;
+  }
 
   return (
     <DashboardPage>
