@@ -146,7 +146,7 @@ export const medicalHistorySteps: MedicalHistoryStep[] = [
           "Light Physical activities such as walking or leisurely cycling",
       },
       {
-        label: "Specific diet Plan",
+        label: "Moderately active",
         description:
           "Regular moderate exercises like running, swimming, or playing sports",
       },

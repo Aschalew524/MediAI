@@ -44,6 +44,104 @@ export type DashboardProfile = {
 
 export const dashboardProfileStorageKey = "mediai-onboarding-profile";
 export const aiDoctorSetupStorageKey = "mediai-ai-doctor-setup-completed";
+export const medicalHistoryStorageKey = "mediai-medical-history";
+
+export type MedicalHistoryData = {
+  chronicDiseases: string[];
+  chronicDetails: string;
+  allergies: string[];
+  allergyDetails: string;
+  currentMedications: string;
+  pastMedications: string;
+  smokingIntensity: string;
+  alcoholIntake: string;
+  dietaryHabits: string;
+  activityLevel: string;
+  sleepPattern: string;
+  stressLevel: string;
+};
+
+export const defaultMedicalHistory: MedicalHistoryData = {
+  chronicDiseases: [],
+  chronicDetails: "",
+  allergies: [],
+  allergyDetails: "",
+  currentMedications: "",
+  pastMedications: "",
+  smokingIntensity: "",
+  alcoholIntake: "",
+  dietaryHabits: "",
+  activityLevel: "",
+  sleepPattern: "",
+  stressLevel: "",
+};
+
+export const chronicDiseaseOptions = [
+  "Diabetes",
+  "Hypertension",
+  "Cardiovascular Disease",
+  "Thyroid Disorder",
+  "Asthma / COPD",
+  "Arthritis",
+  "Cancer",
+  "Kidney Disease",
+] as const;
+
+export const allergyOptions = [
+  "Penicillin",
+  "Sulfa Drugs",
+  "Peanuts",
+  "Dairy / Lactose",
+  "Shellfish",
+  "Pollen",
+  "Latex",
+  "Insect Stings",
+] as const;
+
+export const smokingOptions = [
+  "Non-smoker",
+  "1-10 Cigarettes/day",
+  "About 1 pack/day",
+  "More than 1 pack/day",
+  "E-Cigarettes / Vaping",
+] as const;
+
+export const alcoholOptions = [
+  "Non-drinker",
+  "1-3 drinks/week",
+  "4-7 drinks/week",
+  "8-14 drinks/week",
+  "15+ drinks/week",
+] as const;
+
+export const dietOptions = [
+  "Non-specific diet",
+  "Balanced Meals",
+  "Frequent Fast Food",
+  "Vegetarian / Vegan",
+  "Specific Diet Plan (keto, high-protein, etc.)",
+] as const;
+
+export const activityOptions = [
+  "Inactive",
+  "Lightly Active",
+  "Moderately Active",
+  "Very Active",
+] as const;
+
+export const sleepOptions = [
+  "Less than 6 hours",
+  "7-9 hours",
+  "More than 9 hours",
+  "Varies / Interrupted",
+] as const;
+
+export const stressOptions = [
+  "Rarely Stressed",
+  "Manageable Stress",
+  "Regular (daily) Stress",
+  "Almost Always Stressed",
+] as const;
 
 export const defaultDashboardProfile: DashboardProfile = {
   preferredName: "Joe",
@@ -57,6 +155,144 @@ export const defaultDashboardProfile: DashboardProfile = {
   sexAtBirth: "male",
   preferredFeature: "ai-doctor",
 };
+
+export type FacilityType = "hospital" | "pharmacy" | "clinic";
+
+export type HealthcareFacility = {
+  id: string;
+  name: string;
+  type: FacilityType;
+  address: string;
+  phone: string;
+  rating: number;
+  verified: boolean;
+  latitude: number;
+  longitude: number;
+  openNow: boolean;
+};
+
+export const healthcareFacilities: HealthcareFacility[] = [
+  {
+    id: "fac-001",
+    name: "Tikur Anbessa Specialized Hospital",
+    type: "hospital",
+    address: "Churchill Ave, Addis Ababa",
+    phone: "+251 11 551 1211",
+    rating: 4.2,
+    verified: true,
+    latitude: 9.0192,
+    longitude: 38.7525,
+    openNow: true,
+  },
+  {
+    id: "fac-002",
+    name: "St. Paul's Hospital Millennium Medical College",
+    type: "hospital",
+    address: "Swaziland St, Addis Ababa",
+    phone: "+251 11 827 5089",
+    rating: 4.0,
+    verified: true,
+    latitude: 9.0408,
+    longitude: 38.7468,
+    openNow: true,
+  },
+  {
+    id: "fac-003",
+    name: "Kenema Pharmacy",
+    type: "pharmacy",
+    address: "Bole Rd, Addis Ababa",
+    phone: "+251 11 661 2345",
+    rating: 4.5,
+    verified: true,
+    latitude: 9.0054,
+    longitude: 38.7636,
+    openNow: true,
+  },
+  {
+    id: "fac-004",
+    name: "Bethzatha General Hospital",
+    type: "hospital",
+    address: "Kebena, Addis Ababa",
+    phone: "+251 11 661 8080",
+    rating: 4.3,
+    verified: true,
+    latitude: 9.0227,
+    longitude: 38.7577,
+    openNow: false,
+  },
+  {
+    id: "fac-005",
+    name: "Gishen Pharmacy",
+    type: "pharmacy",
+    address: "Meskel Sq, Addis Ababa",
+    phone: "+251 11 515 4433",
+    rating: 4.1,
+    verified: false,
+    latitude: 9.0107,
+    longitude: 38.7612,
+    openNow: true,
+  },
+  {
+    id: "fac-006",
+    name: "Hayat General Hospital",
+    type: "hospital",
+    address: "Haile Gebrselassie Rd, Addis Ababa",
+    phone: "+251 11 662 9000",
+    rating: 4.6,
+    verified: true,
+    latitude: 9.0003,
+    longitude: 38.7872,
+    openNow: true,
+  },
+  {
+    id: "fac-007",
+    name: "Ayer Tena Clinic",
+    type: "clinic",
+    address: "Ayer Tena, Addis Ababa",
+    phone: "+251 11 390 1234",
+    rating: 3.8,
+    verified: true,
+    latitude: 8.9826,
+    longitude: 38.7235,
+    openNow: false,
+  },
+  {
+    id: "fac-008",
+    name: "Zewditu Memorial Hospital",
+    type: "hospital",
+    address: "Ras Desta Damtew Ave, Addis Ababa",
+    phone: "+251 11 551 5844",
+    rating: 3.9,
+    verified: true,
+    latitude: 9.0148,
+    longitude: 38.7472,
+    openNow: true,
+  },
+  {
+    id: "fac-009",
+    name: "Bole Medhanealem Pharmacy",
+    type: "pharmacy",
+    address: "Bole Medhanealem, Addis Ababa",
+    phone: "+251 11 662 7788",
+    rating: 4.4,
+    verified: true,
+    latitude: 9.0012,
+    longitude: 38.7796,
+    openNow: true,
+  },
+  {
+    id: "fac-010",
+    name: "Kadisco General Hospital",
+    type: "hospital",
+    address: "Bisrate Gabriel, Addis Ababa",
+    phone: "+251 11 442 1010",
+    rating: 4.1,
+    verified: true,
+    latitude: 8.9942,
+    longitude: 38.7402,
+    openNow: true,
+  },
+];
 
 export const dashboardCards = [
   {

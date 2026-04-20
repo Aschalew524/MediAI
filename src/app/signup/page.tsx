@@ -17,7 +17,7 @@ export default function SignUpPage() {
   const router = useRouter();
 
   function handleGoogle() {
-    router.push("/dashboard");
+    router.push("/onboarding");
   }
 
   return (

@@ -78,10 +78,6 @@ export function getAssistantPrompt(mode: ChatMode) {
   return "I'm here to support with any general health-related questions.";
 }
 
-export function getDoctorHeading(mode: ChatMode) {
-  return mode === "personal" ? "Joe's AI Doctor" : "General Chat";
-}
-
 export function getReplyForMode(mode: ChatMode, message: string) {
   if (mode === "personal") {
     return `I can help with that. Based on your profile, tell me more about "${message}" including when it started, what makes it better or worse, and whether you have any related symptoms.`;

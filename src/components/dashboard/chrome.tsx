@@ -91,7 +91,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               </button>
 
               {menuOpen ? (
-                <div className="absolute right-0 top-12 z-[100] w-64 rounded-2xl border border-primary/12 bg-white p-5 shadow-[0_24px_80px_-45px_rgba(73,96,188,0.75)]">
+                <div className="absolute right-0 top-12 z-100 w-64 rounded-2xl border border-primary/12 bg-white p-5 shadow-[0_24px_80px_-45px_rgba(73,96,188,0.75)]">
                   <div className="flex items-center gap-3">
                     <div className="relative inline-flex size-12 items-center justify-center rounded-full bg-muted text-primary">
                       <CircleUserRound className="size-7" />
@@ -109,10 +109,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
                   <nav className="space-y-3">
                     {[
-                      { label: "Help & Support", href: "#" },
-                      { label: "Billing", href: "#" },
+                      { label: "Help & Support", href: "/knowledge-base" },
+                      { label: "Billing", href: "/pricing" },
                       { label: "Account Settings", href: "/dashboard/account-settings" },
-                      { label: "Sign Out", href: "#" },
+                      { label: "Sign Out", href: "/" },
                     ].map((item) => (
                       <Link
                         key={item.label}

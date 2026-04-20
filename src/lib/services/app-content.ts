@@ -25,6 +25,15 @@ import type { ChatMode } from "@/lib/chat-content";
 import type {
   MedicalHistoryStep,
 } from "@/lib/ai-doctor-content";
+import type {
+  AdminActivity,
+  AdminStatCard,
+  AdminTransaction,
+  AdminUser,
+  MonthlyGrowth,
+  RevenueSummary,
+  SubscriptionPlan,
+} from "@/lib/admin-content";
 
 export type LandingResponse = {
   navItems: NavItem[];
@@ -89,11 +98,22 @@ export type AIDoctorConfigResponse = {
   medicalHistoryTotalSteps: number;
 };
 
+export type AdminConfigResponse = {
+  statCards: AdminStatCard[];
+  users: AdminUser[];
+  subscriptionPlans: SubscriptionPlan[];
+  transactions: AdminTransaction[];
+  recentActivity: AdminActivity[];
+  monthlyGrowth: MonthlyGrowth[];
+  revenueSummary: RevenueSummary;
+};
+
 let landingCache: LandingResponse | null = null;
 let onboardingCache: OnboardingConfigResponse | null = null;
 let dashboardCache: DashboardConfigResponse | null = null;
 let chatCache: ChatConfigResponse | null = null;
 let aiDoctorCache: AIDoctorConfigResponse | null = null;
+let adminCache: AdminConfigResponse | null = null;
 
 export async function getLandingContent() {
   if (landingCache) return landingCache;
@@ -127,6 +147,13 @@ export async function getAIDoctorConfig() {
   if (aiDoctorCache) return aiDoctorCache;
   const { data } = await api.get<AIDoctorConfigResponse>("/ai-doctor/config");
   aiDoctorCache = data;
+  return data;
+}
+
+export async function getAdminConfig() {
+  if (adminCache) return adminCache;
+  const { data } = await api.get<AdminConfigResponse>("/admin/config");
+  adminCache = data;
   return data;
 }
 
