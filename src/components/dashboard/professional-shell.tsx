@@ -18,6 +18,7 @@ import {
   type DashboardProfile,
   getProfileName,
   getProfileSex,
+  getProfessionalName,
 } from "@/lib/dashboard-content";
 import { cn } from "@/lib/utils";
 
@@ -84,7 +85,7 @@ const professionalSidebarSections: {
         icon: <FileText className="size-4" />,
       },
       {
-        label: "Biomakers Overview",
+        label: "Biomarkers Overview",
         href: "/dashboard/lab-test-interpretation",
         icon: <FlaskConical className="size-4" />,
       },
@@ -150,6 +151,7 @@ export function formatProfessionalPatientCompact(patient: ProfessionalPatient) {
 }
 
 export function ProfessionalDashboardShell({
+  profile,
   children,
   contentClassName,
 }: {
@@ -157,6 +159,8 @@ export function ProfessionalDashboardShell({
   children: ReactNode;
   contentClassName?: string;
 }) {
+  const professionalName = getProfessionalName(profile);
+
   return (
     <DashboardPage>
       <DashboardContainer className="max-w-screen-2xl px-6 sm:px-8 xl:px-10">
@@ -164,6 +168,15 @@ export function ProfessionalDashboardShell({
           <aside className="pt-8">
             <div className="sticky top-24">
               <div className="space-y-9">
+                <div className="space-y-1 px-1">
+                  <p className="text-sm font-semibold text-foreground">
+                    {professionalName}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {profile.professionalProfile?.specialty || "Health Professional"}
+                  </p>
+                </div>
+
                 {professionalSidebarSections.map((section, index) => (
                   <ProfessionalSidebarSection
                     key={section.title ?? `section-${index}`}

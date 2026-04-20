@@ -47,6 +47,16 @@ import {
   userRoleOptions as fallbackUserRoleOptions,
 } from "@/lib/onboarding-content";
 import {
+  adminStatCards as fallbackAdminStatCards,
+  adminTransactions as fallbackAdminTransactions,
+  adminUsers as fallbackAdminUsers,
+  monthlyGrowth as fallbackMonthlyGrowth,
+  recentActivity as fallbackRecentActivity,
+  revenueSummary as fallbackRevenueSummary,
+  subscriptionPlans as fallbackSubscriptionPlans,
+} from "@/lib/admin-content";
+import {
+  getAdminConfig,
   getAIDoctorConfig,
   getChatConfig,
   getDashboardConfig,
@@ -138,4 +148,21 @@ export function useAIDoctorConfig() {
   );
 
   return useAsyncData(useCallback(() => getAIDoctorConfig(), []), fallback);
+}
+
+export function useAdminConfig() {
+  const fallback = useMemo(
+    () => ({
+      statCards: [...fallbackAdminStatCards],
+      users: [...fallbackAdminUsers],
+      subscriptionPlans: [...fallbackSubscriptionPlans],
+      transactions: [...fallbackAdminTransactions],
+      recentActivity: [...fallbackRecentActivity],
+      monthlyGrowth: [...fallbackMonthlyGrowth],
+      revenueSummary: { ...fallbackRevenueSummary },
+    }),
+    [],
+  );
+
+  return useAsyncData(useCallback(() => getAdminConfig(), []), fallback);
 }

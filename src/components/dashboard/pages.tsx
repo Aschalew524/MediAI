@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -11,6 +11,8 @@ import {
   ClipboardPlus,
   FileText,
   FlaskConical,
+  HeartPulse,
+  MapPin,
   Pencil,
   Stethoscope,
   Trash2,
@@ -19,13 +21,24 @@ import {
 } from "lucide-react";
 
 import {
+  activityOptions,
+  alcoholOptions,
+  allergyOptions,
+  chronicDiseaseOptions,
   dashboardProfileStorageKey,
   type DashboardProfile,
+  defaultMedicalHistory,
+  dietOptions,
   getProfileHeight,
   getProfileName,
   getProfessionalName,
   getProfileSex,
   getProfileWeight,
+  type MedicalHistoryData,
+  medicalHistoryStorageKey,
+  sleepOptions,
+  smokingOptions,
+  stressOptions,
 } from "@/lib/dashboard-content";
 import { useDashboardConfig } from "@/lib/hooks/use-app-config";
 import { cn } from "@/lib/utils";
@@ -90,6 +103,20 @@ export function DashboardHomePage() {
           accent="doctors"
           wide
         />
+
+        <Link href="/dashboard/facility-locator" className="block transition-transform hover:-translate-y-px">
+          <DashboardPanel className="flex items-center gap-5 px-6 py-5">
+            <span className="inline-flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <MapPin className="size-7" />
+            </span>
+            <div>
+              <h2 className="text-xl font-semibold leading-tight">Find Nearby Facilities</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Locate verified hospitals, clinics, and pharmacies near you.
+              </p>
+            </div>
+          </DashboardPanel>
+        </Link>
       </DashboardContainer>
     </DashboardPage>
   );
@@ -505,6 +532,20 @@ function ConsumerHealthProfilePage({
             </DashboardPanel>
           </Link>
 
+          <Link href="/dashboard/profile/medical-history" className="block transition-transform hover:-translate-y-px">
+            <DashboardPanel className="flex items-center gap-4 px-6 py-5">
+              <span className="inline-flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <HeartPulse className="size-5" />
+              </span>
+              <div>
+                <h3 className="text-xl font-semibold">Medical History &amp; Lifestyle</h3>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Chronic diseases, allergies, medications, and lifestyle habits
+                </p>
+              </div>
+            </DashboardPanel>
+          </Link>
+
         </DashboardContainer>
       </DashboardPage>
 
@@ -686,16 +727,292 @@ export function MainHealthInformationPage() {
         />
 
         <DashboardPanel className="px-6 py-4">
-          {config.mainHealthInfoSections.map((section) => (
-            <DashboardListRow key={section} title={section} />
-          ))}
+          <DashboardListRow
+            title="General Information"
+            href="/dashboard/profile"
+          />
+          <DashboardListRow
+            title="Medications"
+            href="/dashboard/profile/medical-history"
+          />
+          <DashboardListRow
+            title="Life patterns and Habits"
+            href="/dashboard/profile/medical-history"
+          />
         </DashboardPanel>
 
         <div className="flex justify-center">
-          <DashboardActionButton>Update Health Information</DashboardActionButton>
+          <Link href="/dashboard/profile/medical-history">
+            <DashboardActionButton>Update Health Information</DashboardActionButton>
+          </Link>
         </div>
       </DashboardContainer>
     </DashboardPage>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Medical History & Lifestyle                                               */
+/* -------------------------------------------------------------------------- */
+
+function useMedicalHistory() {
+  const [data, setData] = useState<MedicalHistoryData>(defaultMedicalHistory);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(medicalHistoryStorageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Partial<MedicalHistoryData>;
+        setData({ ...defaultMedicalHistory, ...parsed });
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function save(next: MedicalHistoryData) {
+    setData(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(medicalHistoryStorageKey, JSON.stringify(next));
+    }
+  }
+
+  return { data, save };
+}
+
+export function MedicalHistoryPage() {
+  const { data, save } = useMedicalHistory();
+  const [draft, setDraft] = useState<MedicalHistoryData>(data);
+  const [saved, setSaved] = useState(false);
+
+  function update(partial: Partial<MedicalHistoryData>) {
+    setDraft((current) => ({ ...current, ...partial }));
+    setSaved(false);
+  }
+
+  function toggleItem(
+    field: "chronicDiseases" | "allergies",
+    value: string,
+  ) {
+    setDraft((current) => {
+      const list = current[field];
+      const next = list.includes(value)
+        ? list.filter((item) => item !== value)
+        : [...list, value];
+      return { ...current, [field]: next };
+    });
+    setSaved(false);
+  }
+
+  function handleSave() {
+    save(draft);
+    setSaved(true);
+  }
+
+  return (
+    <DashboardPage>
+      <DashboardContainer className="space-y-8">
+        <DashboardBackTitle
+          title="Medical History & Lifestyle"
+          description="Record your chronic conditions, allergies, medications, and daily habits so your AI Doctor can give tailored guidance."
+        />
+
+        {/* Chronic Diseases */}
+        <DashboardPanel className="space-y-5 px-6 py-5">
+          <SectionHeading title="Chronic Diseases" icon={<HeartPulse className="size-5" />} />
+          <p className="text-sm text-muted-foreground">
+            Select any chronic or past conditions that apply.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {chronicDiseaseOptions.map((option) => (
+              <ChipToggle
+                key={option}
+                label={option}
+                selected={draft.chronicDiseases.includes(option)}
+                onClick={() => toggleItem("chronicDiseases", option)}
+              />
+            ))}
+          </div>
+          <input
+            value={draft.chronicDetails}
+            onChange={(e) => update({ chronicDetails: e.target.value })}
+            placeholder="Other conditions not listed above..."
+            className="h-11 w-full rounded-xl border border-primary/15 bg-white px-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+          />
+        </DashboardPanel>
+
+        {/* Allergies */}
+        <DashboardPanel className="space-y-5 px-6 py-5">
+          <SectionHeading title="Known Allergies" icon={<Stethoscope className="size-5" />} />
+          <p className="text-sm text-muted-foreground">
+            Select any known allergies (medications, food, environmental).
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {allergyOptions.map((option) => (
+              <ChipToggle
+                key={option}
+                label={option}
+                selected={draft.allergies.includes(option)}
+                onClick={() => toggleItem("allergies", option)}
+              />
+            ))}
+          </div>
+          <input
+            value={draft.allergyDetails}
+            onChange={(e) => update({ allergyDetails: e.target.value })}
+            placeholder="Other allergies not listed above..."
+            className="h-11 w-full rounded-xl border border-primary/15 bg-white px-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+          />
+        </DashboardPanel>
+
+        {/* Medications */}
+        <DashboardPanel className="space-y-5 px-6 py-5">
+          <SectionHeading title="Medications" icon={<ClipboardPlus className="size-5" />} />
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium text-foreground">Current Medications</span>
+            <textarea
+              value={draft.currentMedications}
+              onChange={(e) => update({ currentMedications: e.target.value })}
+              placeholder="e.g. Metformin 500mg twice daily, Lisinopril 10mg once daily..."
+              rows={3}
+              className="w-full rounded-xl border border-primary/15 bg-white px-4 py-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium text-foreground">Past Medications (last 6 months)</span>
+            <textarea
+              value={draft.pastMedications}
+              onChange={(e) => update({ pastMedications: e.target.value })}
+              placeholder="e.g. Amoxicillin course in January, Vitamin D supplements..."
+              rows={3}
+              className="w-full rounded-xl border border-primary/15 bg-white px-4 py-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+            />
+          </label>
+        </DashboardPanel>
+
+        {/* Lifestyle */}
+        <DashboardPanel className="space-y-6 px-6 py-5">
+          <SectionHeading title="Lifestyle Habits" icon={<FileText className="size-5" />} />
+
+          <ChoiceGroup
+            label="Daily Smoking Intensity"
+            options={smokingOptions}
+            value={draft.smokingIntensity}
+            onChange={(v) => update({ smokingIntensity: v })}
+          />
+          <ChoiceGroup
+            label="Weekly Alcohol Intake"
+            options={alcoholOptions}
+            value={draft.alcoholIntake}
+            onChange={(v) => update({ alcoholIntake: v })}
+          />
+          <ChoiceGroup
+            label="Dietary Habits"
+            options={dietOptions}
+            value={draft.dietaryHabits}
+            onChange={(v) => update({ dietaryHabits: v })}
+          />
+          <ChoiceGroup
+            label="Weekly Activity Level"
+            options={activityOptions}
+            value={draft.activityLevel}
+            onChange={(v) => update({ activityLevel: v })}
+          />
+          <ChoiceGroup
+            label="Daily Sleep Pattern"
+            options={sleepOptions}
+            value={draft.sleepPattern}
+            onChange={(v) => update({ sleepPattern: v })}
+          />
+          <ChoiceGroup
+            label="Stress Level"
+            options={stressOptions}
+            value={draft.stressLevel}
+            onChange={(v) => update({ stressLevel: v })}
+          />
+        </DashboardPanel>
+
+        <div className="flex items-center justify-center gap-4 pb-4">
+          <DashboardActionButton onClick={handleSave}>
+            {saved ? "Saved!" : "Save Medical History"}
+          </DashboardActionButton>
+          {saved ? (
+            <p className="text-sm font-medium text-primary">
+              Your medical history has been saved.
+            </p>
+          ) : null}
+        </div>
+      </DashboardContainer>
+    </DashboardPage>
+  );
+}
+
+function SectionHeading({ title, icon }: { title: string; icon: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-primary">{icon}</span>
+      <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+    </div>
+  );
+}
+
+function ChipToggle({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+        selected
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-primary/15 text-foreground/80 hover:bg-muted",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ChoiceGroup({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: readonly string[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-2.5 border-b border-primary/8 pb-5 last:border-b-0 last:pb-0">
+      <p className="text-sm font-medium text-foreground">{label}</p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onChange(option)}
+            className={cn(
+              "rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
+              value === option
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-primary/15 text-foreground/80 hover:bg-muted",
+            )}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -731,84 +1048,398 @@ export function NotificationsPage() {
   );
 }
 
+type AccountModal = null | "change-email" | "edit-nickname" | "reset-password" | "delete-account";
+
 export function AccountSettingsPage() {
   const profile = useDashboardProfile();
-  const email = `${getProfileName(profile).toLowerCase().replace(/\s+/g, "")}@gmail.com`;
+  const defaultEmail = `${getProfileName(profile).toLowerCase().replace(/\s+/g, "")}@gmail.com`;
+  const defaultNickname = getProfileName(profile).toLowerCase() || "mik";
+  const [emailOverride, setEmailOverride] = useState<string | null>(null);
+  const [nicknameOverride, setNicknameOverride] = useState<string | null>(null);
+  const [openModal, setOpenModal] = useState<AccountModal>(null);
+  const [passwordResetDone, setPasswordResetDone] = useState(false);
+
+  const localEmail = emailOverride ?? defaultEmail;
+  const localNickname = nicknameOverride ?? defaultNickname;
 
   return (
-    <DashboardPage>
-      <DashboardContainer className="space-y-8">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/dashboard"
-            aria-label="Back to dashboard"
-            className="inline-flex size-10 items-center justify-center rounded-full border border-primary/15 text-foreground/80 transition-colors hover:bg-muted hover:text-primary"
-          >
-            <ArrowLeft className="size-4" />
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">Account Settings</h1>
-        </div>
+    <>
+      <DashboardPage>
+        <DashboardContainer className="space-y-8">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              aria-label="Back to dashboard"
+              className="inline-flex size-10 items-center justify-center rounded-full border border-primary/15 text-foreground/80 transition-colors hover:bg-muted hover:text-primary"
+            >
+              <ArrowLeft className="size-4" />
+            </Link>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">Account Settings</h1>
+          </div>
 
-        <DashboardPanel className="divide-y divide-primary/10 bg-white p-0">
-          <section className="space-y-4 px-8 py-8">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">User details</h2>
-              <button className="text-sm font-semibold text-primary/95 transition-colors hover:text-primary hover:underline">
-                Change
-              </button>
-            </div>
-            <div className="space-y-1 text-sm">
-              <p className="text-muted-foreground">
-                User ID: <span className="text-foreground/80">292556</span>
-              </p>
-              <p className="text-muted-foreground">
-                Email: <span className="text-foreground/80">{email}</span>
-              </p>
-              <p className="text-muted-foreground">
-                Subscription plan:{" "}
-                <span className="rounded-full bg-primary/15 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                  Free
-                </span>
-              </p>
-            </div>
-          </section>
-
-          <section className="space-y-4 px-8 py-8">
-            <h2 className="text-lg font-semibold text-foreground">Account</h2>
-            <div className="space-y-4 text-sm">
+          <DashboardPanel className="divide-y divide-primary/10 bg-white p-0">
+            <section className="space-y-4 px-8 py-8">
               <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-foreground">User details</h2>
+                <button
+                  type="button"
+                  onClick={() => setOpenModal("change-email")}
+                  className="text-sm font-semibold text-primary/95 transition-colors hover:text-primary hover:underline"
+                >
+                  Change
+                </button>
+              </div>
+              <div className="space-y-1 text-sm">
                 <p className="text-muted-foreground">
-                  Nickname:{" "}
-                  <span className="text-foreground/80">
-                    {getProfileName(profile).toLowerCase() || "mik"}
+                  User ID: <span className="text-foreground/80">292556</span>
+                </p>
+                <p className="text-muted-foreground">
+                  Email: <span className="text-foreground/80">{localEmail}</span>
+                </p>
+                <p className="text-muted-foreground">
+                  Subscription plan:{" "}
+                  <span className="rounded-full bg-primary/15 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                    Free
                   </span>
                 </p>
-                <button className="text-sm font-semibold text-primary/95 transition-colors hover:text-primary hover:underline">
-                  Edit
-                </button>
               </div>
-              <div className="flex items-center justify-between">
-                <p className="text-muted-foreground">Password</p>
-                <button className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary/95 transition-colors hover:text-primary hover:underline">
-                  Reset
-                </button>
-              </div>
-            </div>
-          </section>
+            </section>
 
-          <section className="space-y-3 px-8 py-8">
-            <h2 className="text-lg font-semibold text-foreground">Delete Account</h2>
-            <p className="text-sm text-muted-foreground">
-              Permanently remove your account and all related data from our platform.
-            </p>
-            <button className="inline-flex items-center gap-2 text-sm font-semibold text-destructive transition-colors hover:opacity-80 hover:underline">
-              <Trash2 className="size-4" />
-              Delete Account
-            </button>
-          </section>
-        </DashboardPanel>
-      </DashboardContainer>
-    </DashboardPage>
+            <section className="space-y-4 px-8 py-8">
+              <h2 className="text-lg font-semibold text-foreground">Account</h2>
+              <div className="space-y-4 text-sm">
+                <div className="flex items-center justify-between">
+                  <p className="text-muted-foreground">
+                    Nickname:{" "}
+                    <span className="text-foreground/80">{localNickname}</span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setOpenModal("edit-nickname")}
+                    className="text-sm font-semibold text-primary/95 transition-colors hover:text-primary hover:underline"
+                  >
+                    Edit
+                  </button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-muted-foreground">Password</p>
+                  <button
+                    type="button"
+                    onClick={() => setOpenModal("reset-password")}
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary/95 transition-colors hover:text-primary hover:underline"
+                  >
+                    Reset
+                  </button>
+                </div>
+                {passwordResetDone ? (
+                  <p className="text-sm font-medium text-primary">
+                    Password reset link has been sent to your email.
+                  </p>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="space-y-3 px-8 py-8">
+              <h2 className="text-lg font-semibold text-foreground">Delete Account</h2>
+              <p className="text-sm text-muted-foreground">
+                Permanently remove your account and all related data from our platform.
+              </p>
+              <button
+                type="button"
+                onClick={() => setOpenModal("delete-account")}
+                className="inline-flex items-center gap-2 text-sm font-semibold text-destructive transition-colors hover:opacity-80 hover:underline"
+              >
+                <Trash2 className="size-4" />
+                Delete Account
+              </button>
+            </section>
+          </DashboardPanel>
+        </DashboardContainer>
+      </DashboardPage>
+
+      {openModal === "change-email" ? (
+        <AccountSettingsModal
+          title="Change Email"
+          onClose={() => setOpenModal(null)}
+        >
+          <ChangeEmailForm
+            currentEmail={localEmail}
+            onSave={(nextEmail) => {
+              setEmailOverride(nextEmail);
+              setOpenModal(null);
+            }}
+            onCancel={() => setOpenModal(null)}
+          />
+        </AccountSettingsModal>
+      ) : null}
+
+      {openModal === "edit-nickname" ? (
+        <AccountSettingsModal
+          title="Edit Nickname"
+          onClose={() => setOpenModal(null)}
+        >
+          <EditNicknameForm
+            currentNickname={localNickname}
+            onSave={(nextNickname) => {
+              setNicknameOverride(nextNickname);
+              const nextProfile: DashboardProfile = {
+                ...profile,
+                preferredName: nextNickname,
+              };
+              window.localStorage.setItem(
+                dashboardProfileStorageKey,
+                JSON.stringify(nextProfile),
+              );
+              setOpenModal(null);
+            }}
+            onCancel={() => setOpenModal(null)}
+          />
+        </AccountSettingsModal>
+      ) : null}
+
+      {openModal === "reset-password" ? (
+        <AccountSettingsModal
+          title="Reset Password"
+          onClose={() => setOpenModal(null)}
+        >
+          <ResetPasswordForm
+            email={localEmail}
+            onConfirm={() => {
+              setPasswordResetDone(true);
+              setOpenModal(null);
+            }}
+            onCancel={() => setOpenModal(null)}
+          />
+        </AccountSettingsModal>
+      ) : null}
+
+      {openModal === "delete-account" ? (
+        <AccountSettingsModal
+          title="Delete Account"
+          onClose={() => setOpenModal(null)}
+        >
+          <DeleteAccountForm
+            onConfirm={() => {
+              window.localStorage.removeItem(dashboardProfileStorageKey);
+              window.location.href = "/";
+            }}
+            onCancel={() => setOpenModal(null)}
+          />
+        </AccountSettingsModal>
+      ) : null}
+    </>
+  );
+}
+
+function AccountSettingsModal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-[0_35px_100px_-50px_rgba(0,0,0,0.45)]">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <h3 className="text-xl font-semibold">{title}</h3>
+          <button
+            type="button"
+            aria-label={`Close ${title} dialog`}
+            onClick={onClose}
+            className="inline-flex size-10 items-center justify-center rounded-full text-primary transition-colors hover:bg-muted"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ChangeEmailForm({
+  currentEmail,
+  onSave,
+  onCancel,
+}: {
+  currentEmail: string;
+  onSave: (email: string) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState(currentEmail);
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (draft.trim()) onSave(draft.trim());
+      }}
+      className="space-y-5"
+    >
+      <label className="block space-y-1.5">
+        <span className="text-sm font-medium text-foreground">New Email</span>
+        <input
+          type="email"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          className="h-11 w-full rounded-xl border border-primary/15 px-3 text-sm outline-none ring-primary transition focus:ring-2"
+          placeholder="your@email.com"
+          required
+        />
+      </label>
+      <AccountModalActions onCancel={onCancel} submitLabel="Save" />
+    </form>
+  );
+}
+
+function EditNicknameForm({
+  currentNickname,
+  onSave,
+  onCancel,
+}: {
+  currentNickname: string;
+  onSave: (nickname: string) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState(currentNickname);
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (draft.trim()) onSave(draft.trim());
+      }}
+      className="space-y-5"
+    >
+      <label className="block space-y-1.5">
+        <span className="text-sm font-medium text-foreground">Nickname</span>
+        <input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          className="h-11 w-full rounded-xl border border-primary/15 px-3 text-sm outline-none ring-primary transition focus:ring-2"
+          placeholder="Your nickname"
+          required
+        />
+      </label>
+      <AccountModalActions onCancel={onCancel} submitLabel="Save" />
+    </form>
+  );
+}
+
+function ResetPasswordForm({
+  email,
+  onConfirm,
+  onCancel,
+}: {
+  email: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <p className="text-sm leading-6 text-muted-foreground">
+        We will send a password reset link to{" "}
+        <span className="font-semibold text-foreground">{email}</span>.
+        Are you sure you want to continue?
+      </p>
+      <AccountModalActions
+        onCancel={onCancel}
+        submitLabel="Send Reset Link"
+        onSubmit={onConfirm}
+      />
+    </div>
+  );
+}
+
+function DeleteAccountForm({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const [confirmText, setConfirmText] = useState("");
+  const confirmed = confirmText.toLowerCase() === "delete";
+
+  return (
+    <div className="space-y-5">
+      <div className="space-y-3">
+        <p className="text-sm leading-6 text-muted-foreground">
+          This action is <span className="font-semibold text-destructive">permanent</span> and
+          cannot be undone. All your data, conversations, and health records will be
+          permanently removed.
+        </p>
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium text-foreground">
+            Type <span className="font-semibold text-destructive">delete</span> to confirm
+          </span>
+          <input
+            value={confirmText}
+            onChange={(event) => setConfirmText(event.target.value)}
+            className="h-11 w-full rounded-xl border border-destructive/30 px-3 text-sm outline-none transition focus:ring-2 focus:ring-destructive/30"
+            placeholder="delete"
+          />
+        </label>
+      </div>
+      <div className="flex justify-end gap-3 pt-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 px-5 text-sm font-medium transition-colors hover:bg-muted"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={!confirmed}
+          className="inline-flex h-11 items-center justify-center rounded-xl bg-destructive px-5 text-sm font-medium text-white transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Delete My Account
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AccountModalActions({
+  onCancel,
+  submitLabel,
+  onSubmit,
+}: {
+  onCancel: () => void;
+  submitLabel: string;
+  onSubmit?: () => void;
+}) {
+  return (
+    <div className="flex justify-end gap-3 pt-2">
+      <button
+        type="button"
+        onClick={onCancel}
+        className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 px-5 text-sm font-medium transition-colors hover:bg-muted"
+      >
+        Cancel
+      </button>
+      {onSubmit ? (
+        <button
+          type="button"
+          onClick={onSubmit}
+          className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
+        >
+          {submitLabel}
+        </button>
+      ) : (
+        <button
+          type="submit"
+          className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
+        >
+          {submitLabel}
+        </button>
+      )}
+    </div>
   );
 }
 

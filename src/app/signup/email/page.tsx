@@ -23,7 +23,7 @@ export default function SignUpEmailPage() {
     if (p !== c) {
       return;
     }
-    router.push("/dashboard");
+    router.push("/onboarding");
   }
 
   return (
