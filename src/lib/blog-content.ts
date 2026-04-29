@@ -30,12 +30,12 @@ export const blogArticles: BlogArticle[] = [
       {
         title: "How AI improves the patient experience",
         body:
-          "Modern AI systems can organize symptom descriptions, ask follow-up questions, and surface context-aware suggestions that feel more personalized than static decision trees. When combined with lab interpretation and second-opinion support, they create a much smoother health journey.",
+          "Modern AI systems can organize symptom descriptions, ask follow-up questions, and surface context-aware suggestions that feel more personalized than static decision trees. When combined with nearby-facility discovery and second-opinion support, they create a much smoother health journey.",
       },
       {
         title: "Why MediAI stands out",
         body:
-          "MediAI is designed to connect several useful workflows in one place: AI Doctor guidance, lab test interpretation, article-based education, and expert follow-up paths. That means patients can move from questions to action without losing context along the way.",
+          "MediAI is designed to connect several useful workflows in one place: AI Doctor guidance, nearby-facility discovery, article-based education, and expert follow-up paths. That means patients can move from questions to action without losing context along the way.",
       },
     ],
   },
@@ -63,7 +63,7 @@ export const blogArticles: BlogArticle[] = [
       {
         title: "How MediAI fits this category",
         body:
-          "MediAI brings together AI Doctor support, screening interpretation, professional workflows, and educational resources in one experience. That integrated journey is what many users increasingly expect from next-generation healthcare platforms.",
+          "MediAI brings together AI Doctor support, nearby-facility discovery, professional workflows, and educational resources in one experience. That integrated journey is what many users increasingly expect from next-generation healthcare platforms.",
       },
     ],
   },
@@ -91,35 +91,35 @@ export const blogArticles: BlogArticle[] = [
       {
         title: "Supporting continuity",
         body:
-          "When questions, lab interpretations, and educational content live in one place, the care journey feels less fragmented. That continuity is where patient-facing AI products become especially useful.",
+          "When questions, nearby-facility recommendations, and educational content live in one place, the care journey feels less fragmented. That continuity is where patient-facing AI products become especially useful.",
       },
     ],
   },
   {
     id: "4",
-    title: "Why Lab Interpretation Is Becoming a Core AI Feature",
+    title: "Why Finding the Right Nearby Facility Matters",
     category: "AI In Healthcare",
     author: "MediAI Research Team",
     date: "Jan 12, 2025",
     readTime: "10 min Read",
     imageSrc: "/sample_blog.svg",
     intro:
-      "Lab reports are one of the most common points of uncertainty for patients. AI-powered interpretation can help explain markers, trends, and questions worth discussing with a clinician.",
+      "Locating a trustworthy hospital, clinic, or pharmacy is one of the most common points of friction for patients. A guided facility-discovery experience helps people act faster on the recommendations their AI Doctor surfaces.",
     sections: [
       {
-        title: "The clarity gap",
+        title: "The discovery gap",
         body:
-          "Most lab reports are written for clinicians, not patients. AI interpretation tools can bridge that gap by turning technical values into understandable explanations.",
+          "Most facility listings are scattered across maps, directories, and word-of-mouth. A unified discovery experience bridges that gap by surfacing verified nearby options with the context patients actually need.",
       },
       {
         title: "Context matters",
         body:
-          "A good interpretation system does not just define markers. It helps users understand why a value might matter and what types of follow-up discussions may be relevant.",
+          "A good facility finder does more than show pins on a map. It helps users understand which facilities match their needs, hours, and specialties before they make the trip.",
       },
       {
-        title: "From static reports to guided journeys",
+        title: "From static directories to guided journeys",
         body:
-          "When paired with education and conversational support, lab interpretation becomes more than a one-time reading tool. It becomes part of a broader decision-support experience.",
+          "When paired with education and conversational support, nearby-facility discovery becomes more than a one-time lookup tool. It becomes part of a broader decision-support experience.",
       },
     ],
   },
@@ -226,7 +226,7 @@ export const blogArticles: BlogArticle[] = [
       {
         title: "Better workflow continuity",
         body:
-          "From AI Doctor setup to lab interpretation and dashboard improvements, the product now feels more connected across multiple user journeys.",
+          "From AI Doctor setup to nearby-facility discovery and dashboard improvements, the product now feels more connected across multiple user journeys.",
       },
       {
         title: "More content and education",

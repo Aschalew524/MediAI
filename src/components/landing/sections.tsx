@@ -449,13 +449,11 @@ function ShowcaseBlock({ item }: { item: ShowcaseItem }) {
   return (
     <section
       id={
-        showcaseKey === "labs"
-          ? "labs"
-          : showcaseKey === "symptoms"
-            ? "symptoms"
-            : showcaseKey === "opinions"
-              ? "opinions"
-              : undefined
+        showcaseKey === "symptoms"
+          ? "symptoms"
+          : showcaseKey === "opinions"
+            ? "opinions"
+            : undefined
       }
       className={cn(
         "grid items-center gap-10 lg:grid-cols-2 lg:gap-16",

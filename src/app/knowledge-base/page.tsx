@@ -8,7 +8,7 @@ export default function KnowledgeBasePage() {
       description="Browse foundational MediAI help content, feature explanations, and product guidance in one place."
       bullets={[
         "Understand how each MediAI workflow is designed to support patients and professionals.",
-        "Find setup guidance for onboarding, AI Doctor, lab tests, and second opinions.",
+        "Find setup guidance for onboarding, AI Doctor, nearby facilities, and second opinions.",
         "Get quick answers about features, privacy expectations, and recommended usage.",
       ]}
     />

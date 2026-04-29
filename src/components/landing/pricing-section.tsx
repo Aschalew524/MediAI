@@ -44,7 +44,6 @@ const plans: PlanCard[] = [
     ctaDisabled: true,
     features: [
       { label: "Unlimited AI Medical Assistant", included: true },
-      { label: "Unlimited Lab Test Interpretation", included: true },
       { label: "Unlimited AI generated notes (SOAP) and Reports", included: true },
       {
         label: "Unlimited Patient Messaging with AI Auto-Complete",
@@ -52,7 +51,6 @@ const plans: PlanCard[] = [
       },
       { label: "Context-Aware AI Memory", included: true },
       { label: "Research Support", included: false },
-      { label: "Lab System Integration (LIS)", included: false },
       { label: "Premium Support", included: false },
     ],
   },
@@ -68,7 +66,6 @@ const plans: PlanCard[] = [
     features: [
       { label: "Unlimited AI Medical Assistant", included: true },
       { label: "Unlimited Research Assistant", included: true },
-      { label: "Unlimited Lab Test Interpretation", included: true },
       {
         label: "Unlimited AI-generated Notes (SOAP) & Reports",
         included: true,
@@ -78,7 +75,6 @@ const plans: PlanCard[] = [
         included: true,
       },
       { label: "Context-Aware AI Memory", included: true },
-      { label: "Lab System Integration (LIS)", included: true },
       { label: "Premium Support", included: false },
     ],
   },
@@ -92,7 +88,6 @@ const plans: PlanCard[] = [
     features: [
       { label: "Unlimited AI Medical Assistant", included: true },
       { label: "Unlimited Research Assistant", included: true },
-      { label: "Unlimited Lab Test Interpretation", included: true },
       {
         label: "Unlimited AI-generated Notes (SOAP) & Reports",
         included: true,
@@ -102,7 +97,6 @@ const plans: PlanCard[] = [
         included: true,
       },
       { label: "Context-Aware AI Memory", included: true },
-      { label: "Lab System Integration (LIS)", included: true },
       { label: "Premium Support", included: true },
     ],
   },
@@ -116,7 +110,6 @@ const plans: PlanCard[] = [
     features: [
       { label: "Unlimited AI Medical Assistant", included: true },
       { label: "Unlimited Research Assistant", included: true },
-      { label: "Unlimited Lab Test Interpretation", included: true },
       {
         label: "Unlimited AI-generated Notes (SOAP) & Reports",
         included: true,
@@ -126,7 +119,6 @@ const plans: PlanCard[] = [
         included: true,
       },
       { label: "Context-Aware AI Memory", included: true },
-      { label: "Lab System Integration (LIS)", included: true },
       { label: "Premium Support", included: true },
     ],
   },
