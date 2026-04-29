@@ -7,7 +7,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, LoaderCircle } from "lucide-react";
 
-import { aiDoctorSetupStorageKey } from "@/lib/dashboard-content";
+import {
+  dispatchMeRefresh,
+  patchAiDoctorSetup,
+  userFacingMeError,
+} from "@/lib/me-api";
 import { useAIDoctorConfig } from "@/lib/hooks/use-app-config";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +66,7 @@ export function AIDoctorSetupPage() {
   const profile = useDashboardProfile();
   const [started, setStarted] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [serverSetupError, setServerSetupError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!hasResolved || !isSetupComplete) return;
@@ -71,14 +76,40 @@ export function AIDoctorSetupPage() {
 
   useEffect(() => {
     if (!completed) return;
-
-    window.localStorage.setItem(aiDoctorSetupStorageKey, "true");
-
-    const timeout = window.setTimeout(() => {
-      router.push("/dashboard/ai-doctor");
-    }, 1800);
-
-    return () => window.clearTimeout(timeout);
+    let cancelled = false;
+    let timeoutId: number | undefined;
+    (async () => {
+      setServerSetupError(null);
+      try {
+        await patchAiDoctorSetup(true);
+        dispatchMeRefresh();
+        if (cancelled) return;
+        timeoutId = window.setTimeout(() => {
+          router.push("/dashboard/ai-doctor");
+        }, 1800);
+      } catch (e) {
+        console.error(e);
+        try {
+          window.localStorage.setItem("mediai-ai-doctor-setup-completed", "true");
+        } catch {
+          /* ignore */
+        }
+        if (!cancelled) {
+          setServerSetupError(
+            userFacingMeError(
+              e,
+              "Could not save your setup to your account. A copy is saved on this device only; try again when you are online.",
+            ),
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [completed, router]);
 
   return (
@@ -96,6 +127,8 @@ export function AIDoctorSetupPage() {
                 <MedicalHistorySuccess
                   name={profile.preferredName || "Joe"}
                   totalSteps={config.medicalHistoryTotalSteps}
+                  serverError={serverSetupError}
+                  onContinueLocal={() => router.push("/dashboard/ai-doctor")}
                 />
               )
             : started
@@ -450,13 +483,39 @@ function DoctorOrb() {
 function MedicalHistorySuccess({
   name,
   totalSteps,
+  serverError,
+  onContinueLocal,
 }: {
   name: string;
   totalSteps: number;
+  serverError: string | null;
+  onContinueLocal: () => void;
 }) {
   return (
     <section className="flex min-h-[calc(100vh-12rem)] items-center justify-center py-8">
       <div className="w-full max-w-2xl space-y-8 text-center">
+        {serverError ? (
+          <div
+            className="mx-auto max-w-lg rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-left text-sm text-destructive"
+            role="alert"
+          >
+            <p className="font-medium">Couldn&apos;t sync to the server</p>
+            <p className="mt-1 text-destructive/90">{serverError}</p>
+            <p className="mt-2 text-destructive/80">
+              Your answers are stored on this device only until sync succeeds. You can
+              still open the AI Doctor below.
+            </p>
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={onContinueLocal}
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
+              >
+                Continue to AI Doctor
+              </button>
+            </div>
+          </div>
+        ) : null}
         <div className="space-y-4">
           <h1 className="text-3xl font-bold tracking-tight">
             🎉 Great, {name}!
@@ -474,10 +533,12 @@ function MedicalHistorySuccess({
           <p className="text-lg font-medium">
             You have successfully answered all questions!
           </p>
-          <div className="flex flex-col items-center gap-3 text-muted-foreground">
-            <LoaderCircle className="size-10 animate-spin text-primary" />
-            <p className="text-base">Creating {name}&rsquo;s Health profile...</p>
-          </div>
+          {!serverError ? (
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+              <LoaderCircle className="size-10 animate-spin text-primary" />
+              <p className="text-base">Creating {name}&rsquo;s Health profile...</p>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>

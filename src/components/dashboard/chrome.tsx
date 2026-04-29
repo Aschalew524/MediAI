@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Bell, CircleUserRound, MessageCircleMore, ShieldCheck } from "lucide-react";
 
 import { getProfileName } from "@/lib/dashboard-content";
+import { useDashboardAuth } from "@/components/auth/dashboard-auth-provider";
 import { cn } from "@/lib/utils";
 
 import { useDashboardProfile } from "./use-dashboard-profile";
@@ -15,9 +16,17 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const { user, isLoading: authLoading, logout } = useDashboardAuth();
   const profile = useDashboardProfile();
   const name = getProfileName(profile);
-  const email = `${name.toLowerCase().replace(/\s+/g, "")}@gmail.com`;
+  const displayEmail = user?.email
+    ? user.email
+    : authLoading
+      ? "…"
+      : `${name.toLowerCase().replace(/\s+/g, "")}@gmail.com`;
+  const accountId = user?.id
+    ? user.id.slice(0, 8).toUpperCase()
+    : "—";
 
   useEffect(() => {
     if (!menuOpen) {
@@ -100,20 +109,23 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                       </span>
                     </div>
                     <div className="space-y-0.5">
-                      <p className="text-sm font-semibold text-foreground">{email}</p>
-                      <p className="text-xs text-muted-foreground">Account ID: 292556</p>
+                      <p className="text-sm font-semibold text-foreground">{displayEmail}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Account: {accountId}
+                      </p>
                     </div>
                   </div>
 
                   <div className="my-6 h-px bg-primary/15" />
 
                   <nav className="space-y-3">
-                    {[
-                      { label: "Help & Support", href: "/knowledge-base" },
-                      { label: "Billing", href: "/pricing" },
-                      { label: "Account Settings", href: "/dashboard/account-settings" },
-                      { label: "Sign Out", href: "/" },
-                    ].map((item) => (
+                    {(
+                      [
+                        { label: "Help & Support", href: "/knowledge-base" },
+                        { label: "Billing", href: "/pricing" },
+                        { label: "Account Settings", href: "/dashboard/account-settings" },
+                      ] as const
+                    ).map((item) => (
                       <Link
                         key={item.label}
                         href={item.href}
@@ -123,6 +135,16 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                         {item.label}
                       </Link>
                     ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        logout();
+                      }}
+                      className="w-full text-left text-sm font-medium text-foreground transition-colors hover:text-primary"
+                    >
+                      Sign Out
+                    </button>
                   </nav>
                 </div>
               ) : null}

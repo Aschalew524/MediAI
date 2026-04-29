@@ -330,7 +330,11 @@ function LabPricingScreen({
             <PricingCard
               key={plan.name}
               {...plan}
-              onClick={plan.mutedCta ? onGoToDashboard : onChoosePlan}
+              onClick={
+                "mutedCta" in plan && plan.mutedCta
+                  ? onGoToDashboard
+                  : onChoosePlan
+              }
             />
           ))}
         </div>

@@ -1,24 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-import { aiDoctorSetupStorageKey } from "@/lib/dashboard-content";
+import { useDashboardMe } from "./dashboard-me-provider";
 
 export function useAIDoctorSetupStatus() {
-  const [hasResolved, setHasResolved] = useState(false);
-  const [isSetupComplete, setIsSetupComplete] = useState(false);
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(aiDoctorSetupStorageKey);
-      setIsSetupComplete(stored === "true");
-    } catch {
-      setIsSetupComplete(false);
-    } finally {
-      setHasResolved(true);
-    }
-  }, []);
-
-  return { hasResolved, isSetupComplete };
+  const { isMeLoading, aiDoctorSetupCompleted } = useDashboardMe();
+  const hasResolved = !isMeLoading;
+  return { hasResolved, isSetupComplete: aiDoctorSetupCompleted };
 }
-

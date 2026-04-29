@@ -25,7 +25,14 @@ import {
   getProfileSex,
 } from "@/lib/dashboard-content";
 import { useOnboardingConfig } from "@/lib/hooks/use-app-config";
+import {
+  patchMeProfile,
+  profileToPatchBody,
+  userFacingMeError,
+} from "@/lib/me-api";
 import { cn } from "@/lib/utils";
+
+import { useDashboardMe } from "./dashboard-me-provider";
 
 import {
   getProfessionalPatient,
@@ -60,10 +67,13 @@ export function ProfessionalPatientProfilePage({
 }: {
   profile: DashboardProfile;
 }) {
+  const { refreshMe } = useDashboardMe();
   const { data: onboardingConfig } = useOnboardingConfig();
   const [currentProfile, setCurrentProfile] = useState(profile);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openModal, setOpenModal] = useState<OpenModal>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [expandedSection, setExpandedSection] = useState<DetailSectionId | null>(
     null,
   );
@@ -125,15 +135,34 @@ export function ProfessionalPatientProfilePage({
     },
   ];
 
-  function persistProfile(nextProfile: DashboardProfile) {
-    window.localStorage.setItem(
-      dashboardProfileStorageKey,
-      JSON.stringify(nextProfile),
-    );
-    setCurrentProfile(nextProfile);
+  async function saveProfileToServer(nextProfile: DashboardProfile) {
+    setSaveError(null);
+    setSaving(true);
+    try {
+      const res = await patchMeProfile(profileToPatchBody(nextProfile));
+      if (res.profile) {
+        setCurrentProfile(res.profile);
+        try {
+          window.localStorage.setItem(
+            dashboardProfileStorageKey,
+            JSON.stringify(res.profile),
+          );
+        } catch {
+          /* cache optional */
+        }
+      }
+      await refreshMe();
+    } catch (e) {
+      setSaveError(
+        userFacingMeError(e, "Could not save your profile. Please try again."),
+      );
+      throw e;
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function updateProfessionalProfile(
+  async function updateProfessionalProfile(
     updater: (current: ProfessionalProfile) => ProfessionalProfile,
   ) {
     const nextProfessional = updater(
@@ -144,8 +173,7 @@ export function ProfessionalPatientProfilePage({
         region: currentProfile.region,
       },
     );
-
-    persistProfile({
+    await saveProfileToServer({
       ...currentProfile,
       professionalProfile: nextProfessional,
     });
@@ -154,6 +182,14 @@ export function ProfessionalPatientProfilePage({
   return (
     <>
       <ProfessionalDashboardShell profile={currentProfile}>
+        {saveError ? (
+          <div
+            className="mb-4 rounded-lg border border-destructive/25 bg-destructive/5 px-4 py-2 text-sm text-destructive"
+            role="alert"
+          >
+            {saveError}
+          </div>
+        ) : null}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <Link
             href="/dashboard"
@@ -384,13 +420,18 @@ export function ProfessionalPatientProfilePage({
       {openModal === "main-details" ? (
         <EditMainDetailsModal
           profile={currentProfile}
+          isSubmitting={saving}
           onClose={() => setOpenModal(null)}
-          onSave={(nextMainDetails) => {
-            persistProfile({
-              ...currentProfile,
-              ...nextMainDetails,
-            });
-            setOpenModal(null);
+          onSave={async (nextMainDetails) => {
+            try {
+              await saveProfileToServer({
+                ...currentProfile,
+                ...nextMainDetails,
+              });
+              setOpenModal(null);
+            } catch {
+              /* saveError set */
+            }
           }}
         />
       ) : null}
@@ -408,13 +449,18 @@ export function ProfessionalPatientProfilePage({
           dietaryHabitsOptions={onboardingConfig.dietaryHabitOptions}
           sleepPatternOptions={onboardingConfig.sleepPatternOptions}
           stressLevelOptions={onboardingConfig.stressLevelOptions}
+          isSubmitting={saving}
           onClose={() => setOpenModal(null)}
-          onSave={(nextLifestyle) => {
-            updateProfessionalProfile((current) => ({
-              ...current,
-              ...nextLifestyle,
-            }));
-            setOpenModal(null);
+          onSave={async (nextLifestyle) => {
+            try {
+              await updateProfessionalProfile((current) => ({
+                ...current,
+                ...nextLifestyle,
+              }));
+              setOpenModal(null);
+            } catch {
+              /* saveError set */
+            }
           }}
         />
       ) : null}
@@ -422,13 +468,18 @@ export function ProfessionalPatientProfilePage({
       {openModal === "vitals" ? (
         <VitalSignsModal
           profile={currentProfile}
+          isSubmitting={saving}
           onClose={() => setOpenModal(null)}
-          onSave={(nextVitals) => {
-            persistProfile({
-              ...currentProfile,
-              ...nextVitals,
-            });
-            setOpenModal(null);
+          onSave={async (nextVitals) => {
+            try {
+              await saveProfileToServer({
+                ...currentProfile,
+                ...nextVitals,
+              });
+              setOpenModal(null);
+            } catch {
+              /* saveError set */
+            }
           }}
         />
       ) : null}
@@ -441,14 +492,19 @@ export function ProfessionalPatientProfilePage({
           value={
             professionalProfile[openModal as DetailSectionId]?.trim() || ""
           }
+          isSubmitting={saving}
           onClose={() => setOpenModal(null)}
-          onSave={(value) => {
-            updateProfessionalProfile((current) => ({
-              ...current,
-              [openModal as DetailSectionId]: value,
-            }));
-            setExpandedSection(openModal as DetailSectionId);
-            setOpenModal(null);
+          onSave={async (value) => {
+            try {
+              await updateProfessionalProfile((current) => ({
+                ...current,
+                [openModal as DetailSectionId]: value,
+              }));
+              setExpandedSection(openModal as DetailSectionId);
+              setOpenModal(null);
+            } catch {
+              /* saveError set */
+            }
           }}
         />
       ) : null}
@@ -597,12 +653,16 @@ function NoDataCard({
 
 function EditMainDetailsModal({
   profile,
+  isSubmitting,
   onClose,
   onSave,
 }: {
   profile: DashboardProfile;
+  isSubmitting?: boolean;
   onClose: () => void;
-  onSave: (nextProfile: Pick<DashboardProfile, "preferredName" | "age" | "sexAtBirth">) => void;
+  onSave: (
+    nextProfile: Pick<DashboardProfile, "preferredName" | "age" | "sexAtBirth">,
+  ) => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState({
     preferredName: profile.preferredName,
@@ -612,7 +672,7 @@ function EditMainDetailsModal({
 
   function submitForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSave(draft);
+    void onSave(draft);
   }
 
   return (
@@ -657,7 +717,10 @@ function EditMainDetailsModal({
                 onChange={(event) =>
                   setDraft((current) => ({
                     ...current,
-                    sexAtBirth: event.target.value as DashboardProfile["sexAtBirth"],
+                    sexAtBirth: event.target.value as
+                      | "male"
+                      | "female"
+                      | "other",
                   }))
                 }
                 className="h-12 w-full appearance-none rounded-xl border border-primary/15 bg-white px-4 pr-10 text-sm outline-none transition-colors focus:border-primary"
@@ -670,7 +733,11 @@ function EditMainDetailsModal({
             </div>
           </FormField>
 
-          <ModalActions onCancel={onClose} submitLabel="Save" />
+          <ModalActions
+            onCancel={onClose}
+            submitLabel={isSubmitting ? "Saving…" : "Save"}
+            disabled={isSubmitting}
+          />
         </form>
       </div>
     </ModalFrame>
@@ -720,6 +787,7 @@ function LifestyleHabitsModal({
   dietaryHabitsOptions,
   sleepPatternOptions,
   stressLevelOptions,
+  isSubmitting,
   onClose,
   onSave,
 }: {
@@ -730,6 +798,7 @@ function LifestyleHabitsModal({
   dietaryHabitsOptions: string[];
   sleepPatternOptions: string[];
   stressLevelOptions: string[];
+  isSubmitting?: boolean;
   onClose: () => void;
   onSave: (nextProfile: Pick<
     ProfessionalProfile,
@@ -739,7 +808,7 @@ function LifestyleHabitsModal({
     | "dietaryHabits"
     | "sleepPattern"
     | "stressLevel"
-  >) => void;
+  >) => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState({
     smokingIntensity: profile.smokingIntensity || "",
@@ -752,7 +821,7 @@ function LifestyleHabitsModal({
 
   function submitForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSave(draft);
+    void onSave(draft);
   }
 
   return (
@@ -816,7 +885,11 @@ function LifestyleHabitsModal({
           />
         </div>
 
-        <ModalActions onCancel={onClose} submitLabel="Save" />
+        <ModalActions
+          onCancel={onClose}
+          submitLabel={isSubmitting ? "Saving…" : "Save"}
+          disabled={isSubmitting}
+        />
       </form>
     </ModalFrame>
   );
@@ -824,10 +897,12 @@ function LifestyleHabitsModal({
 
 function VitalSignsModal({
   profile,
+  isSubmitting,
   onClose,
   onSave,
 }: {
   profile: DashboardProfile;
+  isSubmitting?: boolean;
   onClose: () => void;
   onSave: (nextProfile: Pick<
     DashboardProfile,
@@ -836,7 +911,7 @@ function VitalSignsModal({
     | "heightInches"
     | "heightCm"
     | "weight"
-  >) => void;
+  >) => void | Promise<void>;
 }) {
   const [measurementSystem, setMeasurementSystem] = useState<MeasurementSystem>(
     profile.measurementSystem || "imperial",
@@ -848,7 +923,7 @@ function VitalSignsModal({
 
   function submitForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSave({
+    void onSave({
       measurementSystem,
       heightFeet: measurementSystem === "imperial" ? heightFeet : "",
       heightInches: measurementSystem === "imperial" ? heightInches : "",
@@ -955,7 +1030,11 @@ function VitalSignsModal({
           </div>
         )}
 
-        <ModalActions onCancel={onClose} submitLabel="Save" />
+        <ModalActions
+          onCancel={onClose}
+          submitLabel={isSubmitting ? "Saving…" : "Save"}
+          disabled={isSubmitting}
+        />
       </form>
     </ModalFrame>
   );
@@ -964,19 +1043,21 @@ function VitalSignsModal({
 function SectionEditorModal({
   title,
   value,
+  isSubmitting,
   onClose,
   onSave,
 }: {
   title: string;
   value: string;
+  isSubmitting?: boolean;
   onClose: () => void;
-  onSave: (value: string) => void;
+  onSave: (value: string) => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState(value);
 
   function submitForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSave(draft);
+    void onSave(draft);
   }
 
   return (
@@ -991,7 +1072,11 @@ function SectionEditorModal({
           placeholder={`write ${title.toLowerCase()} here...`}
           className="min-h-36 w-full rounded-xl border border-primary/15 px-4 py-4 text-sm outline-none transition-colors focus:border-primary"
         />
-        <ModalActions onCancel={onClose} submitLabel="Save" />
+        <ModalActions
+          onCancel={onClose}
+          submitLabel={isSubmitting ? "Saving…" : "Save"}
+          disabled={isSubmitting}
+        />
       </form>
     </ModalFrame>
   );
@@ -1105,22 +1190,26 @@ function UnitButton({
 function ModalActions({
   onCancel,
   submitLabel,
+  disabled,
 }: {
   onCancel: () => void;
   submitLabel: string;
+  disabled?: boolean;
 }) {
   return (
     <div className="flex justify-end gap-3 pt-2">
       <button
         type="button"
         onClick={onCancel}
-        className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/25 px-5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+        disabled={disabled}
+        className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/25 px-5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
       >
         Cancel
       </button>
       <button
         type="submit"
-        className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
+        disabled={disabled}
+        className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95 disabled:opacity-50"
       >
         {submitLabel}
       </button>

@@ -35,13 +35,23 @@ import {
   getProfileSex,
   getProfileWeight,
   type MedicalHistoryData,
-  medicalHistoryStorageKey,
   sleepOptions,
   smokingOptions,
   stressOptions,
 } from "@/lib/dashboard-content";
+import { clearAccessToken } from "@/lib/auth-storage";
+import {
+  deleteMeAccount,
+  patchMeProfile,
+  profileToPatchBody,
+  putMedicalHistory,
+  userFacingMeError,
+} from "@/lib/me-api";
 import { useDashboardConfig } from "@/lib/hooks/use-app-config";
 import { cn } from "@/lib/utils";
+
+import { useDashboardAuth } from "@/components/auth/dashboard-auth-provider";
+import { useDashboardMe } from "./dashboard-me-provider";
 
 import {
   CompletionRing,
@@ -458,20 +468,43 @@ function ConsumerHealthProfilePage({
 }: {
   profile: DashboardProfile;
 }) {
+  const { refreshMe } = useDashboardMe();
   const [editableProfile, setEditableProfile] = useState<DashboardProfile>(profile);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+
+  useEffect(() => {
+    setEditableProfile(profile);
+  }, [profile]);
 
   function openEditModal() {
+    setProfileSaveError(null);
     setEditableProfile(profile);
     setEditModalOpen(true);
   }
 
-  function handleProfileSave(nextProfile: DashboardProfile) {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(dashboardProfileStorageKey, JSON.stringify(nextProfile));
+  async function handleProfileSave(nextProfile: DashboardProfile) {
+    setProfileSaveError(null);
+    setProfileSaving(true);
+    try {
+      await patchMeProfile(profileToPatchBody(nextProfile));
+      await refreshMe();
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          dashboardProfileStorageKey,
+          JSON.stringify(nextProfile),
+        );
+      }
+      setEditableProfile(nextProfile);
+      setEditModalOpen(false);
+    } catch (e) {
+      setProfileSaveError(
+        userFacingMeError(e, "Could not save your profile. Please try again."),
+      );
+    } finally {
+      setProfileSaving(false);
     }
-    setEditableProfile(nextProfile);
-    setEditModalOpen(false);
   }
 
   return (
@@ -552,7 +585,12 @@ function ConsumerHealthProfilePage({
       {editModalOpen ? (
         <EditGeneralInformationModal
           profile={editableProfile}
-          onClose={() => setEditModalOpen(false)}
+          saveError={profileSaveError}
+          isSaving={profileSaving}
+          onClose={() => {
+            setProfileSaveError(null);
+            setEditModalOpen(false);
+          }}
           onSave={handleProfileSave}
         />
       ) : null}
@@ -576,16 +614,24 @@ function EditGeneralInformationModal({
   profile,
   onClose,
   onSave,
+  saveError,
+  isSaving,
 }: {
   profile: DashboardProfile;
   onClose: () => void;
-  onSave: (profile: DashboardProfile) => void;
+  onSave: (profile: DashboardProfile) => void | Promise<void>;
+  saveError?: string | null;
+  isSaving?: boolean;
 }) {
   const [draft, setDraft] = useState<DashboardProfile>(profile);
 
+  useEffect(() => {
+    setDraft(profile);
+  }, [profile]);
+
   function submitForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSave(draft);
+    void onSave(draft);
   }
 
   return (
@@ -609,6 +655,11 @@ function EditGeneralInformationModal({
         </div>
 
         <form onSubmit={submitForm} className="space-y-5">
+          {saveError ? (
+            <p className="rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
+              {saveError}
+            </p>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-1.5">
               <span className="text-sm font-medium text-foreground">Preferred Name</span>
@@ -699,15 +750,17 @@ function EditGeneralInformationModal({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 px-5 text-sm font-medium transition-colors hover:bg-muted"
+              disabled={isSaving}
+              className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 px-5 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
+              disabled={isSaving}
+              className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95 disabled:opacity-50"
             >
-              Save changes
+              {isSaving ? "Saving…" : "Save changes"}
             </button>
           </div>
         </form>
@@ -756,25 +809,20 @@ export function MainHealthInformationPage() {
 /* -------------------------------------------------------------------------- */
 
 function useMedicalHistory() {
+  const { medicalHistory, refreshMe, isMeLoading } = useDashboardMe();
   const [data, setData] = useState<MedicalHistoryData>(defaultMedicalHistory);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(medicalHistoryStorageKey);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Partial<MedicalHistoryData>;
-        setData({ ...defaultMedicalHistory, ...parsed });
-      }
-    } catch {
-      /* ignore */
-    }
-  }, []);
+    if (isMeLoading || hydrated) return;
+    setData({ ...defaultMedicalHistory, ...medicalHistory });
+    setHydrated(true);
+  }, [isMeLoading, medicalHistory, hydrated]);
 
-  function save(next: MedicalHistoryData) {
+  async function save(next: MedicalHistoryData) {
     setData(next);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(medicalHistoryStorageKey, JSON.stringify(next));
-    }
+    await putMedicalHistory(next);
+    await refreshMe();
   }
 
   return { data, save };
@@ -784,6 +832,12 @@ export function MedicalHistoryPage() {
   const { data, save } = useMedicalHistory();
   const [draft, setDraft] = useState<MedicalHistoryData>(data);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraft(data);
+  }, [data]);
 
   function update(partial: Partial<MedicalHistoryData>) {
     setDraft((current) => ({ ...current, ...partial }));
@@ -805,8 +859,18 @@ export function MedicalHistoryPage() {
   }
 
   function handleSave() {
-    save(draft);
-    setSaved(true);
+    setSaveError(null);
+    setSaving(true);
+    void save(draft)
+      .then(() => {
+        setSaved(true);
+      })
+      .catch((e: unknown) => {
+        setSaveError(userFacingMeError(e, "Could not save medical history."));
+      })
+      .finally(() => {
+        setSaving(false);
+      });
   }
 
   return (
@@ -932,9 +996,18 @@ export function MedicalHistoryPage() {
           />
         </DashboardPanel>
 
+        {saveError ? (
+          <p className="text-center text-sm text-destructive" role="alert">
+            {saveError}
+          </p>
+        ) : null}
         <div className="flex items-center justify-center gap-4 pb-4">
-          <DashboardActionButton onClick={handleSave}>
-            {saved ? "Saved!" : "Save Medical History"}
+          <DashboardActionButton
+            onClick={handleSave}
+            disabled={saving}
+            className="disabled:opacity-50"
+          >
+            {saving ? "Saving…" : saved ? "Saved!" : "Save Medical History"}
           </DashboardActionButton>
           {saved ? (
             <p className="text-sm font-medium text-primary">
@@ -1048,19 +1121,24 @@ export function NotificationsPage() {
   );
 }
 
-type AccountModal = null | "change-email" | "edit-nickname" | "reset-password" | "delete-account";
+type AccountModal = null | "edit-nickname" | "reset-password" | "delete-account";
 
 export function AccountSettingsPage() {
+  const { user, isLoading: authLoading } = useDashboardAuth();
+  const { refreshMe } = useDashboardMe();
   const profile = useDashboardProfile();
-  const defaultEmail = `${getProfileName(profile).toLowerCase().replace(/\s+/g, "")}@gmail.com`;
-  const defaultNickname = getProfileName(profile).toLowerCase() || "mik";
-  const [emailOverride, setEmailOverride] = useState<string | null>(null);
+  const defaultNickname = getProfileName(profile) || "User";
   const [nicknameOverride, setNicknameOverride] = useState<string | null>(null);
   const [openModal, setOpenModal] = useState<AccountModal>(null);
   const [passwordResetDone, setPasswordResetDone] = useState(false);
+  const [nicknameError, setNicknameError] = useState<string | null>(null);
+  const [nicknameSaving, setNicknameSaving] = useState(false);
 
-  const localEmail = emailOverride ?? defaultEmail;
+  const accountEmail = user?.email ?? null;
+  const displayUserId = authLoading ? "…" : (user?.id ?? "—");
+  const displayEmail = authLoading ? "…" : (accountEmail ?? "—");
   const localNickname = nicknameOverride ?? defaultNickname;
+  const resetPasswordEmail = accountEmail ?? "";
 
   return (
     <>
@@ -1079,22 +1157,20 @@ export function AccountSettingsPage() {
 
           <DashboardPanel className="divide-y divide-primary/10 bg-white p-0">
             <section className="space-y-4 px-8 py-8">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-foreground">User details</h2>
-                <button
-                  type="button"
-                  onClick={() => setOpenModal("change-email")}
-                  className="text-sm font-semibold text-primary/95 transition-colors hover:text-primary hover:underline"
-                >
-                  Change
-                </button>
-              </div>
+              <h2 className="text-lg font-semibold text-foreground">User details</h2>
               <div className="space-y-1 text-sm">
                 <p className="text-muted-foreground">
-                  User ID: <span className="text-foreground/80">292556</span>
+                  User ID:{" "}
+                  <span className="text-foreground/80 font-mono text-xs sm:text-sm">
+                    {displayUserId}
+                  </span>
                 </p>
                 <p className="text-muted-foreground">
-                  Email: <span className="text-foreground/80">{localEmail}</span>
+                  Email: <span className="text-foreground/80">{displayEmail}</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Email change is not available yet. Contact support if you need to update
+                  the address on your account.
                 </p>
                 <p className="text-muted-foreground">
                   Subscription plan:{" "}
@@ -1157,42 +1233,41 @@ export function AccountSettingsPage() {
         </DashboardContainer>
       </DashboardPage>
 
-      {openModal === "change-email" ? (
-        <AccountSettingsModal
-          title="Change Email"
-          onClose={() => setOpenModal(null)}
-        >
-          <ChangeEmailForm
-            currentEmail={localEmail}
-            onSave={(nextEmail) => {
-              setEmailOverride(nextEmail);
-              setOpenModal(null);
-            }}
-            onCancel={() => setOpenModal(null)}
-          />
-        </AccountSettingsModal>
-      ) : null}
-
       {openModal === "edit-nickname" ? (
         <AccountSettingsModal
           title="Edit Nickname"
-          onClose={() => setOpenModal(null)}
+          onClose={() => {
+            setNicknameError(null);
+            setOpenModal(null);
+          }}
         >
           <EditNicknameForm
             currentNickname={localNickname}
-            onSave={(nextNickname) => {
-              setNicknameOverride(nextNickname);
-              const nextProfile: DashboardProfile = {
-                ...profile,
-                preferredName: nextNickname,
-              };
-              window.localStorage.setItem(
-                dashboardProfileStorageKey,
-                JSON.stringify(nextProfile),
-              );
+            isSaving={nicknameSaving}
+            error={nicknameError}
+            onSave={async (nextNickname) => {
+              setNicknameError(null);
+              setNicknameSaving(true);
+              try {
+                await patchMeProfile({ preferredName: nextNickname });
+                await refreshMe();
+                setNicknameOverride(null);
+                setOpenModal(null);
+              } catch (e) {
+                setNicknameError(
+                  userFacingMeError(
+                    e,
+                    "Could not update your nickname. Please try again.",
+                  ),
+                );
+              } finally {
+                setNicknameSaving(false);
+              }
+            }}
+            onCancel={() => {
+              setNicknameError(null);
               setOpenModal(null);
             }}
-            onCancel={() => setOpenModal(null)}
           />
         </AccountSettingsModal>
       ) : null}
@@ -1203,7 +1278,7 @@ export function AccountSettingsPage() {
           onClose={() => setOpenModal(null)}
         >
           <ResetPasswordForm
-            email={localEmail}
+            email={resetPasswordEmail}
             onConfirm={() => {
               setPasswordResetDone(true);
               setOpenModal(null);
@@ -1219,9 +1294,19 @@ export function AccountSettingsPage() {
           onClose={() => setOpenModal(null)}
         >
           <DeleteAccountForm
-            onConfirm={() => {
-              window.localStorage.removeItem(dashboardProfileStorageKey);
-              window.location.href = "/";
+            onDelete={async ({ password }) => {
+              if (password.trim()) {
+                await deleteMeAccount({ password: password.trim() });
+              } else {
+                await deleteMeAccount({ confirm: "DELETE" });
+              }
+              clearAccessToken();
+              try {
+                window.localStorage.removeItem(dashboardProfileStorageKey);
+              } catch {
+                /* ignore */
+              }
+              window.location.href = "/signin";
             }}
             onCancel={() => setOpenModal(null)}
           />
@@ -1260,48 +1345,17 @@ function AccountSettingsModal({
   );
 }
 
-function ChangeEmailForm({
-  currentEmail,
-  onSave,
-  onCancel,
-}: {
-  currentEmail: string;
-  onSave: (email: string) => void;
-  onCancel: () => void;
-}) {
-  const [draft, setDraft] = useState(currentEmail);
-
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (draft.trim()) onSave(draft.trim());
-      }}
-      className="space-y-5"
-    >
-      <label className="block space-y-1.5">
-        <span className="text-sm font-medium text-foreground">New Email</span>
-        <input
-          type="email"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          className="h-11 w-full rounded-xl border border-primary/15 px-3 text-sm outline-none ring-primary transition focus:ring-2"
-          placeholder="your@email.com"
-          required
-        />
-      </label>
-      <AccountModalActions onCancel={onCancel} submitLabel="Save" />
-    </form>
-  );
-}
-
 function EditNicknameForm({
   currentNickname,
+  isSaving,
+  error,
   onSave,
   onCancel,
 }: {
   currentNickname: string;
-  onSave: (nickname: string) => void;
+  isSaving?: boolean;
+  error?: string | null;
+  onSave: (nickname: string) => void | Promise<void>;
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState(currentNickname);
@@ -1310,10 +1364,15 @@ function EditNicknameForm({
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        if (draft.trim()) onSave(draft.trim());
+        if (draft.trim()) void onSave(draft.trim());
       }}
       className="space-y-5"
     >
+      {error ? (
+        <p className="rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
       <label className="block space-y-1.5">
         <span className="text-sm font-medium text-foreground">Nickname</span>
         <input
@@ -1322,9 +1381,14 @@ function EditNicknameForm({
           className="h-11 w-full rounded-xl border border-primary/15 px-3 text-sm outline-none ring-primary transition focus:ring-2"
           placeholder="Your nickname"
           required
+          disabled={isSaving}
         />
       </label>
-      <AccountModalActions onCancel={onCancel} submitLabel="Save" />
+      <AccountModalActions
+        onCancel={onCancel}
+        submitLabel={isSaving ? "Saving…" : "Save"}
+        disabled={isSaving}
+      />
     </form>
   );
 }
@@ -1341,9 +1405,18 @@ function ResetPasswordForm({
   return (
     <div className="space-y-5">
       <p className="text-sm leading-6 text-muted-foreground">
-        We will send a password reset link to{" "}
-        <span className="font-semibold text-foreground">{email}</span>.
-        Are you sure you want to continue?
+        {email ? (
+          <>
+            We will send a password reset link to{" "}
+            <span className="font-semibold text-foreground">{email}</span>. Are you sure
+            you want to continue?
+          </>
+        ) : (
+          <>
+            No email is on file for this session. Add or verify an email in your account
+            before using password reset, or contact support.
+          </>
+        )}
       </p>
       <AccountModalActions
         onCancel={onCancel}
@@ -1355,14 +1428,35 @@ function ResetPasswordForm({
 }
 
 function DeleteAccountForm({
-  onConfirm,
+  onDelete,
   onCancel,
 }: {
-  onConfirm: () => void;
+  onDelete: (args: { password: string }) => void | Promise<void>;
   onCancel: () => void;
 }) {
   const [confirmText, setConfirmText] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const confirmed = confirmText.toLowerCase() === "delete";
+
+  async function handleDelete() {
+    if (!confirmed) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      await onDelete({ password });
+    } catch (e) {
+      setError(
+        userFacingMeError(
+          e,
+          "Could not delete your account. Check your password or try again.",
+        ),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -1372,6 +1466,21 @@ function DeleteAccountForm({
           cannot be undone. All your data, conversations, and health records will be
           permanently removed.
         </p>
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium text-foreground">Current password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="h-11 w-full rounded-xl border border-primary/15 px-3 text-sm outline-none transition focus:ring-2"
+            placeholder="Required for email & password sign-in"
+            autoComplete="current-password"
+          />
+          <span className="text-xs text-muted-foreground">
+            If you use Google sign-in only, leave this empty — we will use the confirmation
+            below instead.
+          </span>
+        </label>
         <label className="block space-y-1.5">
           <span className="text-sm font-medium text-foreground">
             Type <span className="font-semibold text-destructive">delete</span> to confirm
@@ -1383,22 +1492,30 @@ function DeleteAccountForm({
             placeholder="delete"
           />
         </label>
+        {error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
       </div>
       <div className="flex justify-end gap-3 pt-2">
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 px-5 text-sm font-medium transition-colors hover:bg-muted"
+          disabled={submitting}
+          className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 px-5 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
         >
           Cancel
         </button>
         <button
           type="button"
-          onClick={onConfirm}
-          disabled={!confirmed}
+          onClick={() => {
+            void handleDelete();
+          }}
+          disabled={!confirmed || submitting}
           className="inline-flex h-11 items-center justify-center rounded-xl bg-destructive px-5 text-sm font-medium text-white transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Delete My Account
+          {submitting ? "Deleting…" : "Delete My Account"}
         </button>
       </div>
     </div>
@@ -1409,17 +1526,20 @@ function AccountModalActions({
   onCancel,
   submitLabel,
   onSubmit,
+  disabled,
 }: {
   onCancel: () => void;
   submitLabel: string;
   onSubmit?: () => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="flex justify-end gap-3 pt-2">
       <button
         type="button"
         onClick={onCancel}
-        className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 px-5 text-sm font-medium transition-colors hover:bg-muted"
+        disabled={disabled}
+        className="inline-flex h-11 items-center justify-center rounded-xl border border-primary/20 px-5 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
       >
         Cancel
       </button>
@@ -1427,14 +1547,16 @@ function AccountModalActions({
         <button
           type="button"
           onClick={onSubmit}
-          className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
+          disabled={disabled}
+          className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95 disabled:opacity-50"
         >
           {submitLabel}
         </button>
       ) : (
         <button
           type="submit"
-          className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
+          disabled={disabled}
+          className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95 disabled:opacity-50"
         >
           {submitLabel}
         </button>
