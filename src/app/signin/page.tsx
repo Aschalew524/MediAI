@@ -1,37 +1,77 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Lock, Mail } from "lucide-react";
+import { Suspense } from "react";
 
 import {
-  AuthOutlineButton,
   AuthPageShell,
   AuthPrimaryButton,
-  GoogleMark,
   IconInput,
   LegalDisclaimer,
   MediAIWordmark,
-  OrDivider,
 } from "@/components/auth/shared";
+import { postLogin, userFacingAxiosError } from "@/lib/auth-api";
 
-export default function SignInPage() {
+function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    const e = searchParams.get("error");
+    if (e) {
+      setFormError("Sign-in could not be completed. Please try again.");
+      router.replace("/signin", { scroll: false });
+    }
+  }, [router, searchParams]);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    // After real auth succeeds, keep this navigation (or use returned redirect).
-    router.push("/dashboard");
-  }
-
-  function handleGoogle() {
-    router.push("/dashboard");
+    setFormError(null);
+    setIsSubmitting(true);
+    const fd = new FormData(e.currentTarget);
+    const email = String(fd.get("email") ?? "");
+    const password = String(fd.get("password") ?? "");
+    try {
+      await postLogin({ email, password });
+      if (
+        from &&
+        from.startsWith("/dashboard") &&
+        !from.startsWith("//")
+      ) {
+        router.push(from);
+      } else {
+        router.push("/dashboard");
+      }
+    } catch (err) {
+      setFormError(
+        userFacingAxiosError(err, "We could not sign you in. Please try again."),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
-    <AuthPageShell>
-      <MediAIWordmark className="mb-2" />
-      <h1 className="mb-8 text-2xl font-bold text-foreground">Welcome Back!</h1>
+    <>
+      {from ? (
+        <p className="mb-4 w-full text-center text-sm text-muted-foreground">
+          Sign in to continue to the app.
+        </p>
+      ) : null}
+      {formError ? (
+        <p
+          role="alert"
+          className="mb-4 w-full rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+        >
+          {formError}
+        </p>
+      ) : null}
 
       <form className="w-full space-y-4" onSubmit={handleSubmit}>
         <IconInput
@@ -60,8 +100,27 @@ export default function SignInPage() {
             </Link>
           </div>
         </div>
-        <AuthPrimaryButton type="submit">Sign In</AuthPrimaryButton>
+        <AuthPrimaryButton type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Signing in…" : "Sign In"}
+        </AuthPrimaryButton>
       </form>
+    </>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <AuthPageShell>
+      <MediAIWordmark className="mb-2" />
+      <h1 className="mb-8 text-2xl font-bold text-foreground">Welcome Back!</h1>
+
+      <Suspense
+        fallback={
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        }
+      >
+        <SignInForm />
+      </Suspense>
 
       <p className="mt-6 text-center text-sm text-foreground/80">
         Don&apos;t have account?{" "}
@@ -69,17 +128,6 @@ export default function SignInPage() {
           Sign Up
         </Link>
       </p>
-
-      <OrDivider />
-
-      <AuthOutlineButton
-        type="button"
-        aria-label="Continue with Google"
-        onClick={handleGoogle}
-      >
-        <GoogleMark />
-        Continue with Google
-      </AuthOutlineButton>
 
       <LegalDisclaimer verb="signing in" />
     </AuthPageShell>

@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 
+import { isAxiosError } from "axios";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 import {
   BadgeInfo,
@@ -20,7 +22,8 @@ import {
   type SexOption,
   type UserRoleOption,
 } from "@/lib/onboarding-content";
-import { dashboardProfileStorageKey } from "@/lib/dashboard-content";
+import { dispatchMeRefresh, postOnboardingComplete, userFacingMeError } from "@/lib/me-api";
+import { buildPersonalOnboardingBody } from "@/lib/onboarding-payloads";
 import { useOnboardingConfig } from "@/lib/hooks/use-app-config";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +67,8 @@ export function OnboardingWizard() {
   const router = useRouter();
   const { data: config } = useOnboardingConfig();
   const [currentStep, setCurrentStep] = useState(0);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<OnboardingState>({
     role: null,
     preferredName: "",
@@ -134,48 +139,64 @@ export function OnboardingWizard() {
     );
   }
 
-  function completeOnboarding() {
-    const payload = {
-      preferredName: form.preferredName,
-      age: form.age,
-      region: form.region,
-      measurementSystem: form.measurementSystem ?? "imperial",
-      weight: form.weight,
-      heightFeet: form.heightFeet,
-      heightInches: form.heightInches,
-      heightCm: form.heightCm,
-      sexAtBirth: form.sexAtBirth,
-      preferredFeature: form.preferredFeature,
-    };
-
-    window.localStorage.setItem(
-      dashboardProfileStorageKey,
-      JSON.stringify(payload),
-    );
-
-    if (form.preferredFeature === "ai-doctor") {
+  function routeAfterOnboarding(
+    feature: "ai-doctor" | "lab-test-interpretation" | "top-doctors" | null,
+  ) {
+    if (feature === "ai-doctor") {
       router.push("/dashboard/ai-doctor");
       return;
     }
-
-    if (form.preferredFeature === "lab-test-interpretation") {
+    if (feature === "lab-test-interpretation") {
       router.push("/dashboard/lab-test-interpretation");
       return;
     }
-
-    if (form.preferredFeature === "top-doctors") {
+    if (feature === "top-doctors") {
       router.push("/dashboard/top-doctors");
       return;
     }
-
     router.push("/dashboard");
   }
 
+  async function completeOnboarding() {
+    setFormError(null);
+    setIsSubmitting(true);
+    try {
+      const feature = form.preferredFeature ?? "ai-doctor";
+      const body = buildPersonalOnboardingBody({
+        role: "personal",
+        preferredName: form.preferredName,
+        isConfirmedAdult: form.isConfirmedAdult,
+        region: form.region,
+        age: form.age,
+        measurementSystem: form.measurementSystem,
+        weight: form.weight,
+        heightFeet: form.heightFeet,
+        heightInches: form.heightInches,
+        heightCm: form.heightCm,
+        sexAtBirth: form.sexAtBirth,
+        preferredFeature: form.preferredFeature,
+      });
+      await postOnboardingComplete(body);
+      dispatchMeRefresh();
+      routeAfterOnboarding(feature);
+    } catch (err) {
+      if (err instanceof Error && !isAxiosError(err)) {
+        setFormError(err.message);
+      } else {
+        setFormError(
+          userFacingMeError(err, "Could not save your profile. Please try again."),
+        );
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   function nextStep() {
-    if (!isStepValid) return;
+    if (!isStepValid || isSubmitting) return;
 
     if (currentStep === onboardingStepCount - 1) {
-      completeOnboarding();
+      void completeOnboarding();
       return;
     }
 
@@ -707,19 +728,34 @@ export function OnboardingWizard() {
               })}
             </div>
 
+            {formError ? (
+              <p className="w-full text-center text-sm text-destructive" role="alert">
+                {formError}
+              </p>
+            ) : null}
             <div className="flex flex-col items-center gap-5 pt-2">
               <PrimaryButton
                 className="h-11 min-w-24 rounded-xl px-7 text-sm font-medium"
-                disabled={!isStepValid}
+                disabled={!isStepValid || isSubmitting}
                 onClick={nextStep}
               >
-                Next
+                {isSubmitting ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="size-4 animate-spin" />
+                    Saving…
+                  </span>
+                ) : (
+                  "Next"
+                )}
               </PrimaryButton>
 
               <button
                 type="button"
-                onClick={completeOnboarding}
-                className="text-sm font-medium text-primary underline underline-offset-2 hover:opacity-90"
+                onClick={() => {
+                  void completeOnboarding();
+                }}
+                disabled={isSubmitting}
+                className="text-sm font-medium text-primary underline underline-offset-2 hover:opacity-90 disabled:opacity-50"
               >
                 Skip to My Dashboard
               </button>

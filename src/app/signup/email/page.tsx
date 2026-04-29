@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ArrowLeft, Lock, Mail } from "lucide-react";
 
 import {
@@ -11,19 +12,41 @@ import {
   LegalDisclaimer,
   MediAIWordmark,
 } from "@/components/auth/shared";
+import { postRegister, userFacingAxiosError } from "@/lib/auth-api";
 
 export default function SignUpEmailPage() {
   const router = useRouter();
+  const [mismatch, setMismatch] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setFormError(null);
+    setMismatch(false);
     const fd = new FormData(e.currentTarget);
-    const p = String(fd.get("password") ?? "");
-    const c = String(fd.get("confirmPassword") ?? "");
-    if (p !== c) {
+    const email = String(fd.get("email") ?? "");
+    const password = String(fd.get("password") ?? "");
+    const confirmPassword = String(fd.get("confirmPassword") ?? "");
+    if (password.length < 8) {
+      setFormError("Password must be at least 8 characters.");
       return;
     }
-    router.push("/onboarding");
+    if (password !== confirmPassword) {
+      setMismatch(true);
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await postRegister({ email, password });
+      router.push("/onboarding");
+    } catch (err) {
+      setFormError(
+        userFacingAxiosError(err, "We could not create your account. Please try again."),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -41,6 +64,22 @@ export default function SignUpEmailPage() {
         <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
       </div>
 
+      {mismatch ? (
+        <p
+          role="alert"
+          className="mb-4 w-full rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm text-amber-900"
+        >
+          Passwords do not match. Please re-enter and try again.
+        </p>
+      ) : formError ? (
+        <p
+          role="alert"
+          className="mb-4 w-full rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+        >
+          {formError}
+        </p>
+      ) : null}
+
       <form className="w-full space-y-4" onSubmit={handleSubmit}>
         <IconInput
           icon={<Mail className="size-[18px]" />}
@@ -55,7 +94,9 @@ export default function SignUpEmailPage() {
           name="password"
           type="password"
           autoComplete="new-password"
-          placeholder="Set new password"
+          placeholder="Set new password (min. 8 characters)"
+          minLength={8}
+          maxLength={128}
           required
         />
         <IconInput
@@ -64,9 +105,13 @@ export default function SignUpEmailPage() {
           type="password"
           autoComplete="new-password"
           placeholder="Confirm new password"
+          minLength={8}
+          maxLength={128}
           required
         />
-        <AuthPrimaryButton type="submit">Sign up</AuthPrimaryButton>
+        <AuthPrimaryButton type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Creating account…" : "Sign up"}
+        </AuthPrimaryButton>
       </form>
 
       <p className="mt-6 text-center text-sm text-foreground/80">

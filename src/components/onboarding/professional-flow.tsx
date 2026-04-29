@@ -1,5 +1,6 @@
 "use client";
 
+import { isAxiosError } from "axios";
 import { useRef, useState, type ChangeEvent } from "react";
 
 import { useRouter } from "next/navigation";
@@ -8,6 +9,7 @@ import {
   CheckCircle2,
   ChevronDown,
   HeartPulse,
+  Loader2,
   Lock,
   Mail,
   MapPinned,
@@ -16,10 +18,19 @@ import {
   Upload,
 } from "lucide-react";
 
+import { defaultDashboardProfile } from "@/lib/dashboard-content";
+import { useDashboardConfig } from "@/lib/hooks/use-app-config";
 import {
-  dashboardProfileStorageKey,
-  defaultDashboardProfile,
-} from "@/lib/dashboard-content";
+  dispatchMeRefresh,
+  patchMeProfile,
+  postOnboardingComplete,
+  userFacingMeError,
+} from "@/lib/me-api";
+import {
+  buildPatchProfessionalFromForm,
+  buildProfessionalSkipOnboardingBody,
+  buildProfessionalWithPatientOnboardingBody,
+} from "@/lib/onboarding-payloads";
 import type {
   MeasurementSystemOption,
   ProfessionalTitleOption,
@@ -96,8 +107,12 @@ export function ProfessionalOnboardingFlow({
   onBackToRoleSelection,
 }: ProfessionalOnboardingFlowProps) {
   const router = useRouter();
+  const { data: dashboardCfg } = useDashboardConfig();
+  const defaults = dashboardCfg.defaultDashboardProfile ?? defaultDashboardProfile;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentStep, setCurrentStep] = useState(0);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedNotes, setExpandedNotes] = useState({
     familyHistory: false,
     medicationsHistory: false,
@@ -194,83 +209,84 @@ export function ProfessionalOnboardingFlow({
     goToStep(currentStep - 1);
   }
 
-  function saveProfessionalProgress(includePatientProfile: boolean) {
-    const payload = includePatientProfile
-      ? {
-          ...defaultDashboardProfile,
-          preferredName:
-            form.patientName.trim() ||
-            form.fullName.trim() ||
-            defaultDashboardProfile.preferredName,
-          age: form.patientAge || defaultDashboardProfile.age,
-          region: form.region || defaultDashboardProfile.region,
+  async function completeAndGoToDashboard(includePatientProfile: boolean) {
+    if (!form.region) {
+      setSubmitError("Please select your region.");
+      return;
+    }
+    if (includePatientProfile && !form.patientSex) {
+      setSubmitError("Please select biological sex.");
+      return;
+    }
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      if (includePatientProfile) {
+        const body = buildProfessionalWithPatientOnboardingBody(defaults, {
+          patientName: form.patientName,
+          patientAge: form.patientAge,
+          patientSex: form.patientSex as "male" | "female" | "other",
           measurementSystem: form.measurementSystem,
-          weight: form.weight || defaultDashboardProfile.weight,
-          heightFeet:
-            form.measurementSystem === "imperial"
-              ? form.heightFeet || defaultDashboardProfile.heightFeet
-              : "",
-          heightInches:
-            form.measurementSystem === "imperial"
-              ? form.heightInches
-              : "",
-          heightCm:
-            form.measurementSystem === "metric"
-              ? form.heightCm
-              : defaultDashboardProfile.heightCm,
-          sexAtBirth:
-            form.patientSex || defaultDashboardProfile.sexAtBirth,
-          preferredFeature: "ai-doctor" as const,
-          professionalProfile: {
-            title: form.title,
-            fullName: form.fullName.trim(),
-            specialty: form.specialty,
-            region: form.region,
-            invitePatient: form.invitePatient,
-            patientEmail: form.patientEmail.trim(),
-            patientHistory: form.patientHistory.trim(),
-            familyHistory: form.familyHistory.trim(),
-            medicationsHistory: form.medicationsHistory.trim(),
-            allergies: form.allergies.trim(),
-            smokingIntensity: form.smokingIntensity,
-            alcoholIntake: form.alcoholIntake,
-            physicalActivity: form.physicalActivity,
-            dietaryHabits: form.dietaryHabits,
-            sleepPattern: form.sleepPattern,
-            stressLevel: form.stressLevel,
-            attachedHistoryFileName: form.attachedHistoryFileName,
-          },
-        }
-      : {
-          ...defaultDashboardProfile,
-          preferredName:
-            professionalName || defaultDashboardProfile.preferredName,
-          region: form.region || defaultDashboardProfile.region,
-          preferredFeature: "ai-doctor" as const,
-          professionalProfile: {
-            title: form.title,
-            fullName: form.fullName.trim(),
-            specialty: form.specialty,
-            region: form.region,
-          },
-        };
-
-    window.localStorage.setItem(
-      dashboardProfileStorageKey,
-      JSON.stringify(payload),
-    );
-  }
-
-  function completeAndGoToDashboard(includePatientProfile: boolean) {
-    saveProfessionalProgress(includePatientProfile);
-    router.push("/dashboard");
+          weight: form.weight,
+          heightFeet: form.heightFeet,
+          heightInches: form.heightInches,
+          heightCm: form.heightCm,
+          region: form.region,
+        });
+        await postOnboardingComplete(body);
+      } else {
+        const body = buildProfessionalSkipOnboardingBody(
+          defaults,
+          form.region,
+          professionalName,
+        );
+        await postOnboardingComplete(body);
+      }
+      const prof = buildPatchProfessionalFromForm(
+        {
+          title: form.title,
+          fullName: form.fullName,
+          specialty: form.specialty,
+          region: form.region,
+          invitePatient: form.invitePatient,
+          patientEmail: form.patientEmail,
+          patientHistory: form.patientHistory,
+          familyHistory: form.familyHistory,
+          medicationsHistory: form.medicationsHistory,
+          allergies: form.allergies,
+          smokingIntensity: form.smokingIntensity,
+          alcoholIntake: form.alcoholIntake,
+          physicalActivity: form.physicalActivity,
+          dietaryHabits: form.dietaryHabits,
+          sleepPattern: form.sleepPattern,
+          stressLevel: form.stressLevel,
+          attachedHistoryFileName: form.attachedHistoryFileName,
+        },
+        includePatientProfile,
+      );
+      await patchMeProfile({
+        professionalProfile: { ...prof } as Record<string, unknown>,
+      });
+      dispatchMeRefresh();
+      router.push("/dashboard");
+    } catch (err) {
+      if (err instanceof Error && !isAxiosError(err)) {
+        setSubmitError(err.message);
+      } else {
+        setSubmitError(
+          userFacingMeError(err, "Could not save your profile. Please try again."),
+        );
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function handleContinue() {
-    if (!isCurrentStepValid) return;
+    if (!isCurrentStepValid || isSubmitting) return;
 
     if (currentStep === 7) {
-      completeAndGoToDashboard(true);
+      void completeAndGoToDashboard(true);
       return;
     }
 
@@ -288,6 +304,14 @@ export function ProfessionalOnboardingFlow({
 
   return (
     <>
+      {submitError ? (
+        <p
+          className="mx-auto mb-4 w-full max-w-4xl rounded-lg border border-destructive/25 bg-destructive/5 px-4 py-2 text-sm text-destructive"
+          role="alert"
+        >
+          {submitError}
+        </p>
+      ) : null}
       {currentStep === 0 ? (
         <OnboardingCard className="max-w-4xl">
           <div className="space-y-8 text-center">
@@ -311,8 +335,12 @@ export function ProfessionalOnboardingFlow({
             </StepNotice>
 
             <div className="flex items-center justify-center gap-3">
-              <SecondaryButton onClick={handleBack}>Back</SecondaryButton>
-              <PrimaryButton onClick={handleContinue}>Start</PrimaryButton>
+              <SecondaryButton onClick={handleBack} disabled={isSubmitting}>
+                Back
+              </SecondaryButton>
+              <PrimaryButton onClick={handleContinue} disabled={isSubmitting}>
+                Start
+              </PrimaryButton>
             </div>
           </div>
         </OnboardingCard>
@@ -499,6 +527,7 @@ export function ProfessionalOnboardingFlow({
               <PrimaryButton
                 className="h-11 gap-2 px-6 text-base"
                 onClick={() => goToStep(5)}
+                disabled={isSubmitting}
               >
                 <Plus className="size-4" />
                 Create First Patient
@@ -506,10 +535,13 @@ export function ProfessionalOnboardingFlow({
 
               <button
                 type="button"
-                onClick={() => completeAndGoToDashboard(false)}
-                className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                onClick={() => {
+                  void completeAndGoToDashboard(false);
+                }}
+                disabled={isSubmitting}
+                className="text-sm font-medium text-primary underline-offset-4 hover:underline disabled:opacity-50"
               >
-                Skip to My Dashboard
+                {isSubmitting ? "Saving…" : "Skip to My Dashboard"}
               </button>
             </div>
           </div>
@@ -611,7 +643,8 @@ export function ProfessionalOnboardingFlow({
             <PatientActions
               onBack={handleBack}
               onNext={handleContinue}
-              nextDisabled={!isCurrentStepValid}
+              nextDisabled={!isCurrentStepValid || isSubmitting}
+              isSubmitting={isSubmitting}
             />
           </div>
         </OnboardingCard>
@@ -705,7 +738,12 @@ export function ProfessionalOnboardingFlow({
               />
             </div>
 
-            <PatientActions onBack={handleBack} onNext={handleContinue} />
+            <PatientActions
+              onBack={handleBack}
+              onNext={handleContinue}
+              nextDisabled={!isCurrentStepValid || isSubmitting}
+              isSubmitting={isSubmitting}
+            />
           </div>
         </OnboardingCard>
       ) : null}
@@ -932,7 +970,8 @@ export function ProfessionalOnboardingFlow({
             <PatientActions
               onBack={handleBack}
               onNext={handleContinue}
-              nextDisabled={!isCurrentStepValid}
+              nextDisabled={!isCurrentStepValid || isSubmitting}
+              isSubmitting={isSubmitting}
             />
           </div>
         </OnboardingCard>
@@ -945,16 +984,27 @@ function PatientActions({
   onBack,
   onNext,
   nextDisabled,
+  isSubmitting,
 }: {
   onBack: () => void;
   onNext: () => void;
   nextDisabled?: boolean;
+  isSubmitting?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <SecondaryButton onClick={onBack}>Previous</SecondaryButton>
+      <SecondaryButton onClick={onBack} disabled={isSubmitting}>
+        Previous
+      </SecondaryButton>
       <PrimaryButton disabled={nextDisabled} onClick={onNext}>
-        Next
+        {isSubmitting ? (
+          <span className="inline-flex items-center gap-2">
+            <Loader2 className="size-4 animate-spin" />
+            Saving…
+          </span>
+        ) : (
+          "Next"
+        )}
       </PrimaryButton>
     </div>
   );
