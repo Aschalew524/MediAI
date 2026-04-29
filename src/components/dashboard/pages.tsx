@@ -113,20 +113,6 @@ export function DashboardHomePage() {
           accent="doctors"
           wide
         />
-
-        <Link href="/dashboard/facility-locator" className="block transition-transform hover:-translate-y-px">
-          <DashboardPanel className="flex items-center gap-5 px-6 py-5">
-            <span className="inline-flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <MapPin className="size-7" />
-            </span>
-            <div>
-              <h2 className="text-xl font-semibold leading-tight">Find Nearby Facilities</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Locate verified hospitals, clinics, and pharmacies near you.
-              </p>
-            </div>
-          </DashboardPanel>
-        </Link>
       </DashboardContainer>
     </DashboardPage>
   );
@@ -322,7 +308,7 @@ function DashboardShortcutCard({
   title: string;
   description: string;
   href: string;
-  accent: "bot" | "lab" | "doctors";
+  accent: "bot" | "facilities" | "doctors";
   muted?: boolean;
   wide?: boolean;
 }) {
@@ -359,7 +345,7 @@ function DashboardShortcutCard({
   );
 }
 
-function VisualAccent({ accent, title }: { accent: "bot" | "lab" | "doctors"; title: string }) {
+function VisualAccent({ accent, title }: { accent: "bot" | "facilities" | "doctors"; title: string }) {
   if (title === "Check Up Plan") {
     return (
       <div className="relative flex size-20 items-center justify-center">
@@ -416,17 +402,15 @@ function VisualAccent({ accent, title }: { accent: "bot" | "lab" | "doctors"; ti
     );
   }
 
-  if (accent === "lab") {
+  if (accent === "facilities") {
     return (
       <div className="relative flex size-20 items-center justify-center">
         <div className="absolute inset-3 rounded-full bg-primary/8 blur-2xl" />
         <div className="rounded-2xl border border-primary/15 bg-white p-4 shadow-[0_20px_50px_-35px_rgba(76,104,220,0.7)]">
-          <Image
-            src="/lab_test.png"
-            alt="Health reports icon"
-            width={32}
-            height={32}
-            className="size-8 object-contain"
+          <MapPin
+            className="size-8 text-primary"
+            strokeWidth={1.75}
+            aria-hidden
           />
         </div>
       </div>
@@ -770,7 +754,6 @@ function EditGeneralInformationModal({
 }
 
 export function MainHealthInformationPage() {
-  const { data: config } = useDashboardConfig();
   return (
     <DashboardPage>
       <DashboardContainer className="space-y-6">

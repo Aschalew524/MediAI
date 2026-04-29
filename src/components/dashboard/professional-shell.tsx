@@ -8,9 +8,7 @@ import {
   CircleHelp,
   ClipboardPlus,
   FileText,
-  FlaskConical,
   History,
-  Plus,
   Users,
 } from "lucide-react";
 
@@ -68,26 +66,6 @@ const professionalSidebarSections: {
         label: "Conversation History",
         href: "/dashboard/ai-doctor/history",
         icon: <History className="size-4" />,
-      },
-    ],
-  },
-  {
-    title: "Lab tests and Screenings",
-    items: [
-      {
-        label: "Add new screening",
-        href: "/dashboard/lab-test-interpretation",
-        icon: <Plus className="size-4" />,
-      },
-      {
-        label: "Previous Tests",
-        href: "/dashboard/lab-test-interpretation",
-        icon: <FileText className="size-4" />,
-      },
-      {
-        label: "Biomarkers Overview",
-        href: "/dashboard/lab-test-interpretation",
-        icon: <FlaskConical className="size-4" />,
       },
     ],
   },

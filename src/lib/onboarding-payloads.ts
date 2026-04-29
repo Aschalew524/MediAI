@@ -28,7 +28,6 @@ type PersonalFormLike = {
   sexAtBirth: "male" | "female" | "other" | null;
   preferredFeature:
     | "ai-doctor"
-    | "lab-test-interpretation"
     | "top-doctors"
     | null;
 };

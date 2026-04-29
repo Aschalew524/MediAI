@@ -140,14 +140,10 @@ export function OnboardingWizard() {
   }
 
   function routeAfterOnboarding(
-    feature: "ai-doctor" | "lab-test-interpretation" | "top-doctors" | null,
+    feature: "ai-doctor" | "top-doctors" | null,
   ) {
     if (feature === "ai-doctor") {
       router.push("/dashboard/ai-doctor");
-      return;
-    }
-    if (feature === "lab-test-interpretation") {
-      router.push("/dashboard/lab-test-interpretation");
       return;
     }
     if (feature === "top-doctors") {

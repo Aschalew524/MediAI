@@ -30,8 +30,6 @@ export type CompleteOnboardingPayload = {
   sexAtBirth: "male" | "female" | "other";
   preferredFeature:
     | "ai-doctor"
-    | "lab-test-interpretation"
-    | "lab-interpretation"
     | "top-doctors";
 };
 

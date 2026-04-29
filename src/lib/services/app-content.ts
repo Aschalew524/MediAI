@@ -71,7 +71,7 @@ export type DashboardConfigResponse = {
     title: string;
     description: string;
     href: string;
-    accent: "bot" | "lab" | "doctors";
+    accent: "bot" | "facilities" | "doctors";
     muted?: boolean;
   }[];
   consultDoctorsCard: {
