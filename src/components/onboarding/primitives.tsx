@@ -13,12 +13,12 @@ export function OnboardingShell({
   return (
     <main
       className={cn(
-        "min-h-screen bg-background px-6 py-8 sm:px-10 sm:py-10 lg:px-16 lg:py-14",
+        "min-h-screen bg-background px-4 py-6 sm:px-8 sm:py-8 lg:px-14 lg:py-10",
         className,
       )}
       {...props}
     >
-      <div className="mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-6xl flex-col">
+      <div className="mx-auto flex min-h-[calc(100vh-4.5rem)] w-full max-w-6xl flex-col">
         {children}
       </div>
     </main>
@@ -46,7 +46,7 @@ export function OnboardingCard({
   return (
     <section
       className={cn(
-        "mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-10",
+        "mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-6 sm:py-8",
         className,
       )}
     >
@@ -106,7 +106,7 @@ export function PrimaryButton({
   return (
     <button
       className={cn(
-        "inline-flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       disabled={disabled}
@@ -122,7 +122,7 @@ export function SecondaryButton({
   return (
     <button
       className={cn(
-        "inline-flex h-10 items-center justify-center rounded-lg border border-border bg-white px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted",
+        "inline-flex h-11 items-center justify-center rounded-xl border border-border bg-white px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted",
         className,
       )}
       {...props}

@@ -21,8 +21,8 @@ export function MediAIWordmark({ className }: { className?: string }) {
 
 export function AuthPageShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-full flex-col items-center justify-center bg-[#f5f6f8] px-4 py-12">
-      <div className="flex w-full max-w-[400px] flex-col items-center">
+    <div className="flex min-h-[100svh] flex-col items-center justify-center bg-[#f5f6f8] px-4 py-6 sm:py-8">
+      <div className="flex w-full max-w-[460px] flex-col items-center justify-center rounded-3xl border border-primary/10 bg-white px-5 py-7 shadow-[0_24px_70px_-45px_rgba(73,96,188,0.35)] sm:px-7 sm:py-8">
         {children}
       </div>
     </div>
@@ -36,7 +36,7 @@ export function OrDivider() {
         <span className="w-full border-t border-border" />
       </div>
       <div className="relative flex justify-center text-xs">
-        <span className="bg-[#f5f6f8] px-3 text-muted-foreground">OR</span>
+        <span className="bg-white px-3 text-muted-foreground">OR</span>
       </div>
     </div>
   );

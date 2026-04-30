@@ -59,21 +59,21 @@ export function AdminDashboardPage() {
 
   return (
     <DashboardPage>
-      <DashboardContainer className="space-y-8">
+      <DashboardContainer className="space-y-7 sm:space-y-8">
         <div className="space-y-1">
-          <h1 className="text-3xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Admin Dashboard
           </h1>
           <p className="text-sm text-muted-foreground">{today}</p>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {config.statCards.map((card) => (
             <StatCard key={card.label} card={card} />
           ))}
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
+        <div className="grid gap-4 sm:gap-5 xl:grid-cols-[1fr_380px]">
           <GrowthChart data={config.monthlyGrowth} />
           <RecentActivityPanel activities={config.recentActivity} />
         </div>

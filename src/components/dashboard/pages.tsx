@@ -84,9 +84,9 @@ export function DashboardHomePage() {
     <DashboardPage>
       <DashboardContainer className="space-y-6">
         <Link href="/dashboard/profile" className="block transition-transform hover:-translate-y-px">
-          <DashboardPanel className="flex items-center justify-between px-6 py-5">
+          <DashboardPanel className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-5">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight">{name}&rsquo;s</h1>
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{name}&rsquo;s</h1>
               <p className="mt-1 text-sm text-muted-foreground">Health Profile</p>
             </div>
             <CompletionRing value={3} />
@@ -199,10 +199,10 @@ function ProfessionalDashboardCard({
   visual: ReactNode;
 }) {
   const content = (
-    <DashboardPanel className="min-h-52 overflow-hidden rounded-[1.35rem] border-primary/20 px-8 py-7 shadow-none">
-      <div className="flex h-full items-center justify-between gap-8">
+    <DashboardPanel className="min-h-52 overflow-hidden rounded-[1.35rem] border-primary/20 px-5 py-6 shadow-none sm:px-8 sm:py-7">
+      <div className="flex h-full flex-col items-start justify-between gap-5 sm:flex-row sm:items-center sm:gap-8">
         <div className="space-y-2">
-          <h2 className="max-w-sm text-[2rem] font-semibold leading-tight tracking-tight text-foreground">
+          <h2 className="max-w-sm text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-[2rem]">
             {title}
           </h2>
           {description ? (
@@ -211,7 +211,7 @@ function ProfessionalDashboardCard({
             </p>
           ) : null}
         </div>
-        <div className="shrink-0">{visual}</div>
+        <div className="self-center sm:shrink-0">{visual}</div>
       </div>
     </DashboardPanel>
   );
@@ -503,8 +503,8 @@ function ConsumerHealthProfilePage({
             <CompletionBar value={3} label="Completed" />
           </div>
 
-          <DashboardPanel className="space-y-4 px-6 py-5">
-            <div className="flex items-center justify-between gap-4">
+          <DashboardPanel className="space-y-4 px-4 py-4 sm:px-6 sm:py-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-semibold">General Information</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Health Profile</p>
@@ -512,7 +512,7 @@ function ConsumerHealthProfilePage({
               <button
                 type="button"
                 onClick={openEditModal}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-primary px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-primary px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted sm:w-auto"
               >
                 <Pencil className="size-4 text-primary" />
                 Edit details
@@ -543,14 +543,14 @@ function ConsumerHealthProfilePage({
           </DashboardPanel>
 
           <Link href="/dashboard/profile/main-health-information" className="block transition-transform hover:-translate-y-px">
-            <DashboardPanel className="flex items-center gap-4 px-6 py-5">
+            <DashboardPanel className="flex items-center gap-4 px-4 py-4 sm:px-6 sm:py-5">
               <CompletionRing value={20} size="sm" />
               <h3 className="text-xl font-semibold">Main Health Information</h3>
             </DashboardPanel>
           </Link>
 
           <Link href="/dashboard/profile/medical-history" className="block transition-transform hover:-translate-y-px">
-            <DashboardPanel className="flex items-center gap-4 px-6 py-5">
+            <DashboardPanel className="flex items-center gap-4 px-4 py-4 sm:px-6 sm:py-5">
               <span className="inline-flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                 <HeartPulse className="size-5" />
               </span>
@@ -1135,11 +1135,11 @@ export function AccountSettingsPage() {
             >
               <ArrowLeft className="size-4" />
             </Link>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">Account Settings</h1>
+            <h1 className="text-xl font-semibold tracking-tight sm:text-[1.75rem]">Account Settings</h1>
           </div>
 
           <DashboardPanel className="divide-y divide-primary/10 bg-white p-0">
-            <section className="space-y-4 px-8 py-8">
+            <section className="space-y-4 px-5 py-6 sm:px-8 sm:py-8">
               <h2 className="text-lg font-semibold text-foreground">User details</h2>
               <div className="space-y-1 text-sm">
                 <p className="text-muted-foreground">
@@ -1164,10 +1164,10 @@ export function AccountSettingsPage() {
               </div>
             </section>
 
-            <section className="space-y-4 px-8 py-8">
+            <section className="space-y-4 px-5 py-6 sm:px-8 sm:py-8">
               <h2 className="text-lg font-semibold text-foreground">Account</h2>
               <div className="space-y-4 text-sm">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-muted-foreground">
                     Nickname:{" "}
                     <span className="text-foreground/80">{localNickname}</span>
@@ -1180,7 +1180,7 @@ export function AccountSettingsPage() {
                     Edit
                   </button>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-muted-foreground">Password</p>
                   <button
                     type="button"
@@ -1198,7 +1198,7 @@ export function AccountSettingsPage() {
               </div>
             </section>
 
-            <section className="space-y-3 px-8 py-8">
+            <section className="space-y-3 px-5 py-6 sm:px-8 sm:py-8">
               <h2 className="text-lg font-semibold text-foreground">Delete Account</h2>
               <p className="text-sm text-muted-foreground">
                 Permanently remove your account and all related data from our platform.

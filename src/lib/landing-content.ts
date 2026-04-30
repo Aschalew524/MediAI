@@ -75,7 +75,7 @@ export const navItems: NavItem[] = [
         icon: "heartPulse",
       },
       {
-        label: "Second Opinion",
+        label: "Second Opinion!",
         href: "/dashboard/top-doctors",
         icon: "userRoundSearch",
       },

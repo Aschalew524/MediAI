@@ -157,7 +157,12 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
 
             if (item.items?.length) {
               return (
-                <div key={item.label} className="relative">
+                <div
+                  key={item.label}
+                  className="relative"
+                  onMouseEnter={() => setOpenMenu(item.label)}
+                  onMouseLeave={() => setOpenMenu((current) => (current === item.label ? null : current))}
+                >
                   <button
                     type="button"
                     onClick={() =>
@@ -165,6 +170,7 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
                         current === item.label ? null : item.label,
                       )
                     }
+                    onFocus={() => setOpenMenu(item.label)}
                     className="inline-flex items-center gap-1 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
                   >
                     <span>{item.label}</span>
@@ -179,7 +185,7 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
                   </button>
 
                   {openMenu === item.label ? (
-                    <div className="absolute left-1/2 top-full z-50 mt-4 w-[430px] -translate-x-1/2 rounded-sm border border-primary/15 bg-white p-5 shadow-[0_28px_80px_-40px_rgba(73,96,188,0.4)]">
+                    <div className="absolute left-1/2 top-full z-50 mt-2 w-[430px] -translate-x-1/2 rounded-sm border border-primary/15 bg-white p-5 shadow-[0_28px_80px_-40px_rgba(73,96,188,0.4)]">
                       <div className="space-y-5">
                         {item.items.map((subItem) => {
                           const SubIcon = subItem.icon
