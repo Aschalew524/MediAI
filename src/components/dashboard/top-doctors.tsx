@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useState, type ComponentType, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -15,14 +22,17 @@ import {
   X,
 } from "lucide-react";
 
-import {
-  doctorSpecialties,
-  getTopDoctorById,
-  topDoctors,
-  type ConsultationType,
-  type TopDoctor,
-} from "@/lib/top-doctors-content";
 import { cn } from "@/lib/utils";
+import { getFriendlyAxiosMessage } from "@/lib/axios-error-messages";
+import {
+  getTopDoctorById,
+  getTopDoctorSpecialties,
+  isBadRequestError,
+  isNotFoundError,
+  isValidTopDoctorId,
+  listTopDoctors,
+} from "@/lib/top-doctors-api";
+import { type ConsultationType, type TopDoctor } from "@/lib/top-doctors-content";
 
 import {
   DashboardActionButton,
@@ -32,19 +42,111 @@ import {
   DashboardPanel,
 } from "./primitives";
 
-export function TopDoctorsPage() {
-  const [selectedSpecialty, setSelectedSpecialty] = useState<string>("all");
+const LIST_PAGE_SIZE = 20;
 
-  const doctors = useMemo(() => {
-    if (selectedSpecialty === "all") return topDoctors;
-    return topDoctors.filter((doctor) => doctor.specialty === selectedSpecialty);
-  }, [selectedSpecialty]);
+export function TopDoctorsPage() {
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
+
+  const [selectedSpecialty, setSelectedSpecialty] = useState<string>("all");
+  const [specialties, setSpecialties] = useState<string[] | null>(null);
+  const [specialtiesErrorMessage, setSpecialtiesErrorMessage] = useState<string | null>(null);
+
+  const [page, setPage] = useState(1);
+  const [items, setItems] = useState<TopDoctor[]>([]);
+  const [total, setTotal] = useState(0);
+  const [listLoading, setListLoading] = useState(true);
+  const [moreLoading, setMoreLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+
+  const listReq = useRef(0);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedQ(searchInput.trim());
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    getTopDoctorSpecialties()
+      .then((s) => {
+        setSpecialties(s);
+        setSpecialtiesErrorMessage(null);
+      })
+      .catch((e: unknown) => {
+        setSpecialties([]);
+        setSpecialtiesErrorMessage(
+          getFriendlyAxiosMessage(e, "Specialty list could not be loaded."),
+        );
+      });
+  }, []);
+
+  useEffect(() => {
+    const id = ++listReq.current;
+    setListLoading(true);
+    setListError(null);
+
+    listTopDoctors({
+      page: 1,
+      pageSize: LIST_PAGE_SIZE,
+      specialty: selectedSpecialty,
+      q: debouncedQ || undefined,
+    })
+      .then((res) => {
+        if (id !== listReq.current) return;
+        setItems(res.items);
+        setTotal(res.total);
+        setPage(1);
+      })
+      .catch((e: unknown) => {
+        if (id !== listReq.current) return;
+        setListError(
+          getFriendlyAxiosMessage(e, "Could not load doctors. Check your connection and try again."),
+        );
+        setItems([]);
+        setTotal(0);
+      })
+      .finally(() => {
+        if (id !== listReq.current) return;
+        setListLoading(false);
+      });
+  }, [debouncedQ, selectedSpecialty]);
+
+  const loadMore = useCallback(async () => {
+    if (listLoading || moreLoading || items.length >= total) return;
+    const snapshot = listReq.current;
+    setMoreLoading(true);
+    setListError(null);
+    try {
+      const next = page + 1;
+      const res = await listTopDoctors({
+        page: next,
+        pageSize: LIST_PAGE_SIZE,
+        specialty: selectedSpecialty,
+        q: debouncedQ || undefined,
+      });
+      if (snapshot !== listReq.current) return;
+      setPage(next);
+      setItems((prev) => [...prev, ...res.items]);
+      setTotal(res.total);
+    } catch (e: unknown) {
+      if (snapshot !== listReq.current) return;
+      setListError(getFriendlyAxiosMessage(e, "Could not load more. Try again."));
+    } finally {
+      if (snapshot === listReq.current) setMoreLoading(false);
+    }
+  }, [debouncedQ, items.length, listLoading, moreLoading, page, selectedSpecialty, total]);
+
+  const hasMore = items.length < total;
+  const showEmpty = !listLoading && !listError && items.length === 0;
 
   return (
     <DashboardPage>
       <DashboardContainer className="space-y-6">
         <div className="space-y-4">
           <DashboardBackTitle title="Choose Top Doctor" />
+<<<<<<< HEAD
           <div className="relative w-full max-w-md">
             <select
               value={selectedSpecialty}
@@ -60,21 +162,84 @@ export function TopDoctorsPage() {
               ))}
             </select>
             <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+=======
+          <div className="flex max-w-2xl flex-col gap-3 sm:flex-row sm:items-stretch">
+            <div className="relative min-w-0 flex-1">
+              <input
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search by name, specialty, or disease"
+                className="h-12 w-full rounded-xl border border-primary/20 bg-white px-4 pr-4 text-sm text-foreground outline-none ring-0 transition-colors placeholder:text-muted-foreground/80 focus:border-primary"
+                aria-label="Search top doctors"
+                maxLength={120}
+                autoComplete="off"
+              />
+            </div>
+            <div className="relative w-full min-w-0 sm:max-w-md sm:flex-1">
+              <select
+                value={selectedSpecialty}
+                onChange={(event) => setSelectedSpecialty(event.target.value)}
+                disabled={specialties === null}
+                className="h-12 w-full appearance-none rounded-xl border border-primary/20 bg-white px-4 pr-10 text-sm text-foreground outline-none ring-0 transition-colors focus:border-primary disabled:opacity-60"
+                aria-label="Filter top doctors by specialty"
+              >
+                <option value="all">All specialties</option>
+                {specialties?.map((specialty) => (
+                  <option key={specialty} value={specialty}>
+                    {specialty}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            </div>
+>>>>>>> 134479c (feature:integarte chat profile setup top ai doctors)
           </div>
+          {specialtiesErrorMessage ? (
+            <p className="text-xs text-muted-foreground">
+              {specialtiesErrorMessage} You can still search and browse all specialties.
+            </p>
+          ) : null}
         </div>
 
+        {listError ? (
+          <DashboardPanel className="px-6 py-6">
+            <p className="text-sm text-destructive">{listError}</p>
+          </DashboardPanel>
+        ) : null}
+
+        {listLoading && items.length === 0 ? (
+          <DashboardPanel className="px-6 py-10">
+            <p className="text-sm text-muted-foreground">Loading doctors…</p>
+          </DashboardPanel>
+        ) : null}
+
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {doctors.map((doctor) => (
+          {items.map((doctor) => (
             <TopDoctorCard key={doctor.id} doctor={doctor} />
           ))}
         </div>
 
-        {doctors.length === 0 ? (
+        {showEmpty ? (
           <DashboardPanel className="px-6 py-8">
             <p className="text-sm text-muted-foreground">
-              No doctors found for this specialty.
+              No doctors match your filters. Try a different search or clear the search box to see
+              everyone.
             </p>
           </DashboardPanel>
+        ) : null}
+
+        {hasMore && !listLoading && items.length > 0 ? (
+          <div className="flex justify-center pb-2">
+            <DashboardActionButton
+              type="button"
+              className="h-10 rounded-lg px-8 text-sm"
+              onClick={loadMore}
+              disabled={moreLoading}
+            >
+              {moreLoading ? "Loading…" : "Load more"}
+            </DashboardActionButton>
+          </div>
         ) : null}
       </DashboardContainer>
     </DashboardPage>
@@ -95,16 +260,89 @@ function TopDoctorCard({ doctor }: { doctor: TopDoctor }) {
 
       <div className="space-y-1 px-3 pb-3 pt-3">
         <h3 className="text-lg font-semibold tracking-tight">{doctor.name}</h3>
-        <p className="text-sm text-muted-foreground">Neurosurgery</p>
+        <p className="text-sm text-muted-foreground">{doctor.specialty}</p>
       </div>
     </Link>
   );
 }
 
+type BiographyState =
+  | { kind: "loading" }
+  | { kind: "invalid" }
+  | { kind: "notFound" }
+  | { kind: "error"; message: string }
+  | { kind: "ok"; doctor: TopDoctor };
+
 export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
-  const doctor = getTopDoctorById(doctorId);
+  const [state, setState] = useState<BiographyState>({ kind: "loading" });
   const [consultationModalOpen, setConsultationModalOpen] = useState(false);
   const [consultationType, setConsultationType] = useState<ConsultationType>("video");
+
+  useEffect(() => {
+    if (!isValidTopDoctorId(doctorId)) {
+      setState({ kind: "invalid" });
+      return;
+    }
+    setState({ kind: "loading" });
+    getTopDoctorById(doctorId)
+      .then((doctor) => {
+        setState({ kind: "ok", doctor });
+      })
+      .catch((e: unknown) => {
+        if (isNotFoundError(e) || isBadRequestError(e)) {
+          setState({ kind: "notFound" });
+        } else {
+          setState({
+            kind: "error",
+            message: getFriendlyAxiosMessage(
+              e,
+              "Something went wrong loading this profile. Try again later.",
+            ),
+          });
+        }
+      });
+  }, [doctorId]);
+
+  if (state.kind === "loading" || state.kind === "error" || state.kind === "invalid" || state.kind === "notFound") {
+    return (
+      <DashboardPage>
+        <DashboardContainer className="space-y-5">
+          <Link
+            href="/dashboard/top-doctors"
+            className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
+          >
+            <span className="text-lg">←</span>
+            <span>Back to top doctors</span>
+          </Link>
+          {state.kind === "loading" ? (
+            <DashboardPanel className="px-6 py-10">
+              <p className="text-sm text-muted-foreground">Loading profile…</p>
+            </DashboardPanel>
+          ) : null}
+          {state.kind === "invalid" ? (
+            <DashboardPanel className="px-6 py-8">
+              <p className="text-sm text-foreground">
+                This link does not look like a valid doctor id. Return to the directory to pick a
+                doctor.
+              </p>
+            </DashboardPanel>
+          ) : null}
+          {state.kind === "notFound" ? (
+            <DashboardPanel className="px-6 py-8">
+              <p className="text-sm text-foreground">We could not find this doctor, or the profile is no longer published.</p>
+            </DashboardPanel>
+          ) : null}
+          {state.kind === "error" ? (
+            <DashboardPanel className="px-6 py-8">
+              <p className="text-sm text-destructive">{state.message}</p>
+            </DashboardPanel>
+          ) : null}
+        </DashboardContainer>
+      </DashboardPage>
+    );
+  }
+
+  const doctor = state.doctor;
 
   return (
     <>
@@ -119,19 +357,16 @@ export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
               <span>Doctor&apos;s Biography</span>
             </Link>
 
-            <div className="relative max-w-md">
-              <select
-                defaultValue="all"
-                className="h-12 w-full appearance-none rounded-xl border border-primary/20 bg-white px-4 pr-10 text-sm text-foreground outline-none ring-0 transition-colors focus:border-primary"
-              >
-                <option value="all">Enter specialty, sub-specialty or disease</option>
-                {doctorSpecialties.map((specialty) => (
-                  <option key={specialty} value={specialty}>
-                    {specialty}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="max-w-md text-sm text-muted-foreground">
+              <p>
+                <span className="font-medium text-foreground">Specialty:</span> {doctor.specialty}
+                {doctor.subSpecialty ? (
+                  <span>
+                    <span className="text-foreground/40"> · </span>
+                    {doctor.subSpecialty}
+                  </span>
+                ) : null}
+              </p>
             </div>
           </div>
 
@@ -214,8 +449,8 @@ export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
               <h2 className="text-xl font-semibold tracking-tight">Biography</h2>
             </div>
             <div className="space-y-3 text-sm leading-relaxed text-foreground/95">
-              {doctor.biography.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
+              {doctor.biography.map((paragraph, i) => (
+                <p key={i}>{paragraph}</p>
               ))}
             </div>
           </DashboardPanel>
@@ -339,8 +574,8 @@ function VideoConsultationModal({
         <div className="space-y-2 pt-4 text-center">
           <h2 className="text-2xl font-bold tracking-tight">Choose for consultation</h2>
           <p className="text-sm text-muted-foreground">
-            Fill out the form below to book a consultation with the chosen medical
-            expert. We will contact you for further steps.
+            This is a preview only. Booking and payment are not available in this version. Fill out
+            the form to express interest; we are not processing requests yet.
           </p>
         </div>
 
@@ -351,7 +586,7 @@ function VideoConsultationModal({
             onClose();
           }}
         >
-          <div className="rounded-2xl border border-primary/25 p-4 self-start">
+          <div className="self-start rounded-2xl border border-primary/25 p-4">
             <DoctorImage
               src={doctor.heroImageUrl}
               alt={`${doctor.name} portrait`}
@@ -360,7 +595,7 @@ function VideoConsultationModal({
 
             <div className="space-y-1 px-2 pb-2 pt-4">
               <h3 className="text-2xl font-semibold tracking-tight">{doctor.name}</h3>
-              <p className="text-sm text-muted-foreground">Neurosurgery</p>
+              <p className="text-sm text-muted-foreground">{doctor.specialty}</p>
             </div>
           </div>
 
@@ -420,10 +655,12 @@ function VideoConsultationModal({
             </ConsultationField>
 
             <button
-              type="submit"
-              className="h-12 w-full rounded-xl bg-primary px-6 text-base font-medium text-primary-foreground transition-opacity hover:opacity-95"
+              type="button"
+              disabled
+              className="h-12 w-full cursor-not-allowed rounded-xl border border-dashed border-muted-foreground/30 bg-muted/40 px-6 text-base font-medium text-muted-foreground"
+              title="Booking is not available in v1"
             >
-              Go to Payment
+              Go to payment (unavailable)
             </button>
           </div>
         </form>
@@ -446,6 +683,7 @@ function DoctorImage({
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
+  const isRemote = /^https?:\/\//i.test(src) || src.startsWith("data:");
 
   if (failed) {
     return (
@@ -457,6 +695,19 @@ function DoctorImage({
       >
         <UserRound className="size-24 text-primary/45" />
       </div>
+    );
+  }
+
+  if (isRemote) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={cn("h-full w-full object-cover", className)}
+        onError={() => setFailed(true)}
+        loading="lazy"
+        decoding="async"
+      />
     );
   }
 

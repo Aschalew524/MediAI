@@ -130,6 +130,7 @@ export function useChatConfig() {
       doctorTypeOptions: fallbackDoctorTypeOptions,
       chatHistoryItems: fallbackChatHistoryItems,
       seededPersonalConversation: [...fallbackSeededPersonalConversation],
+      ragEnabled: false,
     }),
     [],
   );

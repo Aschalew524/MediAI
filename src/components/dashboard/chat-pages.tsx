@@ -1,28 +1,39 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { isAxiosError } from "axios";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ChevronDown,
   Circle,
   Paperclip,
   Plus,
   SendHorizonal,
+  Square,
   X,
 } from "lucide-react";
 
-import {
-  getAssistantPrompt,
-  type ChatMode,
-} from "@/lib/chat-content";
+import { getAssistantPrompt, type ChatMode } from "@/lib/chat-content";
 import { getProfileName } from "@/lib/dashboard-content";
-import { useChatConfig } from "@/lib/hooks/use-app-config";
+import { CHAT_LIST_PAGE_SIZE, CHAT_MESSAGE_PAGE_SIZE, isChatStreamEnabled } from "@/lib/chat-constants";
 import {
-  sendMockChatMessage,
-  submitMockIssueReport,
-} from "@/lib/services/app-content";
+  getChatErrorMessage,
+  getPersonalMessages,
+  isChatAuthError,
+  isChatRateLimited,
+  listPersonalConversations,
+  type ChatApiCitation,
+  type ConversationListItem,
+  type PersonalMessageItem,
+  postGeneralMessage,
+  postPersonalMessage,
+  streamGeneralMessage,
+  streamPersonalMessage,
+} from "@/lib/chat-api";
+import { useChatConfig } from "@/lib/hooks/use-app-config";
+import { submitIssueReport } from "@/lib/services/app-content";
 import { cn } from "@/lib/utils";
 
 import { DashboardActionButton, DashboardContainer, DashboardPage, DashboardPanel } from "./primitives";
@@ -33,11 +44,78 @@ import {
 } from "./professional-chat-pages";
 import { useDashboardProfile } from "./use-dashboard-profile";
 
+const GENERAL_SESSION_KEY = "mediai:generalChatSessionId";
+
+/** Placeholder id for the assistant message while SSE tokens are arriving */
+const STREAMING_PLACEHOLDER_ID = "__medi_ai_streaming__";
+
+function isOnboardingRequiredError(e: unknown): boolean {
+  if (!isAxiosError(e)) {
+    return false;
+  }
+  if (e.response?.status !== 404) {
+    return false;
+  }
+  const msgRaw = e.response?.data as { message?: string | string[] } | undefined;
+  const m = msgRaw?.message;
+  const text = Array.isArray(m) ? m.join(" ") : typeof m === "string" ? m : "";
+  return text.toLowerCase().includes("onboarding");
+}
+
+function getOrCreateGeneralSessionId(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  let id = sessionStorage.getItem(GENERAL_SESSION_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem(GENERAL_SESSION_KEY, id);
+  }
+  return id;
+}
+
+function resetGeneralSessionId(): string {
+  const id = crypto.randomUUID();
+  if (typeof window !== "undefined") {
+    sessionStorage.setItem(GENERAL_SESSION_KEY, id);
+  }
+  return id;
+}
+
 type ConversationMessage = {
   role: "user" | "assistant";
   author: string;
   content: string;
+  id?: string;
+  citations?: ChatApiCitation[];
 };
+
+function formatThreadDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return iso;
+  }
+}
+
+function mapStoredToMessage(
+  m: PersonalMessageItem,
+  userName: string,
+  mode: ChatMode,
+): ConversationMessage {
+  if (m.role === "user") {
+    return { role: "user", author: userName, content: m.content, id: m.id };
+  }
+  if (m.role === "system") {
+    return { role: "assistant", author: "System", content: m.content, id: m.id };
+  }
+  return {
+    role: "assistant",
+    author: mode === "personal" ? "AI Doctor" : "General Chat",
+    content: m.content,
+    id: m.id,
+  };
+}
 
 export function ChatOptionsPage() {
   const profile = useDashboardProfile();
@@ -113,26 +191,55 @@ export function ChatOptionsPage() {
 export function ChatConversationPage({
   mode,
   initialSeededConversation = false,
+  prefetchLatestPersonalConversation = false,
 }: {
   mode: ChatMode;
   initialSeededConversation?: boolean;
+  /** Load the most recent personal thread from the API (e.g. "Last chat"). */
+  prefetchLatestPersonalConversation?: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const profile = useDashboardProfile();
   const { data: config } = useChatConfig();
   const name = getProfileName(profile);
   const isProfessional = Boolean(profile.professionalProfile);
-  const [messages, setMessages] = useState<ConversationMessage[]>(
-    initialSeededConversation && mode === "personal"
-      ? [...config.seededPersonalConversation]
-      : [],
-  );
+  const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [issueDraft, setIssueDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [submittingIssue, setSubmittingIssue] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(
+    () => mode === "personal" && (Boolean(searchParams.get("conversationId")) || prefetchLatestPersonalConversation),
+  );
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [onboardingRequired, setOnboardingRequired] = useState(false);
+  const [threadHasMore, setThreadHasMore] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const generalSessionIdRef = useRef<string | null>(null);
+  const streamAbortRef = useRef<AbortController | null>(null);
+  const threadScrollRef = useRef<HTMLDivElement | null>(null);
+  const pendingPrependScrollRef = useRef<{
+    oldScrollHeight: number;
+    oldScrollTop: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (mode !== "general") {
+      return;
+    }
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (!generalSessionIdRef.current) {
+      generalSessionIdRef.current = getOrCreateGeneralSessionId();
+    }
+  }, [mode]);
 
   if (isProfessional) {
     return (
@@ -143,9 +250,241 @@ export function ChatConversationPage({
     );
   }
 
+  // Personal: open specific thread from ?conversationId=
+  useEffect(() => {
+    if (mode !== "personal" || prefetchLatestPersonalConversation) {
+      return;
+    }
+    const c = searchParams.get("conversationId");
+    setConversationId(c);
+  }, [mode, prefetchLatestPersonalConversation, searchParams]);
+
+  // Personal: "Last chat" — latest thread or seeded fallback
+  useEffect(() => {
+    if (mode !== "personal" || !prefetchLatestPersonalConversation) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setHistoryLoading(true);
+      setLoadError(null);
+      try {
+        const { items } = await listPersonalConversations(1, 1);
+        if (cancelled) {
+          return;
+        }
+        if (items[0]) {
+          setConversationId(items[0].id);
+        } else if (initialSeededConversation) {
+          setMessages(
+            config.seededPersonalConversation.map((m) =>
+              m.role === "user" ? { ...m, author: name } : { ...m },
+            ),
+          );
+          setHistoryLoading(false);
+        } else {
+          setHistoryLoading(false);
+        }
+      } catch (e) {
+        if (cancelled) {
+          return;
+        }
+        if (initialSeededConversation) {
+          setMessages(
+            config.seededPersonalConversation.map((m) =>
+              m.role === "user" ? { ...m, author: name } : { ...m },
+            ),
+          );
+        } else {
+          setLoadError(
+            isChatAuthError(e)
+              ? "Please sign in to view your recent chats."
+              : (getChatErrorMessage(e) ?? "Could not load your last chat."),
+          );
+        }
+        setHistoryLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [config.seededPersonalConversation, initialSeededConversation, mode, name, prefetchLatestPersonalConversation]);
+
+  // Personal: load most recent page of message history for the active conversation
+  useEffect(() => {
+    if (mode !== "personal" || !conversationId) {
+      if (mode === "general") {
+        setHistoryLoading(false);
+      }
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setHistoryLoading(true);
+      setLoadError(null);
+      setThreadHasMore(false);
+      try {
+        const { items, hasMore } = await getPersonalMessages(conversationId, {
+          limit: CHAT_MESSAGE_PAGE_SIZE,
+        });
+        if (cancelled) {
+          return;
+        }
+        setMessages(items.map((m) => mapStoredToMessage(m, name, mode)));
+        setThreadHasMore(hasMore);
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(
+            isChatAuthError(e)
+              ? "Please sign in again to use AI Doctor."
+              : (getChatErrorMessage(e) ?? "Failed to load messages for this thread."),
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setHistoryLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, mode, name]);
+
+  useLayoutEffect(() => {
+    const p = pendingPrependScrollRef.current;
+    const el = threadScrollRef.current;
+    if (!p || !el) {
+      return;
+    }
+    const delta = el.scrollHeight - p.oldScrollHeight;
+    el.scrollTop = p.oldScrollTop + delta;
+    pendingPrependScrollRef.current = null;
+  }, [messages]);
+
+  const startNewPersonalChat = useCallback(() => {
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = null;
+    setIsStreaming(false);
+    setMessages([]);
+    setConversationId(null);
+    setLoadError(null);
+    setOnboardingRequired(false);
+    setThreadHasMore(false);
+    router.replace(pathname.split("?")[0] || pathname);
+  }, [pathname, router]);
+
+  const loadEarlierMessages = useCallback(async () => {
+    if (mode !== "personal" || !conversationId || !threadHasMore || loadingOlder || historyLoading) {
+      return;
+    }
+    const oldest = messages[0]?.id;
+    if (!oldest) {
+      return;
+    }
+    const el = threadScrollRef.current;
+    if (el) {
+      pendingPrependScrollRef.current = {
+        oldScrollHeight: el.scrollHeight,
+        oldScrollTop: el.scrollTop,
+      };
+    }
+    setLoadingOlder(true);
+    try {
+      const { items, hasMore } = await getPersonalMessages(conversationId, {
+        limit: CHAT_MESSAGE_PAGE_SIZE,
+        before: oldest,
+      });
+      setThreadHasMore(hasMore);
+      setMessages((cur) => [...items.map((m) => mapStoredToMessage(m, name, mode)), ...cur]);
+    } catch (e) {
+      setLoadError(
+        isChatAuthError(e)
+          ? "Please sign in again to use AI Doctor."
+          : (getChatErrorMessage(e) ?? "Could not load earlier messages."),
+      );
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [
+    conversationId,
+    historyLoading,
+    loadingOlder,
+    mode,
+    name,
+    messages,
+    threadHasMore,
+  ]);
+
+  const startNewGeneralChat = useCallback(() => {
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = null;
+    setIsStreaming(false);
+    if (typeof window !== "undefined") {
+      generalSessionIdRef.current = resetGeneralSessionId();
+    }
+    setMessages([]);
+    setLoadError(null);
+    setOnboardingRequired(false);
+  }, []);
+
+  const assistantName = mode === "personal" ? "AI Doctor" : "General Chat";
+
+  function stopStreaming() {
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = null;
+    setIsStreaming(false);
+  }
+
+  async function sendPersonalJsonTrimmed(trimmed: string): Promise<void> {
+    const response = await postPersonalMessage({
+      message: trimmed,
+      conversationId: conversationId ?? undefined,
+    });
+    setConversationId(response.conversationId);
+    if (!searchParams.get("conversationId")) {
+      router.replace(`${pathname}?conversationId=${response.conversationId}`);
+    }
+    setMessages((current) => [
+      ...current,
+      {
+        role: "assistant" as const,
+        author: assistantName,
+        content: response.reply,
+        citations: response.citations,
+        id: response.messageId,
+      },
+    ]);
+  }
+
+  async function sendGeneralJsonTrimmed(trimmed: string): Promise<void> {
+    if (typeof window !== "undefined" && !generalSessionIdRef.current) {
+      generalSessionIdRef.current = getOrCreateGeneralSessionId();
+    }
+    const response = await postGeneralMessage({
+      message: trimmed,
+      sessionId: generalSessionIdRef.current ?? undefined,
+    });
+    setMessages((current) => [
+      ...current,
+      {
+        role: "assistant" as const,
+        author: assistantName,
+        content: response.reply,
+        citations: response.citations,
+        id: response.messageId,
+      },
+    ]);
+  }
+
   async function submitMessage() {
     const trimmed = draft.trim();
-    if (!trimmed || sending) return;
+    if (!trimmed || sending || isStreaming) {
+      return;
+    }
+    if (mode === "personal" && historyLoading) {
+      return;
+    }
 
     const userMessage: ConversationMessage = {
       role: "user",
@@ -155,27 +494,217 @@ export function ChatConversationPage({
 
     setMessages((current) => [...current, userMessage]);
     setDraft("");
-
     setSending(true);
 
-    try {
-      const response = await sendMockChatMessage(mode, trimmed);
-      setMessages((current) => [
-        ...current,
+    const useStream = isChatStreamEnabled();
+
+    const jsonFallbackError = (e: unknown) => {
+      const isAuth = isChatAuthError(e);
+      const isLimit = isChatRateLimited(e);
+      const onboarding = mode === "personal" && isOnboardingRequiredError(e);
+      if (onboarding) {
+        setOnboardingRequired(true);
+        return "Complete onboarding to use Personal AI Doctor.";
+      }
+      return isAuth
+        ? "Your session has expired. Please sign in again to use AI Doctor."
+        : isLimit
+          ? "You have sent too many messages. Please wait a bit or sign in, then try again."
+          : (getChatErrorMessage(e) === "Unauthorized" && mode === "general"
+              ? "This chat session is not authorized right now. Please refresh and try again."
+              : (getChatErrorMessage(e) ?? "I couldn't load a response right now. Please try again."));
+    };
+
+    if (useStream) {
+      const ac = new AbortController();
+      streamAbortRef.current = ac;
+      setIsStreaming(true);
+      setMessages((c) => [
+        ...c,
         {
           role: "assistant",
-          author: response.author,
-          content: response.reply,
+          author: assistantName,
+          content: "",
+          id: STREAMING_PLACEHOLDER_ID,
         },
       ]);
-    } catch {
+
+      const appendStreamToken = (t: string) => {
+        setMessages((c) => {
+          const i = c.findIndex((m) => m.id === STREAMING_PLACEHOLDER_ID);
+          if (i === -1) {
+            return c;
+          }
+          const n = [...c];
+          n[i] = { ...n[i]!, content: n[i]!.content + t };
+          return n;
+        });
+      };
+
+      const runJsonFallback = async () => {
+        setMessages((c) => c.filter((m) => m.id !== STREAMING_PLACEHOLDER_ID));
+        if (mode === "personal") {
+          try {
+            await sendPersonalJsonTrimmed(trimmed);
+          } catch (e) {
+            setMessages((c) => [
+              ...c,
+              { role: "assistant", author: assistantName, content: jsonFallbackError(e) },
+            ]);
+          }
+        } else {
+          try {
+            await sendGeneralJsonTrimmed(trimmed);
+          } catch (e) {
+            setMessages((c) => [
+              ...c,
+              { role: "assistant", author: assistantName, content: jsonFallbackError(e) },
+            ]);
+          }
+        }
+      };
+
+      const afterStream = async (finished: { current: boolean }) => {
+        if (ac.signal.aborted) {
+          setMessages((c) =>
+            c.map((m) =>
+              m.id === STREAMING_PLACEHOLDER_ID
+                ? { ...m, content: m.content || "Generation stopped." }
+                : m,
+            ),
+          );
+        } else if (!finished.current) {
+          await runJsonFallback();
+        }
+      };
+
+      if (mode === "personal") {
+        const finished = { current: false };
+        try {
+          await streamPersonalMessage(
+            { message: trimmed, conversationId: conversationId ?? undefined },
+            {
+              onToken: (tok) => appendStreamToken(tok),
+              onDone: (p) => {
+                finished.current = true;
+                setConversationId(p.conversationId);
+                if (!searchParams.get("conversationId")) {
+                  router.replace(`${pathname}?conversationId=${p.conversationId}`);
+                }
+                setMessages((c) => {
+                  const i = c.findIndex((m) => m.id === STREAMING_PLACEHOLDER_ID);
+                  if (i === -1) {
+                    return c;
+                  }
+                  const n = [...c];
+                  const body = n[i]!.content;
+                  n[i] = {
+                    role: "assistant",
+                    author: assistantName,
+                    id: p.messageId,
+                    content: body,
+                    citations: p.citations,
+                  };
+                  return n;
+                });
+              },
+              onInStreamError: (e) => {
+                finished.current = true;
+                setMessages((c) =>
+                  c
+                    .filter((m) => m.id !== STREAMING_PLACEHOLDER_ID)
+                    .concat({
+                      role: "assistant",
+                      author: assistantName,
+                      content: e.error.message,
+                    }),
+                );
+              },
+            },
+            { signal: ac.signal },
+          );
+          await afterStream(finished);
+        } catch {
+          if (!ac.signal.aborted) {
+            await runJsonFallback();
+          }
+        } finally {
+          setIsStreaming(false);
+          streamAbortRef.current = null;
+          setSending(false);
+        }
+        return;
+      }
+
+      const genFinished = { current: false };
+      if (typeof window !== "undefined" && !generalSessionIdRef.current) {
+        generalSessionIdRef.current = getOrCreateGeneralSessionId();
+      }
+      const sid = generalSessionIdRef.current ?? undefined;
+      try {
+        await streamGeneralMessage(
+          { message: trimmed, sessionId: sid },
+          {
+            onToken: (tok) => appendStreamToken(tok),
+            onDone: (p) => {
+              genFinished.current = true;
+              setMessages((c) => {
+                const i = c.findIndex((m) => m.id === STREAMING_PLACEHOLDER_ID);
+                if (i === -1) {
+                  return c;
+                }
+                const n = [...c];
+                n[i] = {
+                  role: "assistant",
+                  author: assistantName,
+                  id: p.messageId,
+                  content: p.reply,
+                  citations: p.citations,
+                };
+                return n;
+              });
+            },
+            onInStreamError: (e) => {
+              genFinished.current = true;
+              setMessages((c) =>
+                c
+                  .filter((m) => m.id !== STREAMING_PLACEHOLDER_ID)
+                  .concat({
+                    role: "assistant",
+                    author: assistantName,
+                    content: e.error.message,
+                  }),
+              );
+            },
+          },
+          { signal: ac.signal },
+        );
+        await afterStream(genFinished);
+      } catch {
+        if (!ac.signal.aborted) {
+          await runJsonFallback();
+        }
+      } finally {
+        setIsStreaming(false);
+        streamAbortRef.current = null;
+        setSending(false);
+      }
+      return;
+    }
+
+    try {
+      if (mode === "personal") {
+        await sendPersonalJsonTrimmed(trimmed);
+      } else {
+        await sendGeneralJsonTrimmed(trimmed);
+      }
+    } catch (e) {
       setMessages((current) => [
         ...current,
         {
           role: "assistant",
-          author: mode === "personal" ? "AI Doctor" : "General Chat",
-          content:
-            "I couldn't load a response from the mock API right now. Please try again.",
+          author: assistantName,
+          content: jsonFallbackError(e),
         },
       ]);
     } finally {
@@ -221,24 +750,88 @@ export function ChatConversationPage({
               </div>
 
               {messages.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setMessages([])}
-                  className="inline-flex h-12 min-w-52 items-center justify-center gap-3 rounded-xl border border-primary/25 bg-white px-6 text-base font-medium text-primary transition-colors hover:bg-muted"
-                >
-                  <Plus className="size-4" />
-                  New Chat
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  {isStreaming ? (
+                    <button
+                      type="button"
+                      onClick={stopStreaming}
+                      className="inline-flex h-12 min-w-32 items-center justify-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+                    >
+                      <Square className="size-4" />
+                      Stop
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={mode === "personal" ? startNewPersonalChat : startNewGeneralChat}
+                    className="inline-flex h-12 min-w-52 items-center justify-center gap-3 rounded-xl border border-primary/25 bg-white px-6 text-base font-medium text-primary transition-colors hover:bg-muted"
+                  >
+                    <Plus className="size-4" />
+                    New Chat
+                  </button>
+                </div>
               ) : null}
             </div>
 
-            {messages.length === 0 ? (
+            {loadError && !historyLoading && messages.length === 0 && mode === "personal" ? (
+              onboardingRequired ? (
+                <div role="alert">
+                  <DashboardPanel className="mx-auto max-w-xl border-primary/20 px-6 py-6 text-center">
+                    <p className="text-sm text-foreground">
+                      Complete onboarding to use{" "}
+                      <span className="font-medium">Personal AI Doctor</span>.
+                    </p>
+                    <div className="mt-4 flex justify-center">
+                      <DashboardActionButton
+                        type="button"
+                        className="h-10 rounded-lg px-6 text-sm"
+                        onClick={() => router.push("/onboarding")}
+                      >
+                        Complete onboarding
+                      </DashboardActionButton>
+                    </div>
+                  </DashboardPanel>
+                </div>
+              ) : (
+                <p className="text-center text-sm text-destructive" role="alert">
+                  {loadError}
+                </p>
+              )
+            ) : null}
+            {historyLoading && mode === "personal" ? (
+              <p className="text-center text-sm text-muted-foreground">Loading conversation…</p>
+            ) : null}
+            {config.ragEnabled === true ? (
+              <p className="text-center text-xs font-medium text-primary" role="status">
+                RAG: on — guideline search is enabled. Sources appear only when guideline documents are available and relevant.
+              </p>
+            ) : null}
+            {messages.length === 0 && !historyLoading && !loadError ? (
               <EmptyChatState mode={mode} />
-            ) : (
-              <div className="space-y-5">
+            ) : null}
+            {messages.length > 0 && !historyLoading ? (
+              <div
+                ref={threadScrollRef}
+                className={cn("space-y-5", mode === "personal" && "max-h-[min(70vh,520px)] overflow-y-auto pr-1")}
+              >
+                {mode === "personal" && threadHasMore ? (
+                  <div className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => void loadEarlierMessages()}
+                      disabled={loadingOlder}
+                      className="rounded-lg border border-primary/20 bg-white px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-muted disabled:opacity-50"
+                    >
+                      {loadingOlder ? "Loading…" : "Load earlier messages"}
+                    </button>
+                  </div>
+                ) : null}
                 {messages.map((message, index) =>
                   message.role === "user" ? (
-                    <DashboardPanel key={`${message.role}-${index}`} className="ml-auto max-w-4xl px-5 py-4">
+                    <DashboardPanel
+                      key={message.id ?? `user-${index}`}
+                      className="ml-auto max-w-4xl px-5 py-4"
+                    >
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-sm font-medium text-primary">
                           <span>👤</span>
@@ -249,7 +842,7 @@ export function ChatConversationPage({
                     </DashboardPanel>
                   ) : (
                     <div
-                      key={`${message.role}-${index}`}
+                      key={message.id ?? `assistant-${index}`}
                       className="rounded-[1.25rem] border border-primary/15 bg-primary/5 px-5 py-4 shadow-sm"
                     >
                       <div className="flex items-center justify-between gap-4">
@@ -270,17 +863,33 @@ export function ChatConversationPage({
                       <p className="mt-3 text-base leading-7 text-foreground/90">
                         {message.content}
                       </p>
+                      {message.citations && message.citations.length > 0 ? (
+                        <div className="mt-4 space-y-2 border-t border-primary/10 pt-3 text-left">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Sources
+                          </p>
+                          <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+                            {message.citations.map((c) => (
+                              <li key={`${c.source}-${c.excerpt.slice(0, 24)}`}>
+                                <span className="font-medium text-foreground/80">{c.source}</span>
+                                {c.excerpt ? <span> — {c.excerpt}</span> : null}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
                     </div>
                   ),
                 )}
               </div>
-            )}
+            ) : null}
 
             <ChatComposer
               value={draft}
               onChange={setDraft}
               onSend={submitMessage}
-              sending={sending}
+              sending={sending || isStreaming}
+              disabled={sending || isStreaming || (mode === "personal" && historyLoading)}
             />
           </section>
         </DashboardContainer>
@@ -296,7 +905,7 @@ export function ChatConversationPage({
             if (!issueDraft.trim() || submittingIssue) return;
             setSubmittingIssue(true);
             try {
-              await submitMockIssueReport(issueDraft);
+              await submitIssueReport(issueDraft);
               setReportOpen(false);
               setIssueDraft("");
             } finally {
@@ -328,11 +937,13 @@ function ChatComposer({
   onChange,
   onSend,
   sending,
+  disabled,
 }: {
   value: string;
   onChange: (value: string) => void;
   onSend: () => void | Promise<void>;
   sending?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-primary/25 bg-white px-4 py-3 shadow-sm">
@@ -349,12 +960,12 @@ function ChatComposer({
           }}
           placeholder="Type Your Questions Here..."
           className="flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
-          disabled={sending}
+          disabled={sending || disabled}
         />
         <button
           type="button"
           onClick={onSend}
-          disabled={sending}
+          disabled={sending || disabled}
           className="inline-flex size-9 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/8"
         >
           <SendHorizonal className="size-4" />
@@ -399,18 +1010,102 @@ function DoctorTypeMenu({
   );
 }
 
+function ThreadListPanel({ item }: { item: ConversationListItem }) {
+  const preview = item.lastMessagePreview ?? "No messages yet";
+  const href = `/dashboard/ai-doctor/personal?conversationId=${encodeURIComponent(item.id)}`;
+
+  return (
+    <Link href={href}>
+      <DashboardPanel className="space-y-3 px-5 py-4 transition-colors hover:border-primary/30">
+        <div className="flex items-start justify-between gap-4">
+          <h2 className="text-left text-xl font-medium line-clamp-2">{preview}</h2>
+          <span className="shrink-0 rounded-full border border-primary/30 px-3 py-1 text-sm font-medium text-primary">
+            Personal AI Doctor
+          </span>
+        </div>
+        <div className="h-px bg-primary/10" />
+        <p className="text-sm text-muted-foreground">
+          <span>Updated: </span>
+          <time dateTime={item.updatedAt} className="text-foreground">
+            {formatThreadDate(item.updatedAt)}
+          </time>
+        </p>
+      </DashboardPanel>
+    </Link>
+  );
+}
+
 export function ChatHistoryPage() {
   const profile = useDashboardProfile();
-  const { data: config } = useChatConfig();
-  const [filter, setFilter] = useState<"all" | ChatMode>("all");
   const isProfessional = Boolean(profile.professionalProfile);
-  const items = useMemo(
-    () =>
-      config.chatHistoryItems.filter((item) =>
-        filter === "all" ? true : item.type === filter,
-      ),
-    [config.chatHistoryItems, filter],
-  );
+  const [threads, setThreads] = useState<ConversationListItem[]>([]);
+  const [listPage, setListPage] = useState(1);
+  const [listTotal, setListTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const listHasMore = threads.length < listTotal;
+
+  useEffect(() => {
+    if (isProfessional) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setLoadError(null);
+      setListPage(1);
+      try {
+        const { items, total, page } = await listPersonalConversations(1, CHAT_LIST_PAGE_SIZE);
+        if (!cancelled) {
+          setThreads(items);
+          setListTotal(total);
+          setListPage(page);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setLoadError(
+            isChatAuthError(e)
+              ? "Please sign in to see your saved conversations."
+              : (getChatErrorMessage(e) ?? "Could not load chat history."),
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isProfessional]);
+
+  async function loadMoreThreads() {
+    if (loading || loadingMore || !listHasMore) {
+      return;
+    }
+    setLoadingMore(true);
+    setLoadError(null);
+    const next = listPage + 1;
+    try {
+      const { items, page, total } = await listPersonalConversations(
+        next,
+        CHAT_LIST_PAGE_SIZE,
+      );
+      setThreads((t) => [...t, ...items]);
+      setListPage(page);
+      setListTotal(total);
+    } catch (e) {
+      setLoadError(
+        isChatAuthError(e)
+          ? "Please sign in to see your saved conversations."
+          : (getChatErrorMessage(e) ?? "Could not load more conversations."),
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   if (isProfessional) {
     return <ProfessionalChatHistoryPage />;
@@ -430,48 +1125,43 @@ export function ChatHistoryPage() {
           <h1 className="text-4xl font-semibold tracking-tight">Chat History</h1>
         </div>
 
-        <div className="max-w-xs">
-          <div className="relative">
-            <select
-              value={filter}
-              onChange={(event) =>
-                setFilter(event.target.value as "all" | ChatMode)
-              }
-              className="h-12 w-full appearance-none rounded-xl border border-primary/20 bg-white px-4 pr-10 text-base outline-none focus:border-primary"
-            >
-              <option value="all">AI Doctor Type</option>
-              <option value="personal">Personal AI Doctor</option>
-              <option value="general">General Chat</option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          </div>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Your saved <strong>personal</strong> AI Doctor threads. General chats are not listed here; open
+          a new session from{" "}
+          <Link href="/dashboard/ai-doctor/general" className="font-medium text-primary underline-offset-2 hover:underline">
+            General Chat
+          </Link>
+          .
+        </p>
 
+        {loadError ? (
+          <p className="text-sm text-destructive" role="alert">
+            {loadError}
+          </p>
+        ) : null}
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading your conversations…</p>
+        ) : null}
         <div className="space-y-4">
-          {items.map((item, index) => (
-            <DashboardPanel key={`${item.title}-${index}`} className="space-y-4 px-5 py-4">
-              <div className="flex items-center justify-between gap-4">
-                <h2 className="text-xl font-medium">{item.title}</h2>
-                <span className="rounded-full border border-primary/30 px-3 py-1 text-sm font-medium text-primary">
-                  {item.type === "personal" ? "Personal AI Doctor" : "General Chat"}
-                </span>
-              </div>
-              <div className="h-px bg-primary/10" />
-              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                <span>
-                  Created at: <strong className="text-foreground">{item.createdAt}</strong>
-                </span>
-                <span>
-                  Last Message Date:{" "}
-                  <strong className="text-foreground">{item.lastMessageAt}</strong>
-                </span>
-                <span>
-                  Summary: <strong className="text-foreground">{item.summary}</strong>
-                </span>
-              </div>
-            </DashboardPanel>
+          {!loading && !loadError && threads.length === 0 ? (
+            <p className="text-sm text-muted-foreground">You don&apos;t have any saved personal chats yet.</p>
+          ) : null}
+          {threads.map((item) => (
+            <ThreadListPanel key={item.id} item={item} />
           ))}
         </div>
+        {listHasMore && !loading && !loadError && threads.length > 0 ? (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={() => void loadMoreThreads()}
+              disabled={loadingMore}
+              className="rounded-xl border border-primary/25 bg-white px-6 py-3 text-sm font-medium text-primary transition-colors hover:bg-muted disabled:opacity-50"
+            >
+              {loadingMore ? "Loading…" : "Load more conversations"}
+            </button>
+          </div>
+        ) : null}
 
         <Link
           href="/dashboard/ai-doctor"

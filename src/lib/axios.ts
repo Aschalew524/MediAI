@@ -2,6 +2,7 @@ import axios, { isAxiosError } from "axios";
 
 import { clearAccessToken, getAccessToken } from "@/lib/auth-storage";
 import { getApiBaseUrl } from "@/lib/api-origin";
+import { redirectToSignInWithCurrentPath } from "@/lib/redirect-signin";
 
 const baseURL = getApiBaseUrl();
 
@@ -32,6 +33,22 @@ api.interceptors.response.use(
     }
     const status = error.response?.status;
     const path = String(error.config?.url ?? error.config?.baseURL ?? "");
+    // JWT-only chat / history: go to signin (same as fetch stream handlers)
+    const isAuthChatPath =
+      path.includes("/chat/personal") || path.includes("/chat/conversations");
+    if (status === 401 && isAuthChatPath) {
+      const had = getAccessToken();
+      if (had) {
+        clearAccessToken();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event(AUTH_CLEARED));
+        }
+      }
+      if (typeof window !== "undefined") {
+        redirectToSignInWithCurrentPath();
+      }
+      return Promise.reject(error);
+    }
     // Current user routes (clear expired session in browser)
     const isMe =
       path.includes("auth/me") ||

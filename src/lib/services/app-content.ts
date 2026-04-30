@@ -21,7 +21,6 @@ import type {
   DoctorTypeOption,
   HistoryItem,
 } from "@/lib/chat-content";
-import type { ChatMode } from "@/lib/chat-content";
 import type {
   MedicalHistoryStep,
 } from "@/lib/ai-doctor-content";
@@ -90,6 +89,8 @@ export type ChatConfigResponse = {
     author: string;
     content: string;
   }[];
+  /** From Nest: `RAG_ENABLED` — when true, responses may include guideline (RAG) sources */
+  ragEnabled?: boolean;
 };
 
 export type AIDoctorConfigResponse = {
@@ -157,15 +158,7 @@ export async function getAdminConfig() {
   return data;
 }
 
-export async function sendMockChatMessage(mode: ChatMode, message: string) {
-  const { data } = await api.post<{ reply: string; author: string }>("/chat/reply", {
-    mode,
-    message,
-  });
-  return data;
-}
-
-export async function submitMockIssueReport(message: string) {
+export async function submitIssueReport(message: string) {
   const { data } = await api.post<{ success: boolean }>("/chat/report-issue", {
     message,
   });

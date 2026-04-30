@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { isAxiosError } from "axios";
 import { useRouter } from "next/navigation";
@@ -23,6 +23,7 @@ import {
   type UserRoleOption,
 } from "@/lib/onboarding-content";
 import { dispatchMeRefresh, postOnboardingComplete, userFacingMeError } from "@/lib/me-api";
+import { clearOnboardingDraft, loadOnboardingDraft, saveOnboardingDraft } from "@/lib/onboarding-draft";
 import { buildPersonalOnboardingBody } from "@/lib/onboarding-payloads";
 import { useOnboardingConfig } from "@/lib/hooks/use-app-config";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,7 @@ type PreferredFeature = FeatureOption["id"] | null;
 
 const onboardingStepCount = 8;
 const firstGeneralInfoStep = 4;
+const DRAFT_SAVE_DEBOUNCE_MS = 400;
 
 type OnboardingState = {
   role: UserRole;
@@ -63,26 +65,111 @@ type OnboardingState = {
   preferredFeature: PreferredFeature;
 };
 
+const DEFAULT_FORM: OnboardingState = {
+  role: null,
+  preferredName: "",
+  isConfirmedAdult: false,
+  region: "",
+  age: "",
+  measurementSystem: "imperial",
+  weight: "",
+  heightFeet: "",
+  heightInches: "",
+  heightCm: "",
+  sexAtBirth: null,
+  preferredFeature: null,
+};
+
+function formForRole(role: UserRole): OnboardingState {
+  return { ...DEFAULT_FORM, role };
+}
+
 export function OnboardingWizard() {
   const router = useRouter();
   const { data: config } = useOnboardingConfig();
   const [currentStep, setCurrentStep] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [form, setForm] = useState<OnboardingState>({
-    role: null,
-    preferredName: "",
-    isConfirmedAdult: false,
-    region: "",
-    age: "",
-    measurementSystem: "imperial",
-    weight: "",
-    heightFeet: "",
-    heightInches: "",
-    heightCm: "",
-    sexAtBirth: null,
-    preferredFeature: null,
-  });
+  const [form, setForm] = useState<OnboardingState>(DEFAULT_FORM);
+
+  const didRestoreRef = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Restore draft once on mount
+  useEffect(() => {
+    if (didRestoreRef.current) return;
+    didRestoreRef.current = true;
+    const draft = loadOnboardingDraft();
+    if (!draft) return;
+    const clampedStep = Math.max(0, Math.min(onboardingStepCount - 1, Math.floor(draft.currentStep)));
+    setForm((cur) => {
+      // If the user already started typing before restore, do not override.
+      if (cur.role !== null) return cur;
+      return {
+        ...DEFAULT_FORM,
+        ...draft.form,
+      } satisfies OnboardingState;
+    });
+    setCurrentStep(clampedStep);
+  }, []);
+
+  // Save draft immediately when step changes (navigation is important)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!form.role) return;
+    saveOnboardingDraft({
+      v: 1,
+      savedAt: new Date().toISOString(),
+      currentStep,
+      form: {
+        role: form.role,
+        preferredName: form.preferredName,
+        isConfirmedAdult: form.isConfirmedAdult,
+        region: form.region,
+        age: form.age,
+        measurementSystem: form.measurementSystem,
+        weight: form.weight,
+        heightFeet: form.heightFeet,
+        heightInches: form.heightInches,
+        heightCm: form.heightCm,
+        sexAtBirth: form.sexAtBirth,
+        preferredFeature: form.preferredFeature,
+      },
+    });
+  }, [currentStep]);
+
+  // Debounced save for form typing
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!form.role) return;
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      saveOnboardingDraft({
+        v: 1,
+        savedAt: new Date().toISOString(),
+        currentStep,
+        form: {
+          role: form.role,
+          preferredName: form.preferredName,
+          isConfirmedAdult: form.isConfirmedAdult,
+          region: form.region,
+          age: form.age,
+          measurementSystem: form.measurementSystem,
+          weight: form.weight,
+          heightFeet: form.heightFeet,
+          heightInches: form.heightInches,
+          heightCm: form.heightCm,
+          sexAtBirth: form.sexAtBirth,
+          preferredFeature: form.preferredFeature,
+        },
+      });
+    }, DRAFT_SAVE_DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [form, currentStep]);
 
   const currentLabel =
     currentStep >= firstGeneralInfoStep && currentStep <= 6
@@ -103,14 +190,23 @@ export function OnboardingWizard() {
       case 4:
         return Number(form.age) > 0;
       case 5:
+        // Sanity ranges to prevent obvious garbage input (final validation still happens in payload builder).
         if (form.measurementSystem === "metric") {
-          return Number(form.weight) > 0 && Number(form.heightCm) > 0;
+          const w = Number(form.weight);
+          const h = Number(form.heightCm);
+          return w >= 2 && w <= 500 && h >= 30 && h <= 250;
         }
 
+        const w = Number(form.weight);
+        const ft = Number(form.heightFeet);
+        const inch = Number(form.heightInches);
         return (
-          Number(form.weight) > 0 &&
-          Number(form.heightFeet) > 0 &&
-          Number(form.heightInches) >= 0
+          w >= 5 &&
+          w <= 1100 &&
+          ft >= 1 &&
+          ft <= 8 &&
+          inch >= 0 &&
+          inch <= 11
         );
       case 6:
         return Boolean(form.sexAtBirth);
@@ -132,7 +228,7 @@ export function OnboardingWizard() {
           config={config}
           onBackToRoleSelection={() => {
             setCurrentStep(0);
-            setForm((current) => ({ ...current, role: "professional" }));
+            setForm(formForRole("professional"));
           }}
         />
       </OnboardingShell>
@@ -173,6 +269,7 @@ export function OnboardingWizard() {
         preferredFeature: form.preferredFeature,
       });
       await postOnboardingComplete(body);
+      clearOnboardingDraft();
       dispatchMeRefresh();
       routeAfterOnboarding(feature);
     } catch (err) {
@@ -222,9 +319,7 @@ export function OnboardingWizard() {
                   title={option.title}
                   description={option.description}
                   selected={form.role === option.id}
-                  onClick={() =>
-                    setForm((current) => ({ ...current, role: option.id }))
-                  }
+                  onClick={() => setForm(formForRole(option.id))}
                 />
               ))}
             </div>
