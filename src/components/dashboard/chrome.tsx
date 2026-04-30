@@ -78,9 +78,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </Link>
 
           <div className="relative flex items-center gap-2 sm:gap-3">
-            <HeaderIconButton aria-label="Messages">
-              <MessageCircleMore className="size-4" />
-            </HeaderIconButton>
+            <Link href="/dashboard/messages">
+              <HeaderIconButton aria-label="Messages">
+                <MessageCircleMore className="size-4" />
+              </HeaderIconButton>
+            </Link>
             <Link href="/dashboard/notifications">
               <HeaderIconButton aria-label="Notifications">
                 <Bell className="size-4" />

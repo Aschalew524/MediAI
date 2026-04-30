@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { isAxiosError } from "axios";
 import {
   ChevronDown,
   CirclePlus,
@@ -19,7 +20,7 @@ import {
 } from "lucide-react";
 
 import type { ChatMode } from "@/lib/chat-content";
-import { sendMockChatMessage } from "@/lib/services/app-content";
+import { sendChatMessage } from "@/lib/services/app-content";
 import { cn } from "@/lib/utils";
 
 import {
@@ -189,10 +190,12 @@ export function ProfessionalChatConversationPage({
       ? getSeededProfessionalConversation(patient)
       : [],
   );
+  const conversationIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!initialSeededConversation) {
       setMessages([]);
+      conversationIdRef.current = undefined;
     }
   }, [initialSeededConversation, patient.id]);
 
@@ -217,7 +220,14 @@ export function ProfessionalChatConversationPage({
     setSending(true);
 
     try {
-      const response = await sendMockChatMessage("personal", messageText);
+      const response = await sendChatMessage({
+        mode: "personal",
+        message: messageText,
+        conversationId: conversationIdRef.current,
+      });
+      if (response.conversationId) {
+        conversationIdRef.current = response.conversationId;
+      }
       setMessages((current) => [
         ...current,
         {
@@ -227,14 +237,26 @@ export function ProfessionalChatConversationPage({
           timestamp,
         },
       ]);
-    } catch {
+    } catch (err: unknown) {
+      const code = isAxiosError(err) ? err.response?.status : undefined;
+      const content =
+        code === 401
+          ? "Please sign in again to continue."
+          : code === 404
+            ? "Finish setting up your profile to use the clinical assistant."
+            : code === 429
+              ? "You're sending messages too quickly — try again in a moment."
+              : code === 503
+                ? "The AI service is temporarily rate-limited. Please try again shortly."
+                : code === 504
+                  ? "The AI service took too long to respond. Please try again."
+                  : "I couldn't load a response right now. Please try again in a moment.";
       setMessages((current) => [
         ...current,
         {
           role: "assistant",
           author: "AI Doctor",
-          content:
-            "I couldn't load a response right now. Please try again in a moment.",
+          content,
           timestamp,
         },
       ]);
