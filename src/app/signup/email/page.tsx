@@ -6,11 +6,14 @@ import Link from "next/link";
 import { ArrowLeft, Lock, Mail } from "lucide-react";
 
 import {
+  AuthOutlineButton,
   AuthPageShell,
   AuthPrimaryButton,
+  GoogleMark,
   IconInput,
   LegalDisclaimer,
   MediAIWordmark,
+  OrDivider,
 } from "@/components/auth/shared";
 import { postRegister, userFacingAxiosError } from "@/lib/auth-api";
 
@@ -55,8 +58,8 @@ export default function SignUpEmailPage() {
 
       <div className="mb-6 flex w-full items-center gap-3">
         <Link
-          href="/signup"
-          aria-label="Back to sign up options"
+          href="/signin"
+          aria-label="Back to sign in page"
           className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-foreground hover:bg-white/80"
         >
           <ArrowLeft className="size-5" />
@@ -113,6 +116,12 @@ export default function SignUpEmailPage() {
           {isSubmitting ? "Creating account…" : "Sign up"}
         </AuthPrimaryButton>
       </form>
+
+      <OrDivider />
+      <AuthOutlineButton aria-label="Sign up with Google">
+        <GoogleMark />
+        Sign up with Google
+      </AuthOutlineButton>
 
       <p className="mt-6 text-center text-sm text-foreground/80">
         Already have account?{" "}

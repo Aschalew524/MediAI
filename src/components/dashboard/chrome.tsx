@@ -61,13 +61,13 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <header className="relative z-40 border-b border-primary/10 bg-background/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 lg:px-8">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 text-sm font-medium text-foreground"
           >
             <span className="text-primary">🏠</span>
-            <span>My Dashboard</span>
+            <span className="hidden sm:inline">My Dashboard</span>
           </Link>
 
           <Link
@@ -77,7 +77,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             MediAI
           </Link>
 
-          <div className="relative flex items-center gap-3">
+          <div className="relative flex items-center gap-2 sm:gap-3">
             <HeaderIconButton aria-label="Messages">
               <MessageCircleMore className="size-4" />
             </HeaderIconButton>
@@ -86,10 +86,16 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 <Bell className="size-4" />
               </HeaderIconButton>
             </Link>
-            <div className="relative" ref={menuRef}>
+            <div
+              className="relative"
+              ref={menuRef}
+              onMouseEnter={() => setMenuOpen(true)}
+              onMouseLeave={() => setMenuOpen(false)}
+            >
               <button
                 type="button"
                 onClick={() => setMenuOpen((open) => !open)}
+                onFocus={() => setMenuOpen(true)}
                 aria-label="Open profile menu"
                 className="inline-flex items-center gap-2 rounded-full border border-primary/10 px-2 py-1 transition-colors hover:bg-muted"
               >
@@ -100,7 +106,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               </button>
 
               {menuOpen ? (
-                <div className="absolute right-0 top-12 z-100 w-64 rounded-2xl border border-primary/12 bg-white p-5 shadow-[0_24px_80px_-45px_rgba(73,96,188,0.75)]">
+                <div className="absolute right-0 top-12 z-100 w-[min(16rem,calc(100vw-1.5rem))] rounded-2xl border border-primary/12 bg-white p-5 shadow-[0_24px_80px_-45px_rgba(73,96,188,0.75)]">
                   <div className="flex items-center gap-3">
                     <div className="relative inline-flex size-12 items-center justify-center rounded-full bg-muted text-primary">
                       <CircleUserRound className="size-7" />

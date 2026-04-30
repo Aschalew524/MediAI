@@ -45,7 +45,7 @@ export function TopDoctorsPage() {
       <DashboardContainer className="space-y-6">
         <div className="space-y-4">
           <DashboardBackTitle title="Choose Top Doctor" />
-          <div className="relative max-w-md">
+          <div className="relative w-full max-w-md">
             <select
               value={selectedSpecialty}
               onChange={(event) => setSelectedSpecialty(event.target.value)}
@@ -135,13 +135,13 @@ export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
             </div>
           </div>
 
-          <div className="grid gap-8 lg:grid-cols-[340px_1fr] lg:items-start">
+          <div className="grid gap-6 lg:grid-cols-[340px_1fr] lg:items-start">
             <TopDoctorCard doctor={doctor} />
 
-            <div className="space-y-8 py-2">
+            <div className="space-y-6 py-1 sm:py-2">
               <div className="space-y-1">
-                <h1 className="text-3xl font-bold tracking-tight">{doctor.name}</h1>
-                <p className="text-lg text-foreground">{doctor.role}</p>
+                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{doctor.name}</h1>
+                <p className="text-base text-foreground sm:text-lg">{doctor.role}</p>
                 <p className="text-sm text-muted-foreground">
                   {doctor.yearsOfExperience} Years of Experiance
                 </p>
@@ -326,7 +326,7 @@ function VideoConsultationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm">
-      <div className="relative w-full max-w-4xl rounded-2xl border border-primary/15 bg-white p-6 shadow-[0_35px_120px_-50px_rgba(0,0,0,0.55)] md:p-8">
+      <div className="relative w-full max-w-4xl rounded-2xl border border-primary/15 bg-white p-4 shadow-[0_35px_120px_-50px_rgba(0,0,0,0.55)] sm:p-6 md:p-8">
         <button
           type="button"
           aria-label="Close consultation modal"
@@ -345,7 +345,7 @@ function VideoConsultationModal({
         </div>
 
         <form
-          className="mt-8 grid gap-6 lg:grid-cols-[1fr_1fr]"
+          className="mt-6 grid gap-6 lg:mt-8 lg:grid-cols-[1fr_1fr]"
           onSubmit={(event) => {
             event.preventDefault();
             onClose();

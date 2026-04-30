@@ -11,7 +11,7 @@ export function Container({
 }: ComponentPropsWithoutRef<"div">) {
   return (
     <div
-      className={cn("mx-auto w-full max-w-7xl px-6 lg:px-8", className)}
+      className={cn("mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8", className)}
       {...props}
     />
   );
@@ -33,7 +33,7 @@ export function SectionHeading({
   return (
     <div
       className={cn(
-        "space-y-4",
+        "space-y-3.5",
         centered ? "mx-auto max-w-3xl text-center" : "max-w-xl text-left",
         className,
       )}
@@ -43,11 +43,11 @@ export function SectionHeading({
           {badge}
         </span>
       ) : null}
-      <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+      <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-[2.8rem]">
         {title}
       </h2>
       {description ? (
-        <p className="text-base leading-7 text-muted-foreground sm:text-lg">
+        <p className="text-base leading-7 text-muted-foreground sm:text-[1.05rem]">
           {description}
         </p>
       ) : null}
@@ -113,7 +113,7 @@ export function SectionShell({
 }) {
   return (
     <section
-      className={cn("relative py-20 sm:py-24 lg:py-28", className)}
+      className={cn("relative py-16 sm:py-20 lg:py-24", className)}
       {...props}
     >
       {children}
