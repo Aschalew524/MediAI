@@ -41,8 +41,8 @@ function SignInForm() {
       await postLogin({ email, password });
       if (
         from &&
-        from.startsWith("/dashboard") &&
-        !from.startsWith("//")
+        !from.startsWith("//") &&
+        (from.startsWith("/dashboard") || from.startsWith("/admin"))
       ) {
         router.push(from);
       } else {

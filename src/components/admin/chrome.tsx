@@ -8,6 +8,7 @@ import {
   CreditCard,
   LayoutDashboard,
   LogOut,
+  Newspaper,
   ShieldCheck,
   Users,
 } from "lucide-react";
@@ -29,6 +30,11 @@ const adminNavItems = [
     label: "Subscriptions",
     href: "/admin/subscriptions",
     icon: <CreditCard className="size-4" />,
+  },
+  {
+    label: "Blog",
+    href: "/admin/blog",
+    icon: <Newspaper className="size-4" />,
   },
 ];
 
