@@ -146,23 +146,6 @@ export function TopDoctorsPage() {
       <DashboardContainer className="space-y-6">
         <div className="space-y-4">
           <DashboardBackTitle title="Choose Top Doctor" />
-<<<<<<< HEAD
-          <div className="relative w-full max-w-md">
-            <select
-              value={selectedSpecialty}
-              onChange={(event) => setSelectedSpecialty(event.target.value)}
-              className="h-12 w-full appearance-none rounded-xl border border-primary/20 bg-white px-4 pr-10 text-sm text-foreground outline-none ring-0 transition-colors focus:border-primary"
-              aria-label="Filter top doctors by specialty"
-            >
-              <option value="all">Enter specialty, sub-specialty or disease</option>
-              {doctorSpecialties.map((specialty) => (
-                <option key={specialty} value={specialty}>
-                  {specialty}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-=======
           <div className="flex max-w-2xl flex-col gap-3 sm:flex-row sm:items-stretch">
             <div className="relative min-w-0 flex-1">
               <input
@@ -193,7 +176,6 @@ export function TopDoctorsPage() {
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             </div>
->>>>>>> 134479c (feature:integarte chat profile setup top ai doctors)
           </div>
           {specialtiesErrorMessage ? (
             <p className="text-xs text-muted-foreground">

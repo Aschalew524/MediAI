@@ -14,7 +14,6 @@ import {
   ExternalLink,
   Hospital,
   LocateFixed,
-  LoaderCircle,
   MapPin,
   Navigation,
   Phone,
@@ -24,6 +23,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 
+import Link from "next/link";
 import { isCancel } from "axios";
 import { getFriendlyAxiosMessage } from "@/lib/axios-error-messages";
 import {
@@ -282,20 +282,21 @@ export function FacilityLocatorPage() {
           description="Find and navigate to the nearest verified hospitals, clinics, and pharmacies."
         />
 
-        <LocationBanner
-          status={loc.status}
-          accuracyM={loc.accuracyM}
-          errorMessage={loc.errorMessage}
-          onRequest={loc.request}
-        />
-
-        {expandedFromRadius && usingGeo ? (
-          <DashboardPanel className="border-amber-200/50 bg-amber-50/40 px-5 py-3 text-xs text-foreground/80">
-            No facilities found within{" "}
-            <span className="font-semibold">{PRIMARY_RADIUS_KM} km</span> of
-            your location. Showing results from a wider{" "}
-            <span className="font-semibold">{FALLBACK_RADIUS_KM} km</span>{" "}
-            radius, sorted by distance.
+        {geoStatus === "denied" ? (
+          <DashboardPanel className="border-amber-200/50 bg-amber-50/40 px-5 py-3">
+            <p className="text-sm font-medium text-foreground">Location access is blocked</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Facilities are still listed; enable location in your browser settings to sort by
+              distance.
+            </p>
+          </DashboardPanel>
+        ) : null}
+        {geoStatus === "unsupported" ? (
+          <DashboardPanel className="px-5 py-3">
+            <p className="text-sm font-medium text-foreground">Geolocation not available</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Browse the directory below; results use default ordering.
+            </p>
           </DashboardPanel>
         ) : null}
 
@@ -432,7 +433,7 @@ export function FacilityLocatorPage() {
                 <DashboardPanel className="px-6 py-10 text-center">
                   <MapPin className="mx-auto mb-3 size-8 text-muted-foreground/40" />
                   <p className="text-sm text-muted-foreground">
-                    {usingGeo
+                    {geoGranted
                       ? "No facilities match your search within this area."
                       : "No facilities match your search."}
                   </p>
@@ -471,154 +472,6 @@ export function FacilityLocatorPage() {
         </div>
       </DashboardContainer>
     </DashboardPage>
-  );
-}
-
-function LocationBanner({
-  status,
-  accuracyM,
-  errorMessage,
-  onRequest,
-}: {
-  status: ReturnType<typeof useUserLocation>["status"];
-  accuracyM?: number;
-  errorMessage?: string;
-  onRequest: () => void;
-}) {
-  if (status === "ready") {
-    const lowAccuracy =
-      accuracyM != null && accuracyM > LOW_ACCURACY_THRESHOLD_M;
-    return (
-      <DashboardPanel
-        className={cn(
-          "flex items-center justify-between gap-4 px-5 py-3",
-          lowAccuracy
-            ? "border-amber-200/50 bg-amber-50/40"
-            : "border-emerald-200/40 bg-emerald-50/40",
-        )}
-      >
-        <div className="flex items-center gap-3">
-          <span
-            className={cn(
-              "inline-flex size-9 items-center justify-center rounded-xl",
-              lowAccuracy
-                ? "bg-amber-100 text-amber-700"
-                : "bg-emerald-100 text-emerald-700",
-            )}
-          >
-            <LocateFixed className="size-4" />
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-foreground">
-              {lowAccuracy
-                ? "Showing facilities near a rough estimate of your location"
-                : "Showing facilities near your current location"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {accuracyM != null
-                ? `Accuracy ~${formatAccuracy(accuracyM)}. `
-                : ""}
-              {lowAccuracy
-                ? "Distances may be off. Allow precise location in your browser, or move closer to a window for a better fix, then click Refresh."
-                : "We don't store your coordinates."}
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onRequest}
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-primary/20 px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
-        >
-          Refresh
-        </button>
-      </DashboardPanel>
-    );
-  }
-
-  if (status === "requesting") {
-    return (
-      <DashboardPanel className="flex items-center gap-3 px-5 py-3">
-        <LoaderCircle className="size-4 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">
-          Asking your browser for permission to read your location...
-        </p>
-      </DashboardPanel>
-    );
-  }
-
-  if (status === "denied") {
-    return (
-      <DashboardPanel className="flex flex-col gap-1 border-amber-200/50 bg-amber-50/40 px-5 py-3">
-        <p className="text-sm font-semibold text-foreground">
-          Location access is blocked
-        </p>
-        <p className="text-xs text-muted-foreground">
-          We can still show verified facilities — they&apos;re just not sorted
-          by distance. To sort by distance, allow location access in your
-          browser&apos;s site settings, then refresh this page.
-        </p>
-      </DashboardPanel>
-    );
-  }
-
-  if (status === "unsupported") {
-    return (
-      <DashboardPanel className="flex flex-col gap-1 px-5 py-3">
-        <p className="text-sm font-semibold text-foreground">
-          Your browser doesn&apos;t support geolocation
-        </p>
-        <p className="text-xs text-muted-foreground">
-          You can still browse the directory below; results aren&apos;t sorted
-          by distance.
-        </p>
-      </DashboardPanel>
-    );
-  }
-
-  if (status === "error") {
-    return (
-      <DashboardPanel className="flex items-center justify-between gap-4 border-amber-200/50 bg-amber-50/40 px-5 py-3">
-        <div>
-          <p className="text-sm font-semibold text-foreground">
-            We couldn&apos;t read your location
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {errorMessage ?? "Try again or browse the full directory below."}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onRequest}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-95"
-        >
-          <LocateFixed className="size-3.5" />
-          Try again
-        </button>
-      </DashboardPanel>
-    );
-  }
-
-  // status === "idle"
-  return (
-    <DashboardPanel className="flex flex-col items-start justify-between gap-3 px-5 py-3 sm:flex-row sm:items-center">
-      <div>
-        <p className="text-sm font-semibold text-foreground">
-          Use my location to find the closest facilities
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Granting access lets us sort the directory by real distance from
-          where you are.
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={onRequest}
-        className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-95"
-      >
-        <LocateFixed className="size-4" />
-        Use my location
-      </button>
-    </DashboardPanel>
   );
 }
 
@@ -733,7 +586,6 @@ function FacilityCard({
 
       {isSelected ? (
         <div className="flex flex-wrap items-center gap-2 border-t border-primary/8 pl-12 pt-3">
-        <div className="flex flex-wrap items-center gap-2 border-t border-primary/8 pl-12 pt-3">
           <a
             href={directionsUrl}
             target="_blank"
@@ -775,12 +627,6 @@ function formatDistance(km: number): string {
   return `${Math.round(km)} km away`;
 }
 
-function formatAccuracy(m: number): string {
-  if (m < 1000) return `${Math.round(m)} m`;
-  if (m < 10_000) return `${(m / 1000).toFixed(1)} km`;
-  return `${Math.round(m / 1000)} km`;
-}
-
 function FacilityTypeBadge({ type }: { type: FacilityType }) {
   return (
     <span
@@ -800,7 +646,7 @@ function FacilityIcon({
   type,
   size = "md",
 }: {
-  type: HealthcareFacility["type"];
+  type: FacilityType;
   size?: "sm" | "md";
 }) {
   const cls = size === "sm" ? "size-3.5" : "size-4";
