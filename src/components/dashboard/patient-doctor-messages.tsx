@@ -12,6 +12,7 @@ import Link from "next/link";
 import { isAxiosError } from "axios";
 import {
   ArrowLeft,
+  CircleUserRound,
   Loader2,
   MessageCircleMore,
   RefreshCcw,
@@ -27,6 +28,10 @@ import {
   type ApiThreadMessage,
   type ApiThreadSummary,
 } from "@/lib/services/messages-api";
+import {
+  listProfessionalPatients,
+  type ApiPatientSummary,
+} from "@/lib/services/professional-api";
 import { cn } from "@/lib/utils";
 
 import {
@@ -35,6 +40,8 @@ import {
   DashboardPage,
   DashboardPanel,
 } from "./primitives";
+import { ProfessionalDashboardShell } from "./professional-shell";
+import { useDashboardProfile } from "./use-dashboard-profile";
 
 const POLL_INTERVAL_MS = 15_000;
 
@@ -44,6 +51,16 @@ const POLL_INTERVAL_MS = 15_000;
  * them). Polls every 15s so a freshly-arrived message bubbles up.
  */
 export function PatientDoctorMessagesPage() {
+  const profile = useDashboardProfile();
+
+  if (profile.professionalProfile) {
+    return <ProfessionalMessagesInboxPage />;
+  }
+
+  return <PatientMessagesInboxPage />;
+}
+
+function PatientMessagesInboxPage() {
   const [items, setItems] = useState<ApiThreadSummary[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -140,6 +157,170 @@ export function PatientDoctorMessagesPage() {
       </DashboardContainer>
     </DashboardPage>
   );
+}
+
+function ProfessionalMessagesInboxPage() {
+  const profile = useDashboardProfile();
+  const [items, setItems] = useState<ApiPatientSummary[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const refresh = useCallback(
+    async (mode: "initial" | "background" = "background") => {
+      if (mode === "initial") setIsInitialLoading(true);
+      else setIsRefreshing(true);
+      setLoadError(null);
+      try {
+        const next = await listProfessionalPatients({ pageSize: 100 });
+        setItems(sortPatientsForMessages(next.items));
+      } catch (err: unknown) {
+        const code = isAxiosError(err) ? err.response?.status : undefined;
+        setLoadError(
+          code === 403
+            ? "Only professional accounts can view patient messages."
+            : "Could not load patient messages. Try again.",
+        );
+      } finally {
+        if (mode === "initial") setIsInitialLoading(false);
+        else setIsRefreshing(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    void refresh("initial");
+  }, [refresh]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const id = window.setInterval(() => {
+      void refresh("background");
+    }, POLL_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [refresh]);
+
+  return (
+    <ProfessionalDashboardShell profile={profile}>
+      <div className="space-y-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              Home / <span className="font-semibold text-foreground">Messages</span>
+            </p>
+            <h1 className="mt-2 text-[2.4rem] font-semibold tracking-tight text-foreground">
+              Patient Messages
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Open a patient conversation or start a new message thread.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void refresh("background")}
+            disabled={isRefreshing || isInitialLoading}
+            className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-primary/15 px-3 text-xs font-medium text-foreground/80 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+          >
+            <RefreshCcw
+              className={cn("size-3.5", isRefreshing && "animate-spin")}
+            />
+            Refresh
+          </button>
+        </div>
+
+        <DashboardPanel className="overflow-hidden p-0">
+          {isInitialLoading ? (
+            <div className="flex min-h-[40vh] items-center justify-center">
+              <Loader2 className="size-6 animate-spin text-primary" />
+            </div>
+          ) : loadError && items.length === 0 ? (
+            <ThreadsEmptyState
+              variant="error"
+              title={loadError}
+              actionLabel="Try again"
+              onAction={() => void refresh("background")}
+            />
+          ) : items.length === 0 ? (
+            <ThreadsEmptyState
+              variant="empty"
+              title="No registered patients yet"
+              description="When patients register, you can open or start conversations from here."
+            />
+          ) : (
+            <ul>
+              {items.map((patient) => (
+                <ProfessionalMessageRow key={patient.id} patient={patient} />
+              ))}
+            </ul>
+          )}
+        </DashboardPanel>
+
+        {loadError && items.length > 0 ? (
+          <p className="text-xs text-amber-700" role="alert">
+            {loadError}
+          </p>
+        ) : null}
+      </div>
+    </ProfessionalDashboardShell>
+  );
+}
+
+function ProfessionalMessageRow({ patient }: { patient: ApiPatientSummary }) {
+  const name = patient.preferredName.trim() || "Unnamed patient";
+  const lastActivity = formatProfessionalActivity(patient.lastActivityAt);
+
+  return (
+    <li className="border-b border-primary/10 last:border-b-0">
+      <Link
+        href={`/dashboard/patients/${encodeURIComponent(patient.id)}/messages`}
+        className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40 sm:px-6"
+      >
+        <div className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <CircleUserRound className="size-7" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="truncate text-sm font-semibold text-foreground sm:text-base">
+              {name}
+            </p>
+            <span className="shrink-0 text-[11px] text-muted-foreground">
+              {lastActivity ?? "No messages yet"}
+            </span>
+          </div>
+          <p className="mt-0.5 truncate text-sm leading-5 text-muted-foreground">
+            {patient.email}
+          </p>
+          <p className="mt-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+            Open patient message thread
+          </p>
+        </div>
+      </Link>
+    </li>
+  );
+}
+
+function sortPatientsForMessages(items: ApiPatientSummary[]): ApiPatientSummary[] {
+  return [...items].sort((a, b) => {
+    const aTs = a.lastActivityAt ? Date.parse(a.lastActivityAt) : 0;
+    const bTs = b.lastActivityAt ? Date.parse(b.lastActivityAt) : 0;
+    if (aTs !== bTs) return bTs - aTs;
+    return (a.preferredName || a.email).localeCompare(b.preferredName || b.email);
+  });
+}
+
+function formatProfessionalActivity(iso: string | null): string | null {
+  if (!iso) return null;
+  const ts = Date.parse(iso);
+  if (Number.isNaN(ts)) return null;
+  const diffMin = Math.round((Date.now() - ts) / 60_000);
+  if (diffMin < 1) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `${diffH}h ago`;
+  const diffD = Math.round(diffH / 24);
+  if (diffD < 30) return `${diffD}d ago`;
+  return new Date(ts).toLocaleDateString();
 }
 
 function ThreadRow({ thread }: { thread: ApiThreadSummary }) {
