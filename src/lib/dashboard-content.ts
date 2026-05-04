@@ -48,8 +48,11 @@ export const medicalHistoryStorageKey = "mediai-medical-history";
 export type MedicalHistoryData = {
   chronicDiseases: string[];
   chronicDetails: string;
+  familyHistory: string[];
+  familyHistoryDetails: string;
   allergies: string[];
   allergyDetails: string;
+  surgicalHistory: string;
   currentMedications: string;
   pastMedications: string;
   smokingIntensity: string;
@@ -63,8 +66,11 @@ export type MedicalHistoryData = {
 export const defaultMedicalHistory: MedicalHistoryData = {
   chronicDiseases: [],
   chronicDetails: "",
+  familyHistory: [],
+  familyHistoryDetails: "",
   allergies: [],
   allergyDetails: "",
+  surgicalHistory: "",
   currentMedications: "",
   pastMedications: "",
   smokingIntensity: "",
@@ -84,6 +90,16 @@ export const chronicDiseaseOptions = [
   "Arthritis",
   "Cancer",
   "Kidney Disease",
+] as const;
+
+export const familyHistoryOptions = [
+  "Heart Disease",
+  "Diabetes",
+  "Cancer",
+  "Osteoporosis",
+  "Stroke",
+  "Mental Illness",
+  "Asthma / Allergies",
 ] as const;
 
 export const allergyOptions = [
@@ -161,6 +177,12 @@ export const dashboardCards = [
     description: "",
     href: "/dashboard/ai-doctor",
     accent: "bot" as const,
+  },
+  {
+    title: "Messages With Doctors",
+    description: "Chat directly with doctors who reach out to you.",
+    href: "/dashboard/messages",
+    accent: "messages" as const,
   },
   {
     title: "Find Nearby Facilities",

@@ -70,7 +70,7 @@ export type DashboardConfigResponse = {
     title: string;
     description: string;
     href: string;
-    accent: "bot" | "facilities" | "doctors";
+    accent: "bot" | "facilities" | "doctors" | "messages";
     muted?: boolean;
   }[];
   consultDoctorsCard: {
@@ -158,9 +158,145 @@ export async function getAdminConfig() {
   return data;
 }
 
+export type ChatCitation = {
+  id: string;
+  title?: string;
+  source?: string;
+  snippet?: string;
+};
+
+export type ChatSendResult = {
+  reply: string;
+  author: string;
+  /** Personal mode only — re-send on the next turn to keep multi-turn memory. */
+  conversationId?: string;
+  messageId: string;
+  citations?: ChatCitation[];
+};
+
+export type ChatSendOptions = {
+  mode: ChatMode;
+  message: string;
+  /** Personal mode: re-use the value returned from the previous reply. */
+  conversationId?: string;
+  /** General mode: client-generated id to keep an anonymous thread across turns. */
+  sessionId?: string;
+};
+
+/**
+ * Sends a chat message to the real backend.
+ * - `personal` → `POST /api/chat/personal/messages` (JWT required, attached by interceptor).
+ *   Backend reads the user's profile + medical history server-side; we only send the
+ *   user's text and the previous `conversationId` to preserve multi-turn memory.
+ * - `general` → `POST /api/chat/general/messages` (JWT optional).
+ *   `sessionId` is a client-generated string to keep an anonymous thread cohesive.
+ */
+export async function sendChatMessage(
+  opts: ChatSendOptions,
+): Promise<ChatSendResult> {
+  if (opts.mode === "personal") {
+    const { data } = await api.post<{
+      reply: string;
+      conversationId: string;
+      messageId: string;
+      citations?: ChatCitation[];
+    }>("/chat/personal/messages", {
+      message: opts.message,
+      ...(opts.conversationId ? { conversationId: opts.conversationId } : {}),
+    });
+    return {
+      reply: data.reply,
+      author: "AI Doctor",
+      conversationId: data.conversationId,
+      messageId: data.messageId,
+      citations: data.citations,
+    };
+  }
+
+  const { data } = await api.post<{
+    reply: string;
+    messageId: string;
+    citations?: ChatCitation[];
+  }>("/chat/general/messages", {
+    message: opts.message,
+    ...(opts.sessionId ? { sessionId: opts.sessionId } : {}),
+  });
+  return {
+    reply: data.reply,
+    author: "General Chat",
+    messageId: data.messageId,
+    citations: data.citations,
+  };
+}
+
 export async function submitIssueReport(message: string) {
   const { data } = await api.post<{ success: boolean }>("/chat/report-issue", {
     message,
   });
+  return data;
+}
+
+/**
+ * One row in the patient's personal AI Doctor chat history.
+ * Backend filters to `kind: personal` only, so general/anonymous chats
+ * never appear here.
+ */
+export type ApiPersonalConversation = {
+  id: string;
+  kind: "personal" | "general";
+  createdAt: string;
+  updatedAt: string;
+  lastMessagePreview?: string;
+};
+
+export type ApiPersonalConversationList = {
+  items: ApiPersonalConversation[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
+export type ApiPersonalConversationMessage = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  createdAt: string;
+};
+
+export type ApiPersonalConversationMessages = {
+  items: ApiPersonalConversationMessage[];
+  hasMore: boolean;
+};
+
+function cleanParams(params: Record<string, unknown>): Record<string, string | number> {
+  const out: Record<string, string | number> = {};
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null) continue;
+    if (typeof v === "string" && v.trim() === "") continue;
+    out[k] = v as string | number;
+  }
+  return out;
+}
+
+/** GET /api/chat/conversations — newest first. */
+export async function listPersonalConversations(
+  params: { page?: number; pageSize?: number } = {},
+): Promise<ApiPersonalConversationList> {
+  const { data } = await api.get<ApiPersonalConversationList>(
+    "/chat/conversations",
+    { params: cleanParams(params) },
+  );
+  return data;
+}
+
+/** GET /api/chat/conversations/:id/messages — oldest → newest, cursor on `before`. */
+export async function getPersonalConversationMessages(
+  conversationId: string,
+  params: { limit?: number; before?: string } = {},
+): Promise<ApiPersonalConversationMessages> {
+  const { data } = await api.get<ApiPersonalConversationMessages>(
+    `/chat/conversations/${encodeURIComponent(conversationId)}/messages`,
+    { params: cleanParams(params) },
+  );
   return data;
 }

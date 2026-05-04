@@ -115,8 +115,11 @@ function normalizeMedicalHistory(
   return {
     chronicDiseases: a(raw.chronicDiseases),
     chronicDetails: s(raw.chronicDetails),
+    familyHistory: a(raw.familyHistory),
+    familyHistoryDetails: s(raw.familyHistoryDetails),
     allergies: a(raw.allergies),
     allergyDetails: s(raw.allergyDetails),
+    surgicalHistory: s(raw.surgicalHistory),
     currentMedications: s(raw.currentMedications),
     pastMedications: s(raw.pastMedications),
     smokingIntensity: s(raw.smokingIntensity),

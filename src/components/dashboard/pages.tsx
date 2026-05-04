@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useReducer,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -13,6 +19,7 @@ import {
   FlaskConical,
   HeartPulse,
   MapPin,
+  MessageCircleMore,
   Pencil,
   Stethoscope,
   Trash2,
@@ -27,8 +34,8 @@ import {
   chronicDiseaseOptions,
   dashboardProfileStorageKey,
   type DashboardProfile,
-  defaultMedicalHistory,
   dietOptions,
+  familyHistoryOptions,
   getProfileHeight,
   getProfileName,
   getProfessionalName,
@@ -42,6 +49,7 @@ import {
 import { clearAccessToken } from "@/lib/auth-storage";
 import {
   deleteMeAccount,
+  patchAiDoctorSetup,
   patchMeProfile,
   profileToPatchBody,
   putMedicalHistory,
@@ -50,7 +58,8 @@ import {
 import { useDashboardConfig } from "@/lib/hooks/use-app-config";
 import {
   computeProfileCompletion,
-  type ProfileCompletionResult,
+  mainHealthInformationCompletionPercent,
+  overallProfileCompletionPercent,
 } from "@/lib/profile-completion";
 import { cn } from "@/lib/utils";
 
@@ -67,49 +76,29 @@ import {
   DashboardPage,
   DashboardPanel,
 } from "./primitives";
-import {
-  formatProfessionalPatient,
-  getProfessionalPatients,
-  ProfessionalDashboardShell,
-} from "./professional-shell";
-import { ProfessionalPatientProfilePage } from "./professional-patient-profile";
+import { ProfessionalDashboardShell } from "./professional-shell";
 import { useDashboardProfile } from "./use-dashboard-profile";
-
-function PersonalHealthCompletionRing({
-  completion,
-}: {
-  completion: ProfileCompletionResult | null;
-}) {
-  if (completion === null) {
-    return (
-      <span
-        className="inline-flex size-12 shrink-0 items-center justify-center rounded-full border border-dashed border-primary/25 bg-muted/30 text-xs font-semibold text-muted-foreground"
-        title="Profile completion unavailable"
-      >
-        —
-      </span>
-    );
-  }
-  return (
-    <span title="v1: average of general demographics and medical/lifestyle forms (see profile-completion.ts)">
-      <CompletionRing value={completion.overall} />
-    </span>
-  );
-}
+import {
+  listProfessionalPatients,
+  type ApiPatientSummary,
+} from "@/lib/services/professional-api";
+import { useRouter } from "next/navigation";
+import { isAxiosError } from "axios";
 
 export function DashboardHomePage() {
   const profile = useDashboardProfile();
-  const { medicalHistory, raw, meError } = useDashboardMe();
+  const { medicalHistory } = useDashboardMe();
   const { data: config } = useDashboardConfig();
   const name = getProfileName(profile);
-  const completion =
-    raw?.profile != null && !meError
-      ? computeProfileCompletion(profile, medicalHistory)
-      : null;
 
   if (profile.professionalProfile) {
     return <ProfessionalDashboardHomePage profile={profile} />;
   }
+
+  const profileCompletion = overallProfileCompletionPercent(
+    profile,
+    medicalHistory,
+  );
 
   return (
     <DashboardPage>
@@ -123,7 +112,7 @@ export function DashboardHomePage() {
                 v1 estimate from your basics + medical history forms (not AI Doctor setup or documents).
               </p>
             </div>
-            <PersonalHealthCompletionRing completion={completion} />
+            <CompletionRing value={profileCompletion} />
           </DashboardPanel>
         </Link>
 
@@ -152,14 +141,74 @@ export function DashboardHomePage() {
   );
 }
 
+type DoctorPatientsState = {
+  isLoading: boolean;
+  patients: ApiPatientSummary[];
+  error: string | null;
+};
+
+type DoctorPatientsAction =
+  | { type: "request" }
+  | { type: "success"; patients: ApiPatientSummary[] }
+  | { type: "failure"; message: string | null };
+
+function doctorPatientsReducer(
+  state: DoctorPatientsState,
+  action: DoctorPatientsAction,
+): DoctorPatientsState {
+  switch (action.type) {
+    case "request":
+      return { ...state, isLoading: true, error: null };
+    case "success":
+      return { isLoading: false, patients: action.patients, error: null };
+    case "failure":
+      return { isLoading: false, patients: [], error: action.message };
+    default:
+      return state;
+  }
+}
+
 function ProfessionalDashboardHomePage({
   profile,
 }: {
   profile: DashboardProfile;
 }) {
   const professionalName = getProfessionalName(profile);
+  const router = useRouter();
+  const [patientsState, dispatchPatients] = useReducer(
+    doctorPatientsReducer,
+    { isLoading: true, patients: [], error: null },
+  );
+  const { patients, isLoading: isLoadingPatients, error: patientsError } =
+    patientsState;
   const [selectedPatient, setSelectedPatient] = useState("");
-  const patients = getProfessionalPatients(profile);
+
+  useEffect(() => {
+    let cancelled = false;
+    dispatchPatients({ type: "request" });
+    listProfessionalPatients({ pageSize: 50 })
+      .then((res) => {
+        if (cancelled) return;
+        dispatchPatients({ type: "success", patients: res.items });
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const code = isAxiosError(err) ? err.response?.status : undefined;
+        const message =
+          code === 403 ? null : "Could not load patients. Try again later.";
+        dispatchPatients({ type: "failure", message });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function handlePatientSelect(value: string) {
+    setSelectedPatient(value);
+    if (value) {
+      router.push(`/dashboard/patients/${value}`);
+    }
+  }
 
   return (
     <ProfessionalDashboardShell profile={profile}>
@@ -175,20 +224,45 @@ function ProfessionalDashboardHomePage({
             </p>
           </div>
 
-          <div className="relative max-w-3xl">
-            <select
-              value={selectedPatient}
-              onChange={(event) => setSelectedPatient(event.target.value)}
-              className="h-13 w-full appearance-none rounded-xl border border-primary/12 bg-white px-4 pr-10 text-sm text-foreground outline-none transition-colors focus:border-primary"
-            >
-              <option value="">Select a patient or add new</option>
-              {patients.map((patient) => (
-                <option key={patient.id} value={patient.id}>
-                  {formatProfessionalPatient(patient)}
+          <div className="space-y-2">
+            <div className="relative max-w-3xl">
+              <select
+                value={selectedPatient}
+                onChange={(event) => handlePatientSelect(event.target.value)}
+                disabled={isLoadingPatients}
+                className="h-13 w-full appearance-none rounded-xl border border-primary/12 bg-white px-4 pr-10 text-sm text-foreground outline-none transition-colors focus:border-primary disabled:opacity-60"
+              >
+                <option value="">
+                  {isLoadingPatients
+                    ? "Loading patients…"
+                    : patients.length === 0
+                      ? "No registered patients yet"
+                      : "Jump to a patient…"}
                 </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                {patients.map((patient) => (
+                  <option key={patient.id} value={patient.id}>
+                    {formatPatientOption(patient)}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            </div>
+            {patientsError ? (
+              <p className="text-xs text-destructive" role="alert">
+                {patientsError}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Or browse the full directory in{" "}
+                <Link
+                  href="/dashboard/patients"
+                  className="font-medium text-primary hover:underline"
+                >
+                  All patients
+                </Link>
+                .
+              </p>
+            )}
           </div>
         </div>
       </DashboardPanel>
@@ -211,12 +285,24 @@ function ProfessionalDashboardHomePage({
         />
         <ProfessionalDashboardCard
           title="Patients"
-          href="/dashboard/profile"
+          href="/dashboard/patients"
           visual={<PatientsVisual />}
         />
       </div>
     </ProfessionalDashboardShell>
   );
+}
+
+function formatPatientOption(p: ApiPatientSummary): string {
+  const sex =
+    p.sexAtBirth === "male"
+      ? "Male"
+      : p.sexAtBirth === "female"
+        ? "Female"
+        : "Other";
+  const name = p.preferredName || p.email;
+  const age = p.age || "—";
+  return `${name} · ${age} y.o · ${sex}`;
 }
 
 function ProfessionalDashboardCard({
@@ -342,7 +428,7 @@ function DashboardShortcutCard({
   title: string;
   description: string;
   href: string;
-  accent: "bot" | "facilities" | "doctors";
+  accent: "bot" | "facilities" | "doctors" | "messages";
   muted?: boolean;
   wide?: boolean;
 }) {
@@ -379,7 +465,13 @@ function DashboardShortcutCard({
   );
 }
 
-function VisualAccent({ accent, title }: { accent: "bot" | "facilities" | "doctors"; title: string }) {
+function VisualAccent({
+  accent,
+  title,
+}: {
+  accent: "bot" | "facilities" | "doctors" | "messages";
+  title: string;
+}) {
   if (title === "Check Up Plan") {
     return (
       <div className="relative flex size-20 items-center justify-center">
@@ -451,6 +543,21 @@ function VisualAccent({ accent, title }: { accent: "bot" | "facilities" | "docto
     );
   }
 
+  if (accent === "messages") {
+    return (
+      <div className="relative flex size-20 items-center justify-center">
+        <div className="absolute inset-3 rounded-full bg-primary/8 blur-2xl" />
+        <div className="rounded-2xl border border-primary/15 bg-white p-4 shadow-[0_20px_50px_-35px_rgba(76,104,220,0.7)]">
+          <MessageCircleMore
+            className="size-8 text-primary"
+            strokeWidth={1.75}
+            aria-hidden
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex size-24 items-center justify-center">
       <div className="absolute inset-2 rounded-full bg-primary/8 blur-3xl" />
@@ -474,8 +581,25 @@ function VisualAccent({ accent, title }: { accent: "bot" | "facilities" | "docto
 
 export function HealthProfilePage() {
   const profile = useDashboardProfile();
+  const router = useRouter();
+
+  // Doctors no longer have a personal "Health Profile" page in this app — the
+  // dedicated patient directory at /dashboard/patients is the entry point for
+  // viewing and messaging patients.
+  useEffect(() => {
+    if (profile.professionalProfile) {
+      router.replace("/dashboard/patients");
+    }
+  }, [profile.professionalProfile, router]);
+
   if (profile.professionalProfile) {
-    return <ProfessionalPatientProfilePage profile={profile} />;
+    return (
+      <ProfessionalDashboardShell profile={profile}>
+        <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
+          Redirecting to patients…
+        </div>
+      </ProfessionalDashboardShell>
+    );
   }
 
   return <ConsumerHealthProfilePage profile={profile} />;
@@ -487,10 +611,6 @@ function ConsumerHealthProfilePage({
   profile: DashboardProfile;
 }) {
   const { refreshMe, medicalHistory, raw, meError } = useDashboardMe();
-  const completion =
-    raw?.profile != null && !meError
-      ? computeProfileCompletion(profile, medicalHistory)
-      : null;
   const [editableProfile, setEditableProfile] = useState<DashboardProfile>(profile);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
@@ -529,6 +649,21 @@ function ConsumerHealthProfilePage({
     }
   }
 
+  // The ring on `/dashboard` and the bar/ring here all derive from
+  // `editableProfile` + the latest medical-history snapshot so any edit
+  // (general info modal, medical-history page, AI Doctor wizard) shifts the
+  // indicators in lockstep.
+  const overallCompletion = overallProfileCompletionPercent(
+    editableProfile,
+    medicalHistory,
+  );
+  const mainHealthInfoCompletion =
+    mainHealthInformationCompletionPercent(medicalHistory);
+  const completion =
+    raw?.profile != null && !meError
+      ? computeProfileCompletion(editableProfile, medicalHistory)
+      : null;
+
   return (
     <>
       <DashboardPage>
@@ -538,18 +673,7 @@ function ConsumerHealthProfilePage({
               title="Health Profile"
               description="Complete your basics and medical history so guidance stays relevant. v1 completion is a simple checklist score (client-only from your saved profile)."
             />
-            {completion ? (
-              <div className="flex shrink-0 flex-col items-start gap-1.5 lg:items-end">
-                <CompletionBar value={completion.overall} label="profile" />
-                <p className="max-w-[14rem] text-right text-[11px] leading-snug text-muted-foreground lg:text-right">
-                  General {completion.segments.general}% · Medical {completion.segments.medical}%
-                </p>
-              </div>
-            ) : (
-              <div className="flex h-11 min-w-[12rem] items-center rounded-xl border border-dashed border-primary/20 bg-muted/20 px-3 text-xs text-muted-foreground">
-                Completion unavailable
-              </div>
-            )}
+            <CompletionBar value={overallCompletion} label="Completed" />
           </div>
 
           <DashboardPanel className="space-y-4 px-4 py-4 sm:px-6 sm:py-5">
@@ -593,21 +717,8 @@ function ConsumerHealthProfilePage({
 
           <Link href="/dashboard/profile/main-health-information" className="block transition-transform hover:-translate-y-px">
             <DashboardPanel className="flex items-center gap-4 px-4 py-4 sm:px-6 sm:py-5">
-              {completion ? (
-                <span title="Average of general + medical (hub readiness)">
-                  <CompletionRing value={completion.segments.mainHealthHub} size="sm" />
-                </span>
-              ) : (
-                <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-dashed border-primary/25 bg-muted/30 text-[10px] font-semibold text-muted-foreground">
-                  —
-                </span>
-              )}
-              <div>
-                <h3 className="text-xl font-semibold">Main Health Information</h3>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  Links to basics and medical forms — ring shows combined v1 readiness
-                </p>
-              </div>
+              <CompletionRing value={mainHealthInfoCompletion} size="sm" />
+              <h3 className="text-xl font-semibold">Main Health Information</h3>
             </DashboardPanel>
           </Link>
 
@@ -878,19 +989,30 @@ export function MainHealthInformationPage() {
 /* -------------------------------------------------------------------------- */
 
 function useMedicalHistory() {
-  const { medicalHistory, refreshMe, isMeLoading } = useDashboardMe();
-  const [data, setData] = useState<MedicalHistoryData>(defaultMedicalHistory);
-  const [hydrated, setHydrated] = useState(false);
+  const { medicalHistory, refreshMe, aiDoctorSetupCompleted } =
+    useDashboardMe();
 
-  useEffect(() => {
-    if (isMeLoading || hydrated) return;
-    setData({ ...defaultMedicalHistory, ...medicalHistory });
-    setHydrated(true);
-  }, [isMeLoading, medicalHistory, hydrated]);
+  // `medicalHistory` from context is already merged with `defaultMedicalHistory`
+  // so we don't need a separate hydration step here. Returning the context
+  // value directly also avoids cascading setState-in-effect renders.
+  const data: MedicalHistoryData = medicalHistory;
 
+  /**
+   * Persist the latest medical-history form. When the user has not yet
+   * finished the AI Doctor setup wizard we also flip
+   * `aiDoctorSetupCompleted=true`: filling the medical-history page is a
+   * superset of the wizard, so the wizard gate should auto-clear regardless
+   * of which surface the user used.
+   */
   async function save(next: MedicalHistoryData) {
-    setData(next);
     await putMedicalHistory(next);
+    if (!aiDoctorSetupCompleted) {
+      try {
+        await patchAiDoctorSetup(true);
+      } catch (e) {
+        console.warn("Failed to mark AI Doctor setup complete", e);
+      }
+    }
     await refreshMe();
   }
 
@@ -914,7 +1036,7 @@ export function MedicalHistoryPage() {
   }
 
   function toggleItem(
-    field: "chronicDiseases" | "allergies",
+    field: "chronicDiseases" | "allergies" | "familyHistory",
     value: string,
   ) {
     setDraft((current) => {
@@ -974,6 +1096,36 @@ export function MedicalHistoryPage() {
           />
         </DashboardPanel>
 
+        {/* Family Health History */}
+        <DashboardPanel className="space-y-5 px-6 py-5">
+          <SectionHeading
+            title="Family Health History"
+            icon={<HeartPulse className="size-5" />}
+          />
+          <p className="text-sm text-muted-foreground">
+            Conditions present in close family members (parents, siblings,
+            grandparents). Helps flag inherited risks.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {familyHistoryOptions.map((option) => (
+              <ChipToggle
+                key={option}
+                label={option}
+                selected={draft.familyHistory.includes(option)}
+                onClick={() => toggleItem("familyHistory", option)}
+              />
+            ))}
+          </div>
+          <input
+            value={draft.familyHistoryDetails}
+            onChange={(e) =>
+              update({ familyHistoryDetails: e.target.value })
+            }
+            placeholder="e.g. Mother with diabetes, father had heart disease..."
+            className="h-11 w-full rounded-xl border border-primary/15 bg-white px-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+          />
+        </DashboardPanel>
+
         {/* Allergies */}
         <DashboardPanel className="space-y-5 px-6 py-5">
           <SectionHeading title="Known Allergies" icon={<Stethoscope className="size-5" />} />
@@ -995,6 +1147,25 @@ export function MedicalHistoryPage() {
             onChange={(e) => update({ allergyDetails: e.target.value })}
             placeholder="Other allergies not listed above..."
             className="h-11 w-full rounded-xl border border-primary/15 bg-white px-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+          />
+        </DashboardPanel>
+
+        {/* Surgical History */}
+        <DashboardPanel className="space-y-5 px-6 py-5">
+          <SectionHeading
+            title="Surgical History"
+            icon={<ClipboardPlus className="size-5" />}
+          />
+          <p className="text-sm text-muted-foreground">
+            Major operations and procedures, with approximate dates if
+            possible.
+          </p>
+          <textarea
+            value={draft.surgicalHistory}
+            onChange={(e) => update({ surgicalHistory: e.target.value })}
+            placeholder="e.g. cardiac stenting in 2019, appendectomy in 2003..."
+            rows={3}
+            className="w-full rounded-xl border border-primary/15 bg-white px-4 py-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
           />
         </DashboardPanel>
 

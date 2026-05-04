@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 
 import Link from "next/link";
+import { isAxiosError } from "axios";
 import {
   ChevronDown,
   ChevronRight,
@@ -17,32 +18,35 @@ import {
 } from "lucide-react";
 
 import {
-  dashboardProfileStorageKey,
   type DashboardProfile,
   type MeasurementSystem,
-  type ProfessionalProfile,
+  type MedicalHistoryData,
+  activityOptions,
+  alcoholOptions,
+  defaultMedicalHistory,
+  dietOptions,
   getProfileName,
   getProfileSex,
+  sleepOptions,
+  smokingOptions,
+  stressOptions,
 } from "@/lib/dashboard-content";
-import { useOnboardingConfig } from "@/lib/hooks/use-app-config";
 import {
-  patchMeProfile,
-  profileToPatchBody,
-  userFacingMeError,
-} from "@/lib/me-api";
+  type ApiPatientDetail,
+  type PatchPatientProfileBody,
+  patchProfessionalPatientProfile,
+  putProfessionalPatientMedicalHistory,
+} from "@/lib/services/professional-api";
 import { cn } from "@/lib/utils";
 
-import { useDashboardMe } from "./dashboard-me-provider";
-
-import {
-  getProfessionalPatient,
-  ProfessionalDashboardShell,
-} from "./professional-shell";
+import { ProfessionalDashboardShell } from "./professional-shell";
 
 type DetailSectionId =
   | "patientHistory"
   | "familyHistory"
-  | "medicationsHistory"
+  | "currentMedications"
+  | "pastMedications"
+  | "surgicalHistory"
   | "allergies";
 
 type OpenModal =
@@ -56,143 +60,191 @@ type OpenModal =
 const sectionLabels: Record<DetailSectionId, string> = {
   patientHistory: "Chronic Conditions and Past Medical History",
   familyHistory: "Family Medical History",
-  medicationsHistory: "Medication History",
+  currentMedications: "Current Medications",
+  pastMedications: "Past Medications (last 6 months)",
+  surgicalHistory: "Surgical History",
   allergies: "Allergies",
 };
 
-const updatedDate = "05 Apr, 2026";
+/**
+ * Maps each accordion section to the medical-history fields it owns. Some
+ * sections also display "context chips" (selections the patient ticked)
+ * which the doctor doesn't edit through this UI.
+ */
+const sectionFields: Record<
+  DetailSectionId,
+  {
+    detailsField: keyof MedicalHistoryData;
+    chipsField?: keyof MedicalHistoryData;
+  }
+> = {
+  patientHistory: {
+    detailsField: "chronicDetails",
+    chipsField: "chronicDiseases",
+  },
+  familyHistory: {
+    detailsField: "familyHistoryDetails",
+    chipsField: "familyHistory",
+  },
+  currentMedications: { detailsField: "currentMedications" },
+  pastMedications: { detailsField: "pastMedications" },
+  surgicalHistory: { detailsField: "surgicalHistory" },
+  allergies: { detailsField: "allergyDetails", chipsField: "allergies" },
+};
 
+const SECTION_ORDER: DetailSectionId[] = [
+  "patientHistory",
+  "familyHistory",
+  "allergies",
+  "surgicalHistory",
+  "currentMedications",
+  "pastMedications",
+];
+
+/**
+ * Renders the doctor-facing profile of one patient.
+ *
+ * `viewerProfile` is the *logged-in doctor* (used for the sidebar shell), and
+ * `patient` + `patientId` describe the patient being viewed. Edits made
+ * through the modals call the real `/professional/patients/:id/...` endpoints,
+ * which writes to the patient's own `UserProfile` so they show up on the
+ * patient side immediately on next load.
+ *
+ * `patientEmail` is shown verbatim instead of being synthesized from the
+ * patient's name, which fixes the long-standing "all patients share the same
+ * dummy email" bug.
+ */
 export function ProfessionalPatientProfilePage({
-  profile,
+  viewerProfile,
+  patient,
+  patientId,
+  patientEmail,
+  medicalHistory: rawMedicalHistory,
+  lastUpdatedAt,
+  onPatientUpdated,
 }: {
-  profile: DashboardProfile;
+  viewerProfile: DashboardProfile;
+  patient: DashboardProfile;
+  patientId: string;
+  patientEmail: string;
+  medicalHistory: Record<string, unknown> | null;
+  lastUpdatedAt: string;
+  onPatientUpdated: (next: ApiPatientDetail) => void;
 }) {
-  const { refreshMe } = useDashboardMe();
-  const { data: onboardingConfig } = useOnboardingConfig();
-  const [currentProfile, setCurrentProfile] = useState(profile);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openModal, setOpenModal] = useState<OpenModal>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [submittingModal, setSubmittingModal] = useState<OpenModal>(null);
   const [expandedSection, setExpandedSection] = useState<DetailSectionId | null>(
     null,
   );
 
-  useEffect(() => {
-    setCurrentProfile(profile);
-  }, [profile]);
+  // Merge with defaults so we always have every key present in the JSON
+  // (existing patients who registered before the schema gained fields like
+  // `surgicalHistory` would otherwise show `undefined` here).
+  const medicalHistory: MedicalHistoryData = useMemo(
+    () => ({ ...defaultMedicalHistory, ...(rawMedicalHistory ?? {}) }),
+    [rawMedicalHistory],
+  );
 
-  const patient = getProfessionalPatient(currentProfile, null);
-  const professionalProfile = currentProfile.professionalProfile ?? {
-    title: "dr",
-    fullName: "",
-    specialty: "",
-    region: currentProfile.region,
-  };
-
-  const lifestyleItems = useMemo(
-    () => [
+  const lifestyleItems = useMemo(() => {
+    const fallback = (s: string) => (s.trim().length > 0 ? s : "—");
+    return [
       {
         label: "Daily smoking intensity",
-        value: professionalProfile.smokingIntensity || "Non-smoker",
+        value: fallback(medicalHistory.smokingIntensity),
       },
       {
         label: "Weekly alcohol intake",
-        value: professionalProfile.alcoholIntake || "Occasionally",
+        value: fallback(medicalHistory.alcoholIntake),
       },
       {
         label: "Dietary habits",
-        value: professionalProfile.dietaryHabits || "Balanced meals",
+        value: fallback(medicalHistory.dietaryHabits),
       },
       {
-        label: "Weekly physical activity level",
-        value: professionalProfile.physicalActivity || "Lightly active",
+        label: "Weekly activity level",
+        value: fallback(medicalHistory.activityLevel),
       },
       {
         label: "Daily sleep pattern",
-        value: professionalProfile.sleepPattern || "Less than 6 hours",
+        value: fallback(medicalHistory.sleepPattern),
       },
-      {
-        label: "Stress level",
-        value: professionalProfile.stressLevel || "Rarely stressed",
-      },
-    ],
-    [professionalProfile],
-  );
+      { label: "Stress level", value: fallback(medicalHistory.stressLevel) },
+    ];
+  }, [medicalHistory]);
 
   const vitalItems = [
-    {
-      label: "BMI",
-      value: formatBodyMassIndex(currentProfile),
-    },
-    {
-      label: "Weight",
-      value: formatWeightForVitals(currentProfile),
-    },
-    {
-      label: "Height",
-      value: formatHeightForVitals(currentProfile),
-    },
+    { label: "BMI", value: formatBodyMassIndex(patient) },
+    { label: "Weight", value: formatWeightForVitals(patient) },
+    { label: "Height", value: formatHeightForVitals(patient) },
   ];
 
-  async function saveProfileToServer(nextProfile: DashboardProfile) {
+  /**
+   * Wraps an API call: pushes the returned `ApiPatientDetail` up to the
+   * parent (which re-renders this component with the new props), surfaces
+   * server errors, and toggles the per-modal "Saving…" state.
+   */
+  async function persistChange(
+    modal: OpenModal,
+    request: () => Promise<ApiPatientDetail>,
+  ) {
     setSaveError(null);
-    setSaving(true);
+    setSubmittingModal(modal);
     try {
-      const res = await patchMeProfile(profileToPatchBody(nextProfile));
-      if (res.profile) {
-        setCurrentProfile(res.profile);
-        try {
-          window.localStorage.setItem(
-            dashboardProfileStorageKey,
-            JSON.stringify(res.profile),
-          );
-        } catch {
-          /* cache optional */
-        }
-      }
-      await refreshMe();
-    } catch (e) {
-      setSaveError(
-        userFacingMeError(e, "Could not save your profile. Please try again."),
-      );
-      throw e;
+      const next = await request();
+      onPatientUpdated(next);
+      setOpenModal(null);
+    } catch (err: unknown) {
+      console.error(err);
+      const message = isAxiosError(err)
+        ? (err.response?.data as { message?: string } | undefined)?.message ??
+          err.message
+        : err instanceof Error
+          ? err.message
+          : "Could not save changes. Please try again.";
+      setSaveError(message);
     } finally {
-      setSaving(false);
+      setSubmittingModal(null);
     }
   }
 
-  async function updateProfessionalProfile(
-    updater: (current: ProfessionalProfile) => ProfessionalProfile,
-  ) {
-    const nextProfessional = updater(
-      currentProfile.professionalProfile ?? {
-        title: "dr",
-        fullName: "",
-        specialty: "",
-        region: currentProfile.region,
-      },
+  function patchProfile(body: PatchPatientProfileBody) {
+    return persistChange(openModal, () =>
+      patchProfessionalPatientProfile(patientId, body),
     );
-    await saveProfileToServer({
-      ...currentProfile,
-      professionalProfile: nextProfessional,
-    });
   }
+
+  function putMedicalHistory(next: MedicalHistoryData) {
+    return persistChange(openModal, () =>
+      putProfessionalPatientMedicalHistory(patientId, next),
+    );
+  }
+
+  const updatedDate = formatUpdatedDate(lastUpdatedAt);
 
   return (
     <>
-      <ProfessionalDashboardShell profile={currentProfile}>
+      <ProfessionalDashboardShell profile={viewerProfile}>
         {saveError ? (
           <div
-            className="mb-4 rounded-lg border border-destructive/25 bg-destructive/5 px-4 py-2 text-sm text-destructive"
+            className="mb-4 flex items-start justify-between gap-4 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive"
             role="alert"
           >
-            {saveError}
+            <span>{saveError}</span>
+            <button
+              type="button"
+              onClick={() => setSaveError(null)}
+              className="text-destructive/70 transition-colors hover:text-destructive"
+              aria-label="Dismiss error"
+            >
+              <X className="size-4" />
+            </button>
           </div>
         ) : null}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <Link
-            href="/dashboard"
+            href="/dashboard/patients"
             className="inline-flex items-center gap-3 text-sm font-medium text-foreground transition-colors hover:text-primary"
           >
             <span className="text-lg">←</span>
@@ -216,16 +268,14 @@ export function ProfessionalPatientProfilePage({
                 <div className="min-w-0 flex-1 space-y-4">
                   <div className="space-y-1">
                     <h1 className="text-[2rem] font-semibold leading-none text-foreground">
-                      {getProfileName(currentProfile)}
+                      {getProfileName(patient)}
                     </h1>
                     <p className="text-sm text-foreground/80">
-                      {getProfileSex(currentProfile)}, {currentProfile.age} years ,
-                      {" "}
-                      {currentProfile.region || "Ethiopian"}
+                      {getProfileSex(patient)}, {patient.age || "—"} years
+                      {patient.region ? `, ${patient.region}` : ""}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {professionalProfile.patientEmail ||
-                        `${patient.name.toLowerCase()}@gmail.com`}
+                      {patientEmail}
                     </p>
                   </div>
 
@@ -248,7 +298,7 @@ export function ProfessionalPatientProfilePage({
 
               <div className="flex items-center gap-3 self-start">
                 <Link
-                  href={`/dashboard/ai-doctor/personal?patient=${patient.id}`}
+                  href={`/dashboard/patients/${patientId}/messages`}
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-95"
                 >
                   <MessageCircleMore className="size-4" />
@@ -288,7 +338,7 @@ export function ProfessionalPatientProfilePage({
                   AI Medical Assistant
                 </h2>
                 <Link
-                  href={`/dashboard/ai-doctor/personal?patient=${patient.id}`}
+                  href={`/dashboard/ai-doctor/personal?patient=${patientId}`}
                   className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-95"
                 >
                   + New Chat
@@ -307,7 +357,7 @@ export function ProfessionalPatientProfilePage({
                 </div>
                 <div className="border-t border-primary/12 pt-4">
                   <Link
-                    href={`/dashboard/ai-doctor/history?patient=${patient.id}`}
+                    href={`/dashboard/ai-doctor/history?patient=${patientId}`}
                     className="text-sm font-medium text-primary transition-colors hover:underline"
                   >
                     All Conversations
@@ -333,6 +383,7 @@ export function ProfessionalPatientProfilePage({
               actionIcon={<RefreshCcw className="size-4" />}
               onAction={() => setOpenModal("lifestyle")}
               items={lifestyleItems}
+              updatedDate={updatedDate}
             />
 
             <InfoListCard
@@ -342,6 +393,7 @@ export function ProfessionalPatientProfilePage({
               actionIcon={<RefreshCcw className="size-4" />}
               onAction={() => setOpenModal("vitals")}
               items={vitalItems}
+              updatedDate={updatedDate}
             />
           </div>
 
@@ -349,12 +401,14 @@ export function ProfessionalPatientProfilePage({
             id="health-history-section"
             className="rounded-[1.35rem] border border-primary/15 bg-white shadow-[0_26px_70px_-56px_rgba(76,104,220,0.8)]"
           >
-            {(Object.keys(sectionLabels) as DetailSectionId[]).map((sectionId) => {
+            {SECTION_ORDER.map((sectionId) => {
               const isExpanded = expandedSection === sectionId;
-              const value =
-                professionalProfile[sectionId] && professionalProfile[sectionId]?.trim()
-                  ? professionalProfile[sectionId]?.trim()
-                  : "";
+              const fields = sectionFields[sectionId];
+              const detailsValue = readString(medicalHistory, fields.detailsField);
+              const chips = fields.chipsField
+                ? readList(medicalHistory, fields.chipsField)
+                : [];
+              const hasContent = detailsValue.length > 0 || chips.length > 0;
 
               return (
                 <div
@@ -382,8 +436,8 @@ export function ProfessionalPatientProfilePage({
 
                   {isExpanded ? (
                     <div className="px-5 pb-5">
-                      <div className="rounded-[1.2rem] border border-primary/10 bg-background px-5 py-5">
-                        <div className="mb-4 flex items-center justify-between gap-3">
+                      <div className="space-y-4 rounded-[1.2rem] border border-primary/10 bg-background px-5 py-5">
+                        <div className="flex items-center justify-between gap-3">
                           <span className="text-sm font-medium text-muted-foreground">
                             {sectionLabels[sectionId]}
                           </span>
@@ -397,16 +451,31 @@ export function ProfessionalPatientProfilePage({
                           </button>
                         </div>
 
-                        {value ? (
+                        {chips.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {chips.map((chip) => (
+                              <span
+                                key={chip}
+                                className="inline-flex items-center rounded-full border border-primary/20 bg-primary/8 px-3 py-1 text-xs font-medium text-primary"
+                              >
+                                {chip}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        {detailsValue ? (
                           <p className="text-sm leading-7 text-foreground/85">
-                            {value}
+                            {detailsValue}
                           </p>
-                        ) : (
+                        ) : null}
+
+                        {!hasContent ? (
                           <div className="flex min-h-28 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
                             <Database className="size-7" />
                             <span className="text-sm">No data</span>
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   ) : null}
@@ -419,98 +488,108 @@ export function ProfessionalPatientProfilePage({
 
       {openModal === "main-details" ? (
         <EditMainDetailsModal
-          profile={currentProfile}
-          isSubmitting={saving}
-          onClose={() => setOpenModal(null)}
-          onSave={async (nextMainDetails) => {
-            try {
-              await saveProfileToServer({
-                ...currentProfile,
-                ...nextMainDetails,
-              });
-              setOpenModal(null);
-            } catch {
-              /* saveError set */
-            }
+          profile={patient}
+          isSubmitting={submittingModal === "main-details"}
+          onClose={() => {
+            if (submittingModal === "main-details") return;
+            setOpenModal(null);
           }}
+          onSave={(nextMainDetails) => patchProfile(nextMainDetails)}
         />
       ) : null}
 
       {openModal === "action-history" ? (
-        <ActionHistoryModal onClose={() => setOpenModal(null)} />
+        <ActionHistoryModal
+          registeredAt={lastUpdatedAt}
+          onClose={() => setOpenModal(null)}
+        />
       ) : null}
 
       {openModal === "lifestyle" ? (
         <LifestyleHabitsModal
-          profile={professionalProfile}
-          smokingIntensityOptions={onboardingConfig.smokingIntensityOptions}
-          alcoholIntakeOptions={onboardingConfig.alcoholIntakeOptions}
-          physicalActivityOptions={onboardingConfig.physicalActivityOptions}
-          dietaryHabitsOptions={onboardingConfig.dietaryHabitOptions}
-          sleepPatternOptions={onboardingConfig.sleepPatternOptions}
-          stressLevelOptions={onboardingConfig.stressLevelOptions}
-          isSubmitting={saving}
-          onClose={() => setOpenModal(null)}
-          onSave={async (nextLifestyle) => {
-            try {
-              await updateProfessionalProfile((current) => ({
-                ...current,
-                ...nextLifestyle,
-              }));
-              setOpenModal(null);
-            } catch {
-              /* saveError set */
-            }
+          medicalHistory={medicalHistory}
+          isSubmitting={submittingModal === "lifestyle"}
+          onClose={() => {
+            if (submittingModal === "lifestyle") return;
+            setOpenModal(null);
           }}
+          onSave={(nextLifestyle) =>
+            putMedicalHistory({ ...medicalHistory, ...nextLifestyle })
+          }
         />
       ) : null}
 
       {openModal === "vitals" ? (
         <VitalSignsModal
-          profile={currentProfile}
-          isSubmitting={saving}
-          onClose={() => setOpenModal(null)}
-          onSave={async (nextVitals) => {
-            try {
-              await saveProfileToServer({
-                ...currentProfile,
-                ...nextVitals,
-              });
-              setOpenModal(null);
-            } catch {
-              /* saveError set */
-            }
+          profile={patient}
+          isSubmitting={submittingModal === "vitals"}
+          onClose={() => {
+            if (submittingModal === "vitals") return;
+            setOpenModal(null);
           }}
+          onSave={(nextVitals) => patchProfile(nextVitals)}
         />
       ) : null}
 
-      {(Object.keys(sectionLabels) as DetailSectionId[]).includes(
-        openModal as DetailSectionId,
-      ) ? (
-        <SectionEditorModal
-          title={sectionLabels[openModal as DetailSectionId]}
-          value={
-            professionalProfile[openModal as DetailSectionId]?.trim() || ""
-          }
-          isSubmitting={saving}
-          onClose={() => setOpenModal(null)}
-          onSave={async (value) => {
-            try {
-              await updateProfessionalProfile((current) => ({
-                ...current,
-                [openModal as DetailSectionId]: value,
-              }));
-              setExpandedSection(openModal as DetailSectionId);
-              setOpenModal(null);
-            } catch {
-              /* saveError set */
-            }
-          }}
-        />
+      {SECTION_ORDER.includes(openModal as DetailSectionId) ? (
+        (() => {
+          const sectionId = openModal as DetailSectionId;
+          const fields = sectionFields[sectionId];
+          return (
+            <SectionEditorModal
+              title={sectionLabels[sectionId]}
+              value={readString(medicalHistory, fields.detailsField)}
+              isSubmitting={submittingModal === sectionId}
+              onClose={() => {
+                if (submittingModal === sectionId) return;
+                setOpenModal(null);
+              }}
+              onSave={(value) => {
+                setExpandedSection(sectionId);
+                return putMedicalHistory({
+                  ...medicalHistory,
+                  [fields.detailsField]: value,
+                });
+              }}
+            />
+          );
+        })()
       ) : null}
     </>
   );
 }
+
+/**
+ * Reads a string field from `medicalHistory` defensively. The JSON might
+ * include legacy values written before the schema was tightened, so we coerce
+ * to string and trim consistently with how the patient-side form stores it.
+ */
+function readString(
+  history: MedicalHistoryData,
+  key: keyof MedicalHistoryData,
+): string {
+  const v = history[key];
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function readList(
+  history: MedicalHistoryData,
+  key: keyof MedicalHistoryData,
+): string[] {
+  const v = history[key];
+  return Array.isArray(v) ? (v as string[]).filter(Boolean) : [];
+}
+
+function formatUpdatedDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 
 function HeaderShortcut({
   title,
@@ -569,6 +648,7 @@ function InfoListCard({
   actionIcon,
   onAction,
   items,
+  updatedDate,
 }: {
   id?: string;
   title: string;
@@ -576,6 +656,7 @@ function InfoListCard({
   actionIcon?: ReactNode;
   onAction: () => void;
   items: { label: string; value: string }[];
+  updatedDate: string;
 }) {
   return (
     <div
@@ -744,10 +825,17 @@ function EditMainDetailsModal({
   );
 }
 
-function ActionHistoryModal({ onClose }: { onClose: () => void }) {
+function ActionHistoryModal({
+  registeredAt,
+  onClose,
+}: {
+  registeredAt: string;
+  onClose: () => void;
+}) {
+  const formatted = formatTimestamp(registeredAt);
   return (
     <ModalFrame onClose={onClose} maxWidthClassName="max-w-2xl">
-      <div className="space-y-8">
+      <div className="space-y-6">
         <div className="flex items-center gap-3">
           <History className="size-5 text-primary" />
           <h2 className="text-[1.9rem] font-semibold text-foreground">
@@ -756,67 +844,58 @@ function ActionHistoryModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="relative px-6 py-4">
-          <div className="absolute left-1/2 top-6 h-20 w-px -translate-x-1/2 bg-primary/30" />
-          <div className="grid gap-10 md:grid-cols-2">
-            <div className="text-center">
-              <p className="text-[1.6rem] font-medium text-foreground">Invited</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                05 Apr, 2026, 04:05 PM
-              </p>
-            </div>
-            <div className="text-center">
-              <p className="text-[1.6rem] font-medium text-foreground">Created</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                05 Apr, 04:37 PM
-              </p>
-            </div>
+          <div className="text-center">
+            <p className="text-[1.4rem] font-medium text-foreground">
+              Last update
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">{formatted}</p>
           </div>
-          <div className="absolute left-1/2 top-[2.15rem] size-3 -translate-x-1/2 rounded-full border border-primary bg-white" />
-          <div className="absolute left-1/2 top-[4.7rem] size-3 -translate-x-1/2 rounded-full border border-primary bg-white" />
         </div>
       </div>
     </ModalFrame>
   );
 }
 
+function formatTimestamp(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+type LifestylePatch = Pick<
+  MedicalHistoryData,
+  | "smokingIntensity"
+  | "alcoholIntake"
+  | "dietaryHabits"
+  | "activityLevel"
+  | "sleepPattern"
+  | "stressLevel"
+>;
+
 function LifestyleHabitsModal({
-  profile,
-  smokingIntensityOptions,
-  alcoholIntakeOptions,
-  physicalActivityOptions,
-  dietaryHabitsOptions,
-  sleepPatternOptions,
-  stressLevelOptions,
+  medicalHistory,
   isSubmitting,
   onClose,
   onSave,
 }: {
-  profile: ProfessionalProfile;
-  smokingIntensityOptions: string[];
-  alcoholIntakeOptions: string[];
-  physicalActivityOptions: string[];
-  dietaryHabitsOptions: string[];
-  sleepPatternOptions: string[];
-  stressLevelOptions: string[];
+  medicalHistory: MedicalHistoryData;
   isSubmitting?: boolean;
   onClose: () => void;
-  onSave: (nextProfile: Pick<
-    ProfessionalProfile,
-    | "smokingIntensity"
-    | "alcoholIntake"
-    | "physicalActivity"
-    | "dietaryHabits"
-    | "sleepPattern"
-    | "stressLevel"
-  >) => void | Promise<void>;
+  onSave: (next: LifestylePatch) => void | Promise<void>;
 }) {
-  const [draft, setDraft] = useState({
-    smokingIntensity: profile.smokingIntensity || "",
-    alcoholIntake: profile.alcoholIntake || "",
-    physicalActivity: profile.physicalActivity || "",
-    dietaryHabits: profile.dietaryHabits || "",
-    sleepPattern: profile.sleepPattern || "",
-    stressLevel: profile.stressLevel || "",
+  const [draft, setDraft] = useState<LifestylePatch>({
+    smokingIntensity: medicalHistory.smokingIntensity,
+    alcoholIntake: medicalHistory.alcoholIntake,
+    dietaryHabits: medicalHistory.dietaryHabits,
+    activityLevel: medicalHistory.activityLevel,
+    sleepPattern: medicalHistory.sleepPattern,
+    stressLevel: medicalHistory.stressLevel,
   });
 
   function submitForm(event: FormEvent<HTMLFormElement>) {
@@ -831,57 +910,60 @@ function LifestyleHabitsModal({
           <h2 className="text-[1.9rem] font-semibold text-foreground">
             Lifestyle and Habits
           </h2>
-          <p className="text-sm font-medium text-foreground">BMI Information</p>
+          <p className="text-sm text-muted-foreground">
+            Updates here are written to the patient&rsquo;s medical history and
+            appear on their dashboard.
+          </p>
         </div>
 
         <div className="grid gap-5 md:grid-cols-2">
           <SelectFormField
-            label="Daily Smoking Intensity (optional)"
+            label="Daily Smoking Intensity"
             value={draft.smokingIntensity}
             onChange={(value) =>
               setDraft((current) => ({ ...current, smokingIntensity: value }))
             }
-            options={smokingIntensityOptions}
+            options={[...smokingOptions]}
           />
           <SelectFormField
-            label="Weekly alcohol intake (optional)"
+            label="Weekly alcohol intake"
             value={draft.alcoholIntake}
             onChange={(value) =>
               setDraft((current) => ({ ...current, alcoholIntake: value }))
             }
-            options={alcoholIntakeOptions}
+            options={[...alcoholOptions]}
           />
           <SelectFormField
-            label="Weekly physical activity level (optional)"
-            value={draft.physicalActivity}
+            label="Weekly activity level"
+            value={draft.activityLevel}
             onChange={(value) =>
-              setDraft((current) => ({ ...current, physicalActivity: value }))
+              setDraft((current) => ({ ...current, activityLevel: value }))
             }
-            options={physicalActivityOptions}
+            options={[...activityOptions]}
           />
           <SelectFormField
-            label="Dietary habits (optional)"
+            label="Dietary habits"
             value={draft.dietaryHabits}
             onChange={(value) =>
               setDraft((current) => ({ ...current, dietaryHabits: value }))
             }
-            options={dietaryHabitsOptions}
+            options={[...dietOptions]}
           />
           <SelectFormField
-            label="Daily sleep pattern (optional)"
+            label="Daily sleep pattern"
             value={draft.sleepPattern}
             onChange={(value) =>
               setDraft((current) => ({ ...current, sleepPattern: value }))
             }
-            options={sleepPatternOptions}
+            options={[...sleepOptions]}
           />
           <SelectFormField
-            label="Stress level (optional)"
+            label="Stress level"
             value={draft.stressLevel}
             onChange={(value) =>
               setDraft((current) => ({ ...current, stressLevel: value }))
             }
-            options={stressLevelOptions}
+            options={[...stressOptions]}
           />
         </div>
 

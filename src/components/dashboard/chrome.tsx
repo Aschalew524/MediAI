@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect, type ReactNode } from "react";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Bell, CircleUserRound, MessageCircleMore, ShieldCheck } from "lucide-react";
 
 import { getProfileName } from "@/lib/dashboard-content";
@@ -15,7 +14,6 @@ import { useDashboardProfile } from "./use-dashboard-profile";
 export function DashboardShell({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
   const { user, isLoading: authLoading, logout } = useDashboardAuth();
   const profile = useDashboardProfile();
   const name = getProfileName(profile);
@@ -54,10 +52,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     };
   }, [menuOpen]);
 
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [pathname]);
-
   return (
     <div className="min-h-screen bg-background">
       <header className="relative z-40 border-b border-primary/10 bg-background/95 backdrop-blur">
@@ -78,9 +72,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </Link>
 
           <div className="relative flex items-center gap-2 sm:gap-3">
-            <HeaderIconButton aria-label="Messages">
-              <MessageCircleMore className="size-4" />
-            </HeaderIconButton>
+            <Link href="/dashboard/messages">
+              <HeaderIconButton aria-label="Messages">
+                <MessageCircleMore className="size-4" />
+              </HeaderIconButton>
+            </Link>
             <Link href="/dashboard/notifications">
               <HeaderIconButton aria-label="Notifications">
                 <Bell className="size-4" />
@@ -89,13 +85,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             <div
               className="relative"
               ref={menuRef}
-              onMouseEnter={() => setMenuOpen(true)}
-              onMouseLeave={() => setMenuOpen(false)}
             >
               <button
                 type="button"
                 onClick={() => setMenuOpen((open) => !open)}
-                onFocus={() => setMenuOpen(true)}
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
                 aria-label="Open profile menu"
                 className="inline-flex items-center gap-2 rounded-full border border-primary/10 px-2 py-1 transition-colors hover:bg-muted"
               >

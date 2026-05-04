@@ -7,9 +7,18 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, LoaderCircle } from "lucide-react";
 
+import { defaultMedicalHistory } from "@/lib/dashboard-content";
+import type { MedicalHistoryStepId } from "@/lib/ai-doctor-content";
+import {
+  answersToMedicalHistory,
+  medicalHistoryToAnswers,
+  type AnswersState,
+  type StepAnswer,
+} from "@/lib/medical-history-mapper";
 import {
   dispatchMeRefresh,
   patchAiDoctorSetup,
+  putMedicalHistory,
   userFacingMeError,
 } from "@/lib/me-api";
 import { useAIDoctorConfig } from "@/lib/hooks/use-app-config";
@@ -22,18 +31,10 @@ import {
 } from "./primitives";
 import { ChatOptionsPage } from "./chat-pages";
 import { useAIDoctorSetupStatus } from "./use-ai-doctor-setup";
+import { useDashboardMe } from "./dashboard-me-provider";
 import { useDashboardProfile } from "./use-dashboard-profile";
 
-type Choice = "yes" | "no" | null;
-
-type StepAnswer = {
-  choice: Choice;
-  selections: string[];
-  details: string;
-  selectedOption: string;
-};
-
-type AnswersState = Record<string, StepAnswer>;
+type Choice = StepAnswer["choice"];
 
 export function AIDoctorEntryPage() {
   const searchParams = useSearchParams();
@@ -63,10 +64,21 @@ export function AIDoctorSetupPage() {
   const router = useRouter();
   const { data: config } = useAIDoctorConfig();
   const { hasResolved, isSetupComplete } = useAIDoctorSetupStatus();
+  const { medicalHistory: storedMedicalHistory, isMeLoading } = useDashboardMe();
   const profile = useDashboardProfile();
+
   const [started, setStarted] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [serverSetupError, setServerSetupError] = useState<string | null>(null);
+  const [answers, setAnswers] = useState<AnswersState | null>(null);
+
+  // Hydrate answer state from whatever the server already has whenever a
+  // fresh medical-history snapshot arrives (e.g. user previously filled the
+  // medical-history page). Skipping the wizard now resumes from there.
+  useEffect(() => {
+    if (isMeLoading) return;
+    setAnswers(medicalHistoryToAnswers(storedMedicalHistory));
+  }, [isMeLoading, storedMedicalHistory]);
 
   useEffect(() => {
     if (!hasResolved || !isSetupComplete) return;
@@ -74,13 +86,22 @@ export function AIDoctorSetupPage() {
     router.replace("/dashboard/ai-doctor");
   }, [hasResolved, isSetupComplete, router]);
 
+  // After the wizard reports `completed`, persist the answers (full medical
+  // history payload), then mark the AI Doctor setup flag as completed. Both
+  // network calls are best-effort: a localStorage fallback keeps the user
+  // unblocked and we surface a notice if the server didn't accept the change.
   useEffect(() => {
-    if (!completed) return;
+    if (!completed || !answers) return;
     let cancelled = false;
     let timeoutId: number | undefined;
     (async () => {
       setServerSetupError(null);
       try {
+        const payload = answersToMedicalHistory(
+          answers,
+          storedMedicalHistory ?? defaultMedicalHistory,
+        );
+        await putMedicalHistory(payload);
         await patchAiDoctorSetup(true);
         dispatchMeRefresh();
         if (cancelled) return;
@@ -98,7 +119,7 @@ export function AIDoctorSetupPage() {
           setServerSetupError(
             userFacingMeError(
               e,
-              "Could not save your setup to your account. A copy is saved on this device only; try again when you are online.",
+              "Could not save your answers to your account. A copy is saved on this device only; try again when you are online.",
             ),
           );
         }
@@ -110,18 +131,41 @@ export function AIDoctorSetupPage() {
         clearTimeout(timeoutId);
       }
     };
-  }, [completed, router]);
+  }, [completed, answers, storedMedicalHistory, router]);
+
+  // "Save and Exit" mid-wizard: persist the partial answers so the user can
+  // resume on either flow (wizard or medical-history page). We deliberately
+  // don't flip aiDoctorSetupCompleted here — the user explicitly stepped
+  // away, so they should be allowed to come back to the wizard.
+  async function handleSaveAndExit() {
+    if (!answers) {
+      router.push("/dashboard");
+      return;
+    }
+    try {
+      const payload = answersToMedicalHistory(
+        answers,
+        storedMedicalHistory ?? defaultMedicalHistory,
+      );
+      await putMedicalHistory(payload);
+      dispatchMeRefresh();
+    } catch (e) {
+      console.warn("Failed to persist partial wizard answers", e);
+    } finally {
+      router.push("/dashboard");
+    }
+  }
 
   return (
     <DashboardPage>
       <DashboardContainer>
-        {!hasResolved ? (
+        {!hasResolved || answers == null ? (
           <section className="flex min-h-[calc(100vh-12rem)] items-center justify-center">
             <LoaderCircle className="size-8 animate-spin text-primary" />
           </section>
         ) : null}
 
-        {hasResolved && !isSetupComplete
+        {hasResolved && !isSetupComplete && answers != null
           ? completed
             ? (
                 <MedicalHistorySuccess
@@ -136,8 +180,12 @@ export function AIDoctorSetupPage() {
                   <MedicalHistoryWizard
                     medicalHistorySteps={config.medicalHistorySteps}
                     medicalHistoryTotalSteps={config.medicalHistoryTotalSteps}
+                    answers={answers}
+                    onAnswersChange={setAnswers}
                     onComplete={() => setCompleted(true)}
-                    onSaveAndExit={() => router.push("/dashboard")}
+                    onSaveAndExit={() => {
+                      void handleSaveAndExit();
+                    }}
                   />
                 )
               : (
@@ -205,6 +253,8 @@ function AIDoctorIntro({
 function MedicalHistoryWizard({
   medicalHistorySteps,
   medicalHistoryTotalSteps,
+  answers,
+  onAnswersChange,
   onComplete,
   onSaveAndExit,
 }: {
@@ -215,31 +265,33 @@ function MedicalHistoryWizard({
     sectionTitle?: string;
     stepKind: "yes-no-checklist" | "yes-no-text" | "choice-list";
     placeholder?: string;
-    options?: string[];
+    options?: readonly string[];
     choiceOptions?: { label: string; description?: string }[];
   }[];
   medicalHistoryTotalSteps: number;
+  answers: AnswersState;
+  onAnswersChange: (answers: AnswersState) => void;
   onComplete: () => void;
   onSaveAndExit: () => void;
 }) {
-  const defaultAnswers = useMemo(
-    () =>
-      medicalHistorySteps.reduce<AnswersState>((acc, step) => {
-        acc[step.id] = {
-          choice: null,
-          selections: [],
-          details: "",
-          selectedOption: "",
-        };
-        return acc;
-      }, {}),
-    [medicalHistorySteps],
-  );
-  const [stepIndex, setStepIndex] = useState(0);
-  const [answers, setAnswers] = useState<AnswersState>(defaultAnswers);
+  // Start at the first unanswered step so a user who already filled some
+  // questions on the medical-history page only has to fill the remaining
+  // ones. Falls back to step 0 if everything is somehow already answered.
+  const initialStepIndex = useMemo(() => {
+    for (let i = 0; i < medicalHistorySteps.length; i += 1) {
+      const id = medicalHistorySteps[i].id as MedicalHistoryStepId;
+      const a = answers[id];
+      if (!a || !isPrefilled(id, a)) return i;
+    }
+    return 0;
+    // Intentionally only computed once on mount: subsequent answer changes
+    // shouldn't move the user backwards through the wizard.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [stepIndex, setStepIndex] = useState(initialStepIndex);
 
   const step = medicalHistorySteps[stepIndex];
-  const answer = answers[step.id];
+  const answer = answers[step.id as MedicalHistoryStepId];
 
   const canContinue = useMemo(() => {
     if (step.stepKind === "choice-list") {
@@ -261,13 +313,13 @@ function MedicalHistoryWizard({
   }, [answer, step.stepKind]);
 
   function updateAnswer(next: Partial<StepAnswer>) {
-    setAnswers((current) => ({
-      ...current,
+    onAnswersChange({
+      ...answers,
       [step.id]: {
-        ...current[step.id],
+        ...answers[step.id as MedicalHistoryStepId],
         ...next,
       },
-    }));
+    });
   }
 
   function setChoice(choice: Choice) {
@@ -298,6 +350,11 @@ function MedicalHistoryWizard({
     }
 
     setStepIndex((current) => current + 1);
+  }
+
+  function handleBack() {
+    if (stepIndex === 0) return;
+    setStepIndex((current) => current - 1);
   }
 
   return (
@@ -408,13 +465,51 @@ function MedicalHistoryWizard({
             Save and Exit
           </button>
 
-          <DashboardActionButton disabled={!canContinue} onClick={handleNext}>
-            Next
-          </DashboardActionButton>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleBack}
+              disabled={stepIndex === 0}
+              className="text-sm font-medium text-foreground/80 underline-offset-4 transition-colors hover:text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Back
+            </button>
+            <DashboardActionButton disabled={!canContinue} onClick={handleNext}>
+              {stepIndex === medicalHistorySteps.length - 1 ? "Finish" : "Next"}
+            </DashboardActionButton>
+          </div>
         </div>
       </div>
     </section>
   );
+}
+
+function isPrefilled(id: MedicalHistoryStepId, a: StepAnswer): boolean {
+  switch (id) {
+    case "daily-smoking-intensity":
+    case "weekly-alcohol-intake":
+    case "dietary-habits":
+    case "weekly-activity-level":
+    case "daily-sleep-pattern":
+    case "stress-level":
+      return a.selectedOption.trim().length > 0;
+    case "current-medications":
+    case "medications-history":
+    case "surgical-history":
+      return (
+        a.choice === "no" || (a.choice === "yes" && a.details.trim().length > 0)
+      );
+    case "chronic-past-health-conditions":
+    case "family-health-history":
+    case "known-allergies":
+      return (
+        a.choice === "no" ||
+        (a.choice === "yes" &&
+          (a.selections.length > 0 || a.details.trim().length > 0))
+      );
+    default:
+      return false;
+  }
 }
 
 function MedicalHistoryProgress({

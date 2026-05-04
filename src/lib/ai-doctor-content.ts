@@ -1,18 +1,52 @@
+import {
+  activityOptions,
+  alcoholOptions,
+  allergyOptions,
+  chronicDiseaseOptions,
+  dietOptions,
+  familyHistoryOptions,
+  sleepOptions,
+  smokingOptions,
+  stressOptions,
+} from "./dashboard-content";
+
 export type MedicalHistoryOption = {
   label: string;
   description?: string;
 };
 
 export type MedicalHistoryStep = {
-  id: string;
+  id: MedicalHistoryStepId;
   title: string;
   description: string;
   sectionTitle?: string;
   stepKind: "yes-no-checklist" | "yes-no-text" | "choice-list";
   placeholder?: string;
-  options?: string[];
+  options?: readonly string[];
   choiceOptions?: MedicalHistoryOption[];
 };
+
+/**
+ * Stable identifiers for the 12 wizard steps. They are the contract between
+ * the wizard UI, the backend ai-doctor snapshot, and the
+ * `medicalHistoryAnswersToData`/`medicalHistoryDataToAnswers` mappers — every
+ * id maps to a specific group of fields on `MedicalHistoryData` so that
+ * answers entered in the wizard round-trip cleanly to/from the medical
+ * history page.
+ */
+export type MedicalHistoryStepId =
+  | "chronic-past-health-conditions"
+  | "family-health-history"
+  | "known-allergies"
+  | "surgical-history"
+  | "current-medications"
+  | "medications-history"
+  | "daily-smoking-intensity"
+  | "weekly-alcohol-intake"
+  | "dietary-habits"
+  | "weekly-activity-level"
+  | "daily-sleep-pattern"
+  | "stress-level";
 
 export const aiDoctorBenefits = [
   "Complete your health Profile",
@@ -22,6 +56,18 @@ export const aiDoctorBenefits = [
 
 export const medicalHistoryTotalSteps = 12;
 
+const toChoiceOptions = (labels: readonly string[]): MedicalHistoryOption[] =>
+  labels.map((label) => ({ label }));
+
+const activityDescriptions: Record<string, string> = {
+  Inactive: "No regular physical activity or structured exercise",
+  "Lightly Active":
+    "Light physical activities such as walking or leisurely cycling",
+  "Moderately Active":
+    "Regular moderate exercises like running, swimming, or playing sports",
+  "Very Active": "Frequent intense exercises and sports training",
+};
+
 export const medicalHistorySteps: MedicalHistoryStep[] = [
   {
     id: "chronic-past-health-conditions",
@@ -30,12 +76,7 @@ export const medicalHistorySteps: MedicalHistoryStep[] = [
       "Include any chronic conditions or medical issues experienced. Essential for understanding health history and personalized care.",
     sectionTitle: "Medical History",
     stepKind: "yes-no-checklist",
-    options: [
-      "Diabetes",
-      "HyperTension",
-      "Cardiovascular diseases",
-      "Thyroid disorders",
-    ],
+    options: chronicDiseaseOptions,
     placeholder: "e.g. diabetes, high blood pressure, heart attack 2 years ago",
   },
   {
@@ -45,7 +86,7 @@ export const medicalHistorySteps: MedicalHistoryStep[] = [
       "List any chronic diseases present in your family history. This will help us indicate the genetic risks.",
     sectionTitle: "Medical History",
     stepKind: "yes-no-checklist",
-    options: ["Heart Diseases", "Diabetes", "Cancer", "Osteoporosis"],
+    options: familyHistoryOptions,
     placeholder:
       "e.g. Mother with diabetes, father had heart disease, sibling with asthma",
   },
@@ -55,7 +96,7 @@ export const medicalHistorySteps: MedicalHistoryStep[] = [
     description: "List any allergies you have.",
     sectionTitle: "Medical History",
     stepKind: "yes-no-checklist",
-    options: ["Soy", "Dairy/Lactose", "Fish/Shellfish"],
+    options: allergyOptions,
     placeholder:
       "e.g. Peanut allergy, Penicillin allergy, tree and grass pollen",
   },
@@ -90,28 +131,16 @@ export const medicalHistorySteps: MedicalHistoryStep[] = [
     description: "",
     sectionTitle: "Life Patterns & Habits",
     stepKind: "choice-list",
-    choiceOptions: [
-      { label: "Non-smoker" },
-      { label: "1-10 Cigarettes" },
-      { label: "About 1 pack" },
-      { label: "More than 1 pack" },
-      { label: "Electronic Cigarettes/Vaping" },
-    ],
+    choiceOptions: toChoiceOptions(smokingOptions),
   },
   {
     id: "weekly-alcohol-intake",
     title: "Weekly Alcohol intake",
     description:
-      "A standard drink is equivalent to a regular can or bottle of beer, a typical serving (glass) of wine, or a short of distilled spirits.",
+      "A standard drink is equivalent to a regular can or bottle of beer, a typical serving (glass) of wine, or a shot of distilled spirits.",
     sectionTitle: "Life Patterns & Habits",
     stepKind: "choice-list",
-    choiceOptions: [
-      { label: "Non-drinker" },
-      { label: "1-3 standard drinks" },
-      { label: "4-7 standard drinks" },
-      { label: "8-14 standard drinks" },
-      { label: "15+ standard drinks" },
-    ],
+    choiceOptions: toChoiceOptions(alcoholOptions),
   },
   {
     id: "dietary-habits",
@@ -119,15 +148,7 @@ export const medicalHistorySteps: MedicalHistoryStep[] = [
     description: "",
     sectionTitle: "Life Patterns & Habits",
     stepKind: "choice-list",
-    choiceOptions: [
-      { label: "Non-specific diet" },
-      { label: "Balanced Meals" },
-      { label: "Frequent Fast Food" },
-      {
-        label: "Specific diet Plan",
-        description: "A particular diet plan (e.g. keto, high-protein, vegan)",
-      },
-    ],
+    choiceOptions: toChoiceOptions(dietOptions),
   },
   {
     id: "weekly-activity-level",
@@ -135,26 +156,10 @@ export const medicalHistorySteps: MedicalHistoryStep[] = [
     description: "",
     sectionTitle: "Life Patterns & Habits",
     stepKind: "choice-list",
-    choiceOptions: [
-      {
-        label: "Inactive",
-        description: "No Regular physical activity or structured exercise",
-      },
-      {
-        label: "Lightly active",
-        description:
-          "Light Physical activities such as walking or leisurely cycling",
-      },
-      {
-        label: "Moderately active",
-        description:
-          "Regular moderate exercises like running, swimming, or playing sports",
-      },
-      {
-        label: "Very active",
-        description: "Frequent intense exercises and sports training",
-      },
-    ],
+    choiceOptions: activityOptions.map((label) => ({
+      label,
+      description: activityDescriptions[label] ?? "",
+    })),
   },
   {
     id: "daily-sleep-pattern",
@@ -162,12 +167,7 @@ export const medicalHistorySteps: MedicalHistoryStep[] = [
     description: "",
     sectionTitle: "Life Patterns & Habits",
     stepKind: "choice-list",
-    choiceOptions: [
-      { label: "7-9 hours" },
-      { label: "less than 6 hours" },
-      { label: "More than 9 hours" },
-      { label: "Varies significantly or interrupted sleep" },
-    ],
+    choiceOptions: toChoiceOptions(sleepOptions),
   },
   {
     id: "stress-level",
@@ -175,11 +175,6 @@ export const medicalHistorySteps: MedicalHistoryStep[] = [
     description: "",
     sectionTitle: "Life Patterns & Habits",
     stepKind: "choice-list",
-    choiceOptions: [
-      { label: "Rarely Stressed" },
-      { label: "Manageable stress" },
-      { label: "Regular (daily) stress" },
-      { label: "Almost always stressed" },
-    ],
+    choiceOptions: toChoiceOptions(stressOptions),
   },
-] as const;
+];
