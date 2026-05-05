@@ -1,17 +1,14 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
   Activity,
-  ArrowDownRight,
-  ArrowUpRight,
   BadgeCheck,
   Ban,
   ChevronDown,
   CreditCard,
   DollarSign,
-  Minus,
   Search,
   ShieldAlert,
   ShieldCheck,
@@ -24,7 +21,6 @@ import {
 
 import type {
   AdminActivity,
-  AdminStatCard,
   AdminTransaction,
   AdminUser,
   MonthlyGrowth,
@@ -33,6 +29,8 @@ import type {
   UserRole,
   UserStatus,
 } from "@/lib/admin-content";
+import { getAdminSummary, type AdminSummaryResponse } from "@/lib/admin-ops-api";
+import { getFriendlyAxiosMessage } from "@/lib/axios-error-messages";
 import { useAdminConfig } from "@/lib/hooks/use-app-config";
 import { cn } from "@/lib/utils";
 
@@ -48,8 +46,53 @@ import {
 /*  Admin Dashboard                                                           */
 /* -------------------------------------------------------------------------- */
 
+type LiveSummaryStat = {
+  label: string;
+  valueKey: keyof AdminSummaryResponse;
+};
+
+const LIVE_SUMMARY_STATS: LiveSummaryStat[] = [
+  { label: "Total users", valueKey: "userCount" },
+  { label: "Profiles (onboarded)", valueKey: "profileCount" },
+  { label: "Support reports", valueKey: "supportReportCount" },
+  { label: "Admins", valueKey: "adminCount" },
+  { label: "New registrations (24h)", valueKey: "last24hRegistrations" },
+];
+
 export function AdminDashboardPage() {
   const { data: config } = useAdminConfig();
+  const [summary, setSummary] = useState<AdminSummaryResponse | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const ac = new AbortController();
+
+    async function load() {
+      setSummaryLoading(true);
+      setSummaryError(null);
+      try {
+        const data = await getAdminSummary({ signal: ac.signal });
+        if (!cancelled) setSummary(data);
+      } catch (e: unknown) {
+        if (cancelled) return;
+        setSummary(null);
+        setSummaryError(
+          getFriendlyAxiosMessage(e, "Could not load dashboard summary."),
+        );
+      } finally {
+        if (!cancelled) setSummaryLoading(false);
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, []);
+
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -67,9 +110,24 @@ export function AdminDashboardPage() {
           <p className="text-sm text-muted-foreground">{today}</p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {config.statCards.map((card) => (
-            <StatCard key={card.label} card={card} />
+        {summaryError ? (
+          <DashboardPanel className="border-destructive/20 bg-destructive/5 px-6 py-4">
+            <p className="text-sm font-medium text-destructive">{summaryError}</p>
+          </DashboardPanel>
+        ) : null}
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {LIVE_SUMMARY_STATS.map((stat) => (
+            <LiveSummaryStatCard
+              key={stat.valueKey}
+              label={stat.label}
+              value={
+                summaryLoading || !summary
+                  ? null
+                  : summary[stat.valueKey].toLocaleString("en-US")
+              }
+              loading={summaryLoading}
+            />
           ))}
         </div>
 
@@ -82,33 +140,33 @@ export function AdminDashboardPage() {
   );
 }
 
-function StatCard({ card }: { card: AdminStatCard }) {
-  const TrendIcon =
-    card.trend === "up"
-      ? ArrowUpRight
-      : card.trend === "down"
-        ? ArrowDownRight
-        : Minus;
-
+function LiveSummaryStatCard({
+  label,
+  value,
+  loading,
+}: {
+  label: string;
+  value: string | null;
+  loading: boolean;
+}) {
   return (
     <DashboardPanel className="space-y-3 px-6 py-5">
-      <p className="text-sm font-medium text-muted-foreground">{card.label}</p>
+      <p className="text-sm font-medium text-muted-foreground">{label}</p>
       <div className="flex items-end justify-between gap-3">
-        <p className="text-3xl font-semibold tracking-tight text-foreground">
-          {card.value}
-        </p>
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
-            card.trend === "up" && "bg-emerald-50 text-emerald-600",
-            card.trend === "down" && "bg-red-50 text-red-500",
-            card.trend === "neutral" && "bg-muted text-muted-foreground",
-          )}
-        >
-          <TrendIcon className="size-3" />
-          {card.trendValue}
-        </span>
+        {loading ? (
+          <div
+            className="h-9 w-24 max-w-full animate-pulse rounded-md bg-muted"
+            aria-hidden
+          />
+        ) : (
+          <p className="text-3xl font-semibold tracking-tight text-foreground">
+            {value ?? "—"}
+          </p>
+        )}
       </div>
+      {!loading && value !== null ? (
+        <p className="text-xs font-medium text-muted-foreground">Live</p>
+      ) : null}
     </DashboardPanel>
   );
 }

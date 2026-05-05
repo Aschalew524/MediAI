@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
+import { Suspense } from "react";
 
 import { DashboardAuthProvider } from "@/components/auth/dashboard-auth-provider";
+import { GoogleOAuthDashboardBootstrap } from "@/components/auth/google-oauth-dashboard-bootstrap";
 import {
   DashboardMeProvider,
   DashboardWithMeEntrance,
@@ -14,6 +16,9 @@ export default function DashboardLayout({
 }) {
   return (
     <DashboardAuthProvider>
+      <Suspense fallback={null}>
+        <GoogleOAuthDashboardBootstrap />
+      </Suspense>
       <DashboardMeProvider>
         <DashboardWithMeEntrance>
           <DashboardShell>{children}</DashboardShell>

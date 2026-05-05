@@ -1,4 +1,4 @@
-import type { DashboardProfile, MedicalHistoryData } from "./dashboard-content";
+import type { DashboardProfile, MedicalHistoryData } from "@/lib/dashboard-content";
 
 /**
  * Profile / medical-history completion computation.
@@ -14,6 +14,11 @@ import type { DashboardProfile, MedicalHistoryData } from "./dashboard-content";
  * value counts. If the user explicitly answered "no" to a wizard question we
  * don't try to recover that signal — the saved medical-history JSON only
  * stores the affirmative data we can use for personalization.
+ *
+ * Segmented scores (`computeProfileCompletion`) use the same client-side `GET /me`
+ * fields (`DashboardProfile` + `MedicalHistoryData`). Personal vs professional
+ * general blocks differ; medical uses chronic, allergies, medications, and six
+ * lifestyle fields; `mainHealthHub` is the average of general + medical.
  */
 
 export type CompletionTally = {
@@ -112,4 +117,93 @@ export function mainHealthInformationCompletionPercent(
   history: MedicalHistoryData | null | undefined,
 ): number {
   return toPercent(medicalHistoryCompletion(history));
+}
+
+export type ProfileCompletionSegments = {
+  /** 0–100 */
+  general: number;
+  /** 0–100 */
+  medical: number;
+  /**
+   * 0–100 — readiness of the “Main Health Information” hub (average of general + medical).
+   */
+  mainHealthHub: number;
+};
+
+export type ProfileCompletionResult = {
+  /** 0–100 */
+  overall: number;
+  segments: ProfileCompletionSegments;
+};
+
+function clampPct(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function heightComplete(p: DashboardProfile): boolean {
+  if (p.measurementSystem === "metric") {
+    return p.heightCm.trim().length > 0;
+  }
+  return p.heightFeet.trim().length > 0;
+}
+
+function generalPersonalCompletion(p: DashboardProfile): number {
+  const ageStr = p.age.trim();
+  const ageOk = /^\d+$/.test(ageStr) && Number(ageStr) > 0 && Number(ageStr) < 130;
+  const checks: boolean[] = [
+    p.preferredName.trim().length > 0,
+    ageOk,
+    p.region.trim().length > 0,
+    p.weight.trim().length > 0,
+    heightComplete(p),
+    p.sexAtBirth !== null && p.sexAtBirth !== undefined,
+  ];
+  return clampPct((checks.filter(Boolean).length / checks.length) * 100);
+}
+
+function generalProfessionalCompletion(p: DashboardProfile): number {
+  const pp = p.professionalProfile;
+  if (!pp) return 0;
+  const checks: boolean[] = [
+    String(pp.title ?? "").trim().length > 0,
+    pp.fullName.trim().length > 0,
+    pp.specialty.trim().length > 0,
+    pp.region.trim().length > 0,
+  ];
+  return clampPct((checks.filter(Boolean).length / checks.length) * 100);
+}
+
+function medicalCompletion(m: MedicalHistoryData): number {
+  const checks: boolean[] = [
+    m.chronicDiseases.length > 0 || m.chronicDetails.trim().length > 0,
+    m.allergies.length > 0 || m.allergyDetails.trim().length > 0,
+    m.currentMedications.trim().length > 0 || m.pastMedications.trim().length > 0,
+    m.smokingIntensity.trim().length > 0,
+    m.alcoholIntake.trim().length > 0,
+    m.dietaryHabits.trim().length > 0,
+    m.activityLevel.trim().length > 0,
+    m.sleepPattern.trim().length > 0,
+    m.stressLevel.trim().length > 0,
+  ];
+  return clampPct((checks.filter(Boolean).length / checks.length) * 100);
+}
+
+/**
+ * @param profile Merged dashboard profile (from `useDashboardMe`).
+ * @param medicalHistory Merged medical history from the same source.
+ */
+export function computeProfileCompletion(
+  profile: DashboardProfile,
+  medicalHistory: MedicalHistoryData,
+): ProfileCompletionResult {
+  const general = profile.professionalProfile
+    ? generalProfessionalCompletion(profile)
+    : generalPersonalCompletion(profile);
+  const medical = medicalCompletion(medicalHistory);
+  const mainHealthHub = clampPct((general + medical) / 2);
+  return {
+    overall: mainHealthHub,
+    segments: { general, medical, mainHealthHub },
+  };
 }

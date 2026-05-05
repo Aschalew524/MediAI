@@ -1,7 +1,7 @@
 "use client";
 
 import { isAxiosError } from "axios";
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -36,6 +36,11 @@ import type {
   ProfessionalTitleOption,
   SexOption,
 } from "@/lib/onboarding-content";
+import {
+  clearProfessionalOnboardingDraft,
+  loadProfessionalOnboardingDraft,
+  saveProfessionalOnboardingDraft,
+} from "@/lib/onboarding-professional-draft";
 import { cn } from "@/lib/utils";
 
 import {
@@ -102,6 +107,8 @@ const patientSetupSteps = [
   "Lifestyle and Habits",
 ] as const;
 
+const DRAFT_SAVE_DEBOUNCE_MS = 450;
+
 export function ProfessionalOnboardingFlow({
   config,
   onBackToRoleSelection,
@@ -146,6 +153,54 @@ export function ProfessionalOnboardingFlow({
     stressLevel: "",
   });
 
+  const didRestoreRef = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Restore professional draft once on mount
+  useEffect(() => {
+    if (didRestoreRef.current) return;
+    didRestoreRef.current = true;
+    const draft = loadProfessionalOnboardingDraft();
+    if (!draft) return;
+    setExpandedNotes(draft.expandedNotes);
+    setForm((cur) => {
+      // Avoid clobbering if the user already typed something before restore.
+      if (cur.fullName.trim() || cur.specialty.trim() || cur.region.trim()) return cur;
+      return { ...cur, ...draft.form };
+    });
+    setCurrentStep(Math.max(0, Math.min(7, draft.currentStep)));
+  }, []);
+
+  // Save draft immediately when step changes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    saveProfessionalOnboardingDraft({
+      v: 1,
+      savedAt: new Date().toISOString(),
+      currentStep,
+      expandedNotes,
+      form,
+    });
+  }, [currentStep]);
+
+  // Debounced save for typing
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      saveProfessionalOnboardingDraft({
+        v: 1,
+        savedAt: new Date().toISOString(),
+        currentStep,
+        expandedNotes,
+        form,
+      });
+    }, DRAFT_SAVE_DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [expandedNotes, form, currentStep]);
+
   const selectedTitle =
     config.professionalTitleOptions.find((option) => option.id === form.title)
       ?.label ?? "Dr.";
@@ -178,14 +233,23 @@ export function ProfessionalOnboardingFlow({
       case 6:
         return true;
       case 7:
+        // Sanity ranges to prevent obvious garbage input (final validation in payload builder).
         if (form.measurementSystem === "metric") {
-          return Number(form.weight) > 0 && Number(form.heightCm) > 0;
+          const w = Number(form.weight);
+          const h = Number(form.heightCm);
+          return w >= 2 && w <= 500 && h >= 30 && h <= 250;
         }
 
+        const w = Number(form.weight);
+        const ft = Number(form.heightFeet);
+        const inch = Number(form.heightInches);
         return (
-          Number(form.weight) > 0 &&
-          Number(form.heightFeet) > 0 &&
-          Number(form.heightInches) >= 0
+          w >= 5 &&
+          w <= 1100 &&
+          ft >= 1 &&
+          ft <= 8 &&
+          inch >= 0 &&
+          inch <= 11
         );
       default:
         return false;
@@ -202,6 +266,7 @@ export function ProfessionalOnboardingFlow({
 
   function handleBack() {
     if (currentStep === 0) {
+      clearProfessionalOnboardingDraft();
       onBackToRoleSelection();
       return;
     }
@@ -242,6 +307,7 @@ export function ProfessionalOnboardingFlow({
         );
         await postOnboardingComplete(body);
       }
+      clearProfessionalOnboardingDraft();
       const prof = buildPatchProfessionalFromForm(
         {
           title: form.title,

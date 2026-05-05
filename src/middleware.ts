@@ -29,6 +29,10 @@ export function middleware(request: NextRequest) {
   }
 
   if (!hasSession) {
+    /** Google OAuth returns JWT in query before client can mirror it to cookie (`setAccessToken`). */
+    if (request.nextUrl.searchParams.has("accessToken")) {
+      return NextResponse.next();
+    }
     const to = new URL(AUTH_LANDING, request.url);
     to.searchParams.set("from", pathname);
     return NextResponse.redirect(to);

@@ -4,6 +4,50 @@ import type { ProfessionalProfile } from "@/lib/dashboard-content";
 
 const DEFAULT_FEATURE: CompleteOnboardingPayload["preferredFeature"] = "ai-doctor";
 
+function parseNumberStrict(value: string): number | null {
+  const s = String(value ?? "").trim();
+  if (!s) return null;
+  if (!/^\d+(\.\d+)?$/.test(s)) return null;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return null;
+  return n;
+}
+
+function assertInRange(label: string, n: number, min: number, max: number): void {
+  if (n < min || n > max) {
+    throw new Error(`${label} must be between ${min} and ${max}.`);
+  }
+}
+
+function validateMeasurements(input: {
+  measurementSystem: "imperial" | "metric";
+  weight: string;
+  heightFeet?: string;
+  heightInches?: string;
+  heightCm?: string;
+}): void {
+  if (input.measurementSystem === "metric") {
+    const w = parseNumberStrict(input.weight);
+    const h = parseNumberStrict(input.heightCm ?? "");
+    if (w == null || h == null) {
+      throw new Error("Please enter weight and height (cm).");
+    }
+    assertInRange("Weight (kg)", w, 2, 500);
+    assertInRange("Height (cm)", h, 30, 250);
+    return;
+  }
+
+  const w = parseNumberStrict(input.weight);
+  const feet = parseNumberStrict(input.heightFeet ?? "");
+  const inches = parseNumberStrict(input.heightInches ?? "");
+  if (w == null || feet == null || inches == null) {
+    throw new Error("Please enter weight and height.");
+  }
+  assertInRange("Weight (lb)", w, 5, 1100);
+  assertInRange("Height (ft)", feet, 1, 8);
+  assertInRange("Height (in)", inches, 0, 11);
+}
+
 /**
  * Clamps and parses age for `CompleteOnboardingDto` (1–130).
  */
@@ -45,17 +89,13 @@ export function buildPersonalOnboardingBody(
     throw new Error("Please select sex.");
   }
   const ms = form.measurementSystem ?? "imperial";
-  if (ms === "imperial") {
-    if (
-      !String(form.weight).trim() ||
-      !String(form.heightFeet).trim() ||
-      String(form.heightInches) === ""
-    ) {
-      throw new Error("Please enter weight and height.");
-    }
-  } else if (!String(form.heightCm).trim() || !String(form.weight).trim()) {
-    throw new Error("Please enter weight and height (cm).");
-  }
+  validateMeasurements({
+    measurementSystem: ms,
+    weight: form.weight,
+    heightFeet: form.heightFeet,
+    heightInches: form.heightInches,
+    heightCm: form.heightCm,
+  });
 
   const base: CompleteOnboardingPayload = {
     role: "personal",
@@ -139,6 +179,13 @@ export function buildProfessionalWithPatientOnboardingBody(
     throw new Error("Please select biological sex for the patient.");
   }
   const ms = form.measurementSystem;
+  validateMeasurements({
+    measurementSystem: ms,
+    weight: form.weight,
+    heightFeet: form.heightFeet,
+    heightInches: form.heightInches,
+    heightCm: form.heightCm,
+  });
   const base: CompleteOnboardingPayload = {
     role: "professional",
     preferredName: form.patientName.trim() || defaults.preferredName,

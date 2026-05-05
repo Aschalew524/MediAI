@@ -1,17 +1,14 @@
-import { ResourcePageTemplate } from "@/components/landing/resource-page";
+import { buildEducationPageMetadata } from "@/lib/education-metadata";
+import { renderEducationPublicPage } from "@/lib/education-public-page";
 
-export default function KnowledgeBasePage() {
-  return (
-    <ResourcePageTemplate
-      slug="knowledge-base"
-      title="Knowledge Base"
-      description="Browse foundational MediAI help content, feature explanations, and product guidance in one place."
-      bullets={[
-        "Understand how each MediAI workflow is designed to support patients and professionals.",
-        "Find setup guidance for onboarding, AI Doctor, nearby facilities, and second opinions.",
-        "Get quick answers about features, privacy expectations, and recommended usage.",
-      ]}
-    />
-  );
+export const revalidate = 120;
+
+const SLUG = "knowledge-base" as const;
+
+export async function generateMetadata() {
+  return buildEducationPageMetadata(SLUG);
 }
 
+export default async function KnowledgeBasePage() {
+  return renderEducationPublicPage(SLUG);
+}

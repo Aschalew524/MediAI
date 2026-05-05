@@ -41,8 +41,6 @@ type ProfessionalConversationMessage = {
   timestamp: string;
 };
 
-type HistoryFilter = "all" | ChatMode;
-
 const conversationPrompts = [
   {
     title: "Discuss Patient Case",
@@ -69,6 +67,36 @@ const conversationPrompts = [
     icon: FileSearch,
   },
 ];
+
+function proGeneralSessionKey(patientId: string) {
+  return `mediai:pro:gen:${patientId}`;
+}
+
+/**
+ * There is no backend "clinical chat with patient context" path yet. We call
+ * {@link postGeneralMessage} (no user profile in the model). JWT is only sent
+ * for rate limits. Multi-turn is keyed per patient in sessionStorage.
+ */
+function getOrCreateProGeneralSessionId(patientId: string): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  const k = proGeneralSessionKey(patientId);
+  let s = sessionStorage.getItem(k);
+  if (!s) {
+    s = crypto.randomUUID();
+    sessionStorage.setItem(k, s);
+  }
+  return s;
+}
+
+function resetProGeneralSessionId(patientId: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const s = crypto.randomUUID();
+  sessionStorage.setItem(proGeneralSessionKey(patientId), s);
+}
 
 const researchPlanItems = [
   {
@@ -207,7 +235,10 @@ export function ProfessionalChatConversationPage({
     const messageText = (nextDraft ?? draft).trim();
     if (!messageText || sending) return;
 
-    const timestamp = "14 Apr, 2026";
+    const timestamp = new Date().toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
     const userMessage: ProfessionalConversationMessage = {
       role: "user",
       author: "Dr. Ashenafi",
@@ -219,6 +250,7 @@ export function ProfessionalChatConversationPage({
     setDraft("");
     setSending(true);
 
+    const sessionId = getOrCreateProGeneralSessionId(patient.id);
     try {
       const response = await sendChatMessage({
         mode: "personal",
@@ -274,9 +306,15 @@ export function ProfessionalChatConversationPage({
         )}
       >
         <div className="flex items-center justify-between gap-4">
-          <p className="text-sm font-medium text-muted-foreground">
-            {formatProfessionalPatientCompact(patient)}
-          </p>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-muted-foreground">
+              {formatProfessionalPatientCompact(patient)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground/90">
+              Replies are general and do not use the patient&rsquo;s stored MediAI profile. Use
+              the notes above for case context in your own words.
+            </p>
+          </div>
           <div className="relative">
             <button
               type="button"
@@ -294,6 +332,7 @@ export function ProfessionalChatConversationPage({
                 onStartNewConversation={() => {
                   setMenuOpen(false);
                   setMessages([]);
+                  resetProGeneralSessionId(patient.id);
                   router.replace(
                     buildClinicalRoute(
                       "/dashboard/ai-doctor/personal",
@@ -314,7 +353,8 @@ export function ProfessionalChatConversationPage({
                   AI Clinical Assistant
                 </h1>
                 <p className="text-base text-muted-foreground">
-                  Ask anything related to the selected patient's case.
+                  Ask anything related to the selected patient&apos;s case. The model answers from
+                  general knowledge only, not this patient&rsquo;s file.
                 </p>
               </div>
 
@@ -398,117 +438,64 @@ export function ProfessionalChatConversationPage({
   );
 }
 
+/**
+ * C1: No per-patient clinical thread list in the API yet; the assistant uses general chat
+ * (no patient file in the model). Show an honest empty state and paths to start chatting.
+ */
 export function ProfessionalChatHistoryPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const profile = useDashboardProfile();
   const patients = getProfessionalPatients(profile);
-  const [filter, setFilter] = useState<HistoryFilter>("all");
-  const [patientId, setPatientId] = useState(searchParams.get("patient") ?? "");
-
-  const items = useMemo(() => {
-    const baseItems = [
-      {
-        title: "General",
-        type: "personal" as ChatMode,
-        patient: patients[0] ?? getProfessionalPatient(profile, null),
-        lastMessageAt: "02 Apr, 9:55 AM",
-      },
-    ];
-
-    return baseItems.filter((item) => {
-      const matchesType = filter === "all" ? true : item.type === filter;
-      const matchesPatient = patientId ? item.patient.id === patientId : true;
-      return matchesType && matchesPatient;
-    });
-  }, [filter, patientId, patients, profile]);
+  const patientId = searchParams.get("patient") ?? "";
+  const patient =
+    patientId && patients.length > 0
+      ? getProfessionalPatient(profile, patientId)
+      : null;
 
   return (
     <ProfessionalDashboardShell profile={profile}>
-      <section className="space-y-6">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-          <div className="space-y-3">
-            <Link
-              href="/dashboard/ai-doctor"
-              className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
-            >
-              <span className="text-lg">←</span>
-              <span>Clinical Assistant</span>
-            </Link>
-            <h1 className="text-[2.25rem] font-semibold tracking-tight text-foreground">
-              AI Conversation History
-            </h1>
-          </div>
-
+      <section className="space-y-8">
+        <div className="space-y-3">
           <Link
             href={buildClinicalRoute("/dashboard/ai-doctor", patientId)}
-            className="inline-flex h-12 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-95"
+            className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
           >
-            + New Chat
+            <span className="text-lg">←</span>
+            <span>Clinical Assistant</span>
           </Link>
+          <h1 className="text-[2.25rem] font-semibold tracking-tight text-foreground">
+            AI Conversation History
+          </h1>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+            There is no saved <strong>per-patient</strong> clinical thread list in this version. The
+            clinical assistant uses <strong>general</strong> answers (it does not load the
+            patient&rsquo;s stored MediAI profile on the server). Open a case below to start a
+            session; history stays in your current browser session for that case only.
+          </p>
         </div>
 
-        <div className="flex flex-col gap-4 md:flex-row">
-          <SelectField
-            value={filter}
-            onChange={(value) => setFilter(value as HistoryFilter)}
-            options={[
-              { value: "all", label: "Select type" },
-              { value: "personal", label: "Clinical Assistant" },
-              { value: "general", label: "Research Assistant" },
-            ]}
-          />
-          <SelectField
-            value={patientId}
-            onChange={setPatientId}
-            options={[
-              { value: "", label: "Select Patient" },
-              ...patients.map((patient) => ({
-                value: patient.id,
-                label: formatProfessionalPatient(patient),
-              })),
-            ]}
-          />
-        </div>
-
-        <div className="space-y-4">
-          {items.map((item) => (
-            <button
-              key={`${item.title}-${item.patient.id}`}
-              type="button"
-              onClick={() =>
-                router.push(
-                  buildClinicalRoute(
-                    "/dashboard/ai-doctor/last-chat",
-                    item.patient.id,
-                  ),
-                )
-              }
-              className="block w-full text-left"
-            >
-              <DashboardPanel className="rounded-[1.35rem] border-primary/20 px-6 py-5 shadow-none transition-colors hover:border-primary/30">
-                <div className="space-y-3">
-                  <h2 className="text-[1.75rem] font-semibold text-foreground">
-                    {item.title}
-                  </h2>
-                  <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
-                    <p>
-                      Patient:{" "}
-                      <span className="font-semibold text-foreground">
-                        {formatProfessionalPatientCompact(item.patient)}
-                      </span>
-                    </p>
-                    <p>
-                      Last Message Date:{" "}
-                      <span className="font-semibold text-foreground">
-                        {item.lastMessageAt}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              </DashboardPanel>
-            </button>
-          ))}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Link
+            href={buildClinicalRoute(
+              "/dashboard/ai-doctor/personal",
+              patient?.id ?? patients[0]?.id,
+            )}
+            className="block rounded-2xl border border-primary/15 bg-primary/5 p-6 text-left transition-colors hover:border-primary/25"
+          >
+            <p className="text-sm font-medium text-primary">Start clinical chat</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {patient
+                ? `Continue for ${formatProfessionalPatientCompact(patient)}`
+                : "Select a patient on the home screen first, or we’ll use the first in your list when available."}
+            </p>
+          </Link>
+          <Link
+            href={buildClinicalRoute("/dashboard/ai-doctor", undefined)}
+            className="block rounded-2xl border border-primary/15 bg-white p-6 text-left transition-colors hover:border-primary/25"
+          >
+            <p className="text-sm font-medium text-foreground">Choose a patient</p>
+            <p className="mt-2 text-sm text-muted-foreground">Return to the assistant hub to pick who you&rsquo;re working with.</p>
+          </Link>
         </div>
       </section>
     </ProfessionalDashboardShell>

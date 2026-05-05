@@ -130,6 +130,7 @@ export function useChatConfig() {
       doctorTypeOptions: fallbackDoctorTypeOptions,
       chatHistoryItems: fallbackChatHistoryItems,
       seededPersonalConversation: [...fallbackSeededPersonalConversation],
+      ragEnabled: false,
     }),
     [],
   );
@@ -166,3 +167,5 @@ export function useAdminConfig() {
 
   return useAsyncData(useCallback(() => getAdminConfig(), []), fallback);
 }
+
+export { useEducationResource } from "./use-education-resource";
