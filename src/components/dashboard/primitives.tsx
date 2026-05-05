@@ -129,15 +129,20 @@ export function DashboardSectionHeader({
 export function DashboardBackTitle({
   title,
   description,
+  backHref = "/dashboard",
+  backAriaLabel = "Back",
 }: {
   title: string;
   description?: string;
+  /** Defaults to `/dashboard`; use e.g. `/admin/blog` for admin sub-routes. */
+  backHref?: string;
+  backAriaLabel?: string;
 }) {
   return (
     <div className="space-y-3">
       <Link
-        href="/dashboard"
-        aria-label="Back to dashboard"
+        href={backHref}
+        aria-label={backAriaLabel}
         className="inline-flex size-10 items-center justify-center rounded-full border border-primary/15 text-foreground/80 transition-colors hover:bg-muted hover:text-primary"
       >
         <ArrowLeft className="size-4" />

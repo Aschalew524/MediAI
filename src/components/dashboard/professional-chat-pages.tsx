@@ -664,8 +664,11 @@ export function ProfessionalChatConversationPage({
   );
 }
 
+/**
+ * C1: No per-patient clinical thread list in the API yet; the assistant uses general chat
+ * (no patient file in the model). Show an honest empty state and paths to start chatting.
+ */
 export function ProfessionalChatHistoryPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const profile = useDashboardProfile();
   const {
@@ -726,6 +729,8 @@ export function ProfessionalChatHistoryPage() {
     return conversations;
   }, [filter, conversations]);
 
+  const router = useRouter();
+
   return (
     <ProfessionalDashboardShell profile={profile}>
       <section className="space-y-6">
@@ -746,13 +751,6 @@ export function ProfessionalChatHistoryPage() {
               continue chatting with the AI Doctor about that patient.
             </p>
           </div>
-
-          <Link
-            href={buildClinicalRoute("/dashboard/ai-doctor", patientId)}
-            className="inline-flex h-12 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-95"
-          >
-            + New Chat
-          </Link>
         </div>
 
         <div className="flex flex-col gap-4 md:flex-row">

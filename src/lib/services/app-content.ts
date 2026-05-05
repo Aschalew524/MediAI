@@ -21,7 +21,6 @@ import type {
   DoctorTypeOption,
   HistoryItem,
 } from "@/lib/chat-content";
-import type { ChatMode } from "@/lib/chat-content";
 import type {
   MedicalHistoryStep,
 } from "@/lib/ai-doctor-content";
@@ -90,6 +89,8 @@ export type ChatConfigResponse = {
     author: string;
     content: string;
   }[];
+  /** From Nest: `RAG_ENABLED` — when true, responses may include guideline (RAG) sources */
+  ragEnabled?: boolean;
 };
 
 export type AIDoctorConfigResponse = {

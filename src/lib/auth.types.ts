@@ -1,6 +1,8 @@
 export type AuthUser = {
   id: string;
   email: string;
+  /** Present from `/auth/me` when backend exposes role (required for blog admin gate). */
+  appRole?: "user" | "admin";
 };
 
 export type AuthTokens = {

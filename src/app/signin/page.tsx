@@ -7,13 +7,21 @@ import { Lock, Mail } from "lucide-react";
 import { Suspense } from "react";
 
 import {
+  AuthOutlineButton,
   AuthPageShell,
   AuthPrimaryButton,
+  GoogleMark,
   IconInput,
   LegalDisclaimer,
   MediAIWordmark,
+  OrDivider,
 } from "@/components/auth/shared";
 import { postLogin, userFacingAxiosError } from "@/lib/auth-api";
+import {
+  getGoogleOAuthStartUrl,
+  isGoogleSignInUiEnabled,
+  oauthCallbackErrorMessage,
+} from "@/lib/auth-oauth";
 
 function SignInForm() {
   const router = useRouter();
@@ -21,14 +29,23 @@ function SignInForm() {
   const from = searchParams.get("from");
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const showGoogle = isGoogleSignInUiEnabled();
 
   useEffect(() => {
-    const e = searchParams.get("error");
-    if (e) {
-      setFormError("Sign-in could not be completed. Please try again.");
-      router.replace("/signin", { scroll: false });
+    const err = searchParams.get("error");
+    if (!err) return;
+    setFormError(oauthCallbackErrorMessage(err));
+    const next = new URLSearchParams();
+    if (
+      from &&
+      !from.startsWith("//") &&
+      (from.startsWith("/dashboard") || from.startsWith("/admin"))
+    ) {
+      next.set("from", from);
     }
-  }, [router, searchParams]);
+    const qs = next.toString();
+    router.replace(qs ? `/signin?${qs}` : "/signin", { scroll: false });
+  }, [router, searchParams, from]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -41,8 +58,8 @@ function SignInForm() {
       await postLogin({ email, password });
       if (
         from &&
-        from.startsWith("/dashboard") &&
-        !from.startsWith("//")
+        !from.startsWith("//") &&
+        (from.startsWith("/dashboard") || from.startsWith("/admin"))
       ) {
         router.push(from);
       } else {
@@ -104,6 +121,26 @@ function SignInForm() {
           {isSubmitting ? "Signing in…" : "Sign In"}
         </AuthPrimaryButton>
       </form>
+
+      {showGoogle ? (
+        <>
+          <OrDivider />
+          <AuthOutlineButton
+            type="button"
+            aria-label="Continue with Google"
+            onClick={() => {
+              window.location.assign(getGoogleOAuthStartUrl());
+            }}
+          >
+            <GoogleMark />
+            Continue with Google
+          </AuthOutlineButton>
+        </>
+      ) : (
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          Google sign-in is disabled in this build.
+        </p>
+      )}
     </>
   );
 }

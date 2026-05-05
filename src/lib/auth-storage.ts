@@ -3,7 +3,8 @@ import { ACCESS_TOKEN_KEY } from "@/lib/auth-constants";
 /**
  * v1: session = JWT in `localStorage` (axios) + same value in a first-party cookie
  * (so Next.js `middleware` can require auth for `/dashboard/*` without a server session).
- * Google OAuth and httpOnly sessions are deferred.
+ * Google OAuth: Nest redirects to `/dashboard?accessToken=<jwt>`; `GoogleOAuthDashboardBootstrap`
+ * calls `setAccessToken` then strips the query (middleware allows that first request without cookie).
  */
 export { ACCESS_TOKEN_KEY };
 

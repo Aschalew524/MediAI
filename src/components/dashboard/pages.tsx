@@ -57,6 +57,7 @@ import {
 } from "@/lib/me-api";
 import { useDashboardConfig } from "@/lib/hooks/use-app-config";
 import {
+  computeProfileCompletion,
   mainHealthInformationCompletionPercent,
   overallProfileCompletionPercent,
 } from "@/lib/profile-completion";
@@ -104,9 +105,12 @@ export function DashboardHomePage() {
       <DashboardContainer className="space-y-6">
         <Link href="/dashboard/profile" className="block transition-transform hover:-translate-y-px">
           <DashboardPanel className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-5">
-            <div>
+            <div className="min-w-0">
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{name}&rsquo;s</h1>
               <p className="mt-1 text-sm text-muted-foreground">Health Profile</p>
+              <p className="mt-1 max-w-[16rem] text-[11px] leading-snug text-muted-foreground">
+                v1 estimate from your basics + medical history forms (not AI Doctor setup or documents).
+              </p>
             </div>
             <CompletionRing value={profileCompletion} />
           </DashboardPanel>
@@ -606,7 +610,7 @@ function ConsumerHealthProfilePage({
 }: {
   profile: DashboardProfile;
 }) {
-  const { refreshMe, medicalHistory } = useDashboardMe();
+  const { refreshMe, medicalHistory, raw, meError } = useDashboardMe();
   const [editableProfile, setEditableProfile] = useState<DashboardProfile>(profile);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
@@ -655,6 +659,10 @@ function ConsumerHealthProfilePage({
   );
   const mainHealthInfoCompletion =
     mainHealthInformationCompletionPercent(medicalHistory);
+  const completion =
+    raw?.profile != null && !meError
+      ? computeProfileCompletion(editableProfile, medicalHistory)
+      : null;
 
   return (
     <>
@@ -663,7 +671,7 @@ function ConsumerHealthProfilePage({
           <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
             <DashboardBackTitle
               title="Health Profile"
-              description="Complete your health profile to get valuable insights into your health."
+              description="Complete your basics and medical history so guidance stays relevant. v1 completion is a simple checklist score (client-only from your saved profile)."
             />
             <CompletionBar value={overallCompletion} label="Completed" />
           </div>
@@ -716,9 +724,15 @@ function ConsumerHealthProfilePage({
 
           <Link href="/dashboard/profile/medical-history" className="block transition-transform hover:-translate-y-px">
             <DashboardPanel className="flex items-center gap-4 px-4 py-4 sm:px-6 sm:py-5">
-              <span className="inline-flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <HeartPulse className="size-5" />
-              </span>
+              {completion ? (
+                <span title="Medical history & lifestyle checklist only">
+                  <CompletionRing value={completion.segments.medical} size="sm" />
+                </span>
+              ) : (
+                <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-dashed border-primary/25 bg-muted/30 text-[10px] font-semibold text-muted-foreground">
+                  —
+                </span>
+              )}
               <div>
                 <h3 className="text-xl font-semibold">Medical History &amp; Lifestyle</h3>
                 <p className="mt-0.5 text-sm text-muted-foreground">
@@ -919,13 +933,31 @@ function EditGeneralInformationModal({
 }
 
 export function MainHealthInformationPage() {
+  const { profile, medicalHistory, raw, meError } = useDashboardMe();
+  const completion =
+    raw?.profile != null && !meError
+      ? computeProfileCompletion(profile, medicalHistory)
+      : null;
+
   return (
     <DashboardPage>
       <DashboardContainer className="space-y-6">
-        <DashboardBackTitle
-          title="Main Health Information"
-          description="Complete your main health information to personalize your AI Doctor, explore your health risks and get personal checkup plan."
-        />
+        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
+          <DashboardBackTitle
+            title="Main Health Information"
+            description="Complete your main health information to personalize your AI Doctor, explore your health risks and get personal checkup plan."
+          />
+          {completion ? (
+            <div className="flex shrink-0 flex-col items-start gap-1 lg:items-end">
+              <CompletionBar value={completion.segments.mainHealthHub} label="hub" />
+              <p className="max-w-[14rem] text-[11px] leading-snug text-muted-foreground lg:text-right">
+                v1: average of general profile and medical/lifestyle forms.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Completion unavailable.</p>
+          )}
+        </div>
 
         <DashboardPanel className="px-6 py-4">
           <DashboardListRow
