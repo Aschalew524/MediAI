@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -11,6 +12,7 @@ import {
   ClipboardPlus,
   FileSearch,
   FileText,
+  Loader2,
   Loader2,
   Microscope,
   MoreHorizontal,
@@ -32,11 +34,23 @@ import {
   listProfessionalPatients,
   type ApiPatientSummary,
 } from "@/lib/services/professional-api";
+import { getProfessionalName } from "@/lib/dashboard-content";
+import {
+  getPersonalConversationMessages,
+  listPersonalConversations,
+  sendChatMessage,
+  type ApiPersonalConversation,
+} from "@/lib/services/app-content";
+import {
+  listProfessionalPatients,
+  type ApiPatientSummary,
+} from "@/lib/services/professional-api";
 import { cn } from "@/lib/utils";
 
 import {
   formatProfessionalPatient,
   formatProfessionalPatientCompact,
+  toProfessionalPatient,
   toProfessionalPatient,
   type ProfessionalPatient,
   ProfessionalDashboardShell,
@@ -167,8 +181,16 @@ export function ProfessionalChatOptionsPage() {
     findPatient,
   } = useProfessionalPatients();
 
+  const {
+    patients,
+    isLoading: patientsLoading,
+    error: patientsError,
+    findPatient,
+  } = useProfessionalPatients();
+
   const [patientPickerOpen, setPatientPickerOpen] = useState(false);
   const selectedPatientId = searchParams.get("patient");
+  const selectedPatient = findPatient(selectedPatientId);
   const selectedPatient = findPatient(selectedPatientId);
 
   return (
@@ -199,7 +221,7 @@ export function ProfessionalChatOptionsPage() {
                 type="button"
                 onClick={() => setPatientPickerOpen(true)}
                 disabled={patientsLoading}
-                className="flex h-12 min-h-12 w-full items-center justify-between rounded-2xl border border-primary/15 bg-white px-4 py-3 text-left text-base text-foreground shadow-[0_26px_60px_-52px_rgba(76,104,220,0.8)] transition-colors hover:border-primary/25 disabled:cursor-not-allowed disabled:opacity-60 sm:h-11 sm:min-h-11 sm:text-sm"
+                className="flex h-13 w-full items-center justify-between rounded-2xl border border-primary/15 bg-white px-4 text-left text-sm text-foreground shadow-[0_26px_60px_-52px_rgba(76,104,220,0.8)] transition-colors hover:border-primary/25 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className={cn(!selectedPatient && "text-muted-foreground")}>
                   {selectedPatient
@@ -207,9 +229,21 @@ export function ProfessionalChatOptionsPage() {
                     : patientsLoading
                       ? "Loading registered patients…"
                       : "Select a patient to start a chat"}
+                    : patientsLoading
+                      ? "Loading registered patients…"
+                      : "Select a patient to start a chat"}
                 </span>
                 <ChevronDown className="size-4 text-muted-foreground" />
               </button>
+
+              {patientsError ? (
+                <p
+                  className="text-center text-xs text-destructive"
+                  role="alert"
+                >
+                  {patientsError}
+                </p>
+              ) : null}
 
               {patientsError ? (
                 <p
@@ -250,6 +284,9 @@ export function ProfessionalChatOptionsPage() {
           patients={patients}
           isLoading={patientsLoading}
           error={patientsError}
+          patients={patients}
+          isLoading={patientsLoading}
+          error={patientsError}
           selectedPatientId={selectedPatient?.id ?? ""}
           onClose={() => setPatientPickerOpen(false)}
           onSelect={(patient) => {
@@ -273,11 +310,27 @@ export function ProfessionalChatConversationPage({
    * Legacy "Last Chat" entry — when set, hydrate the most recent clinical
    * assistant conversation from the backend instead of starting empty.
    */
+  /**
+   * Legacy "Last Chat" entry — when set, hydrate the most recent clinical
+   * assistant conversation from the backend instead of starting empty.
+   */
   initialSeededConversation?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const profile = useDashboardProfile();
+  const doctorName = getProfessionalName(profile);
+  const {
+    patients,
+    isLoading: patientsLoading,
+    error: patientsError,
+    findPatient,
+  } = useProfessionalPatients();
+
+  const requestedPatientId = searchParams.get("patient");
+  const requestedConversationId = searchParams.get("conversationId");
+  const patient = findPatient(requestedPatientId);
+
   const doctorName = getProfessionalName(profile);
   const {
     patients,
@@ -296,6 +349,7 @@ export function ProfessionalChatConversationPage({
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState<ProfessionalConversationMessage[]>(
     [],
+    [],
   );
   const conversationIdRef = useRef<string | undefined>(undefined);
 
@@ -308,7 +362,17 @@ export function ProfessionalChatConversationPage({
   const [hydrating, setHydrating] = useState<boolean>(shouldHydrate);
   const [hydrationError, setHydrationError] = useState<string | null>(null);
 
+  // Hydrate the conversation: by URL `?conversationId=…`, or the most recent
+  // one for `?patient=…` when `initialSeededConversation` is set ("Last Chat"),
+  // or empty otherwise.
+  const shouldHydrate =
+    !!requestedConversationId ||
+    (initialSeededConversation && !!requestedPatientId);
+  const [hydrating, setHydrating] = useState<boolean>(shouldHydrate);
+  const [hydrationError, setHydrationError] = useState<string | null>(null);
+
   useEffect(() => {
+    if (!shouldHydrate) {
     if (!shouldHydrate) {
       setMessages([]);
       conversationIdRef.current = undefined;
@@ -373,29 +437,17 @@ export function ProfessionalChatConversationPage({
     };
   }, [shouldHydrate, requestedConversationId, requestedPatientId, doctorName]);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handlePointerDown(event: PointerEvent) {
-      const el = assistantOptionsRef.current;
-      if (el && !el.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [menuOpen]);
-
   // Patient selector modal for switching/picking a patient inline.
   const [pickerOpen, setPickerOpen] = useState(false);
 
   if (mode === "general") {
+    return (
+      <ResearchAssistantUpgradePage
+        patient={
+          patient ?? { id: "", name: "this patient", age: "", sex: "" }
+        }
+      />
+    );
     return (
       <ResearchAssistantUpgradePage
         patient={
@@ -410,15 +462,9 @@ export function ProfessionalChatConversationPage({
   if (!requestedPatientId || (!patientsLoading && !patient)) {
     return (
       <ProfessionalDashboardShell profile={profile}>
-        <section className="relative flex min-h-[calc(100vh-11rem)] flex-col items-center justify-center gap-6 text-center">
-          <div className="absolute left-0 top-0">
-            <DashboardBackLink
-              href="/dashboard/ai-doctor"
-              ariaLabel="Back to clinical assistant"
-            />
-          </div>
+        <section className="flex min-h-[calc(100vh-11rem)] flex-col items-center justify-center gap-6 text-center">
           <div className="space-y-2">
-            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+            <h1 className="text-[2.4rem] font-semibold tracking-tight text-foreground">
               Pick a patient to begin
             </h1>
             <p className="text-base text-muted-foreground">
@@ -473,10 +519,12 @@ export function ProfessionalChatConversationPage({
     const messageText = (nextDraft ?? draft).trim();
     if (!messageText || sending) return;
     if (!requestedPatientId) return;
+    if (!requestedPatientId) return;
 
     const timestamp = formatChatTimestamp(new Date().toISOString());
     const userMessage: ProfessionalConversationMessage = {
       role: "user",
+      author: doctorName,
       author: doctorName,
       content: messageText,
       timestamp,
@@ -492,10 +540,20 @@ export function ProfessionalChatConversationPage({
         message: messageText,
         conversationId: conversationIdRef.current,
         patientUserId: requestedPatientId,
+        patientUserId: requestedPatientId,
       });
       if (response.conversationId) {
         const isFirstTurn = !conversationIdRef.current;
+        const isFirstTurn = !conversationIdRef.current;
         conversationIdRef.current = response.conversationId;
+        // Persist conversationId in the URL on the first turn so refreshing
+        // the page resumes the same thread (and history rows can deep-link).
+        if (isFirstTurn && requestedPatientId) {
+          const params = new URLSearchParams();
+          params.set("patient", requestedPatientId);
+          params.set("conversationId", response.conversationId);
+          router.replace(`/dashboard/ai-doctor/personal?${params.toString()}`);
+        }
         // Persist conversationId in the URL on the first turn so refreshing
         // the page resumes the same thread (and history rows can deep-link).
         if (isFirstTurn && requestedPatientId) {
@@ -532,6 +590,19 @@ export function ProfessionalChatConversationPage({
                     : code === 504
                       ? "The AI service took too long to respond. Please try again."
                       : "I couldn't load a response right now. Please try again in a moment.";
+          : code === 403
+            ? "Only professional accounts can use the Clinical Assistant."
+            : code === 404
+              ? "Patient not found — refresh and try selecting again."
+              : code === 400
+                ? "This thread is bound to a different patient. Start a new chat from the patient's page."
+                : code === 429
+                  ? "You're sending messages too quickly — try again in a moment."
+                  : code === 503
+                    ? "The AI service is temporarily rate-limited. Please try again shortly."
+                    : code === 504
+                      ? "The AI service took too long to respond. Please try again."
+                      : "I couldn't load a response right now. Please try again in a moment.";
       setMessages((current) => [
         ...current,
         {
@@ -551,6 +622,7 @@ export function ProfessionalChatConversationPage({
       <section
         className={cn(
           "relative flex min-h-[calc(100vh-11rem)] flex-col",
+          messages.length === 0 && !hydrating ? "justify-between" : "gap-6",
           messages.length === 0 && !hydrating ? "justify-between" : "gap-6",
         )}
       >
@@ -579,6 +651,7 @@ export function ProfessionalChatConversationPage({
             {menuOpen ? (
               <AssistantOptionsMenu
                 patient={safePatient}
+                patient={safePatient}
                 onClose={() => setMenuOpen(false)}
                 onStartNewConversation={() => {
                   setMenuOpen(false);
@@ -588,6 +661,7 @@ export function ProfessionalChatConversationPage({
                     buildClinicalRoute(
                       "/dashboard/ai-doctor/personal",
                       safePatient.id,
+                      safePatient.id,
                     ),
                   );
                 }}
@@ -596,6 +670,20 @@ export function ProfessionalChatConversationPage({
           </div>
         </div>
 
+        {hydrationError ? (
+          <div
+            role="alert"
+            className="rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-3 text-sm text-destructive"
+          >
+            {hydrationError}
+          </div>
+        ) : null}
+
+        {hydrating ? (
+          <div className="flex flex-1 items-center justify-center">
+            <Loader2 className="size-6 animate-spin text-primary" />
+          </div>
+        ) : messages.length === 0 ? (
         {hydrationError ? (
           <div
             role="alert"
@@ -951,11 +1039,15 @@ function PatientSelectionModal({
   onSelect,
   isLoading,
   error,
+  isLoading,
+  error,
 }: {
   patients: ProfessionalPatient[];
   selectedPatientId: string;
   onClose: () => void;
   onSelect: (patient: ProfessionalPatient) => void;
+  isLoading?: boolean;
+  error?: string | null;
   isLoading?: boolean;
   error?: string | null;
 }) {
@@ -1017,7 +1109,51 @@ function PatientSelectionModal({
               ))}
             </ul>
           )}
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
 
+          {isLoading ? (
+            <div className="flex min-h-32 items-center justify-center">
+              <Loader2 className="size-6 animate-spin text-primary" />
+            </div>
+          ) : patients.length === 0 ? (
+            <div className="rounded-2xl bg-muted/40 px-4 py-6 text-center">
+              <p className="text-base font-medium text-foreground">
+                No registered patients yet
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Patients appear here once they sign up on this server.
+              </p>
+            </div>
+          ) : (
+            <ul className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+              {patients.map((patient) => (
+                <li key={patient.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(patient)}
+                    className={cn(
+                      "block w-full rounded-2xl px-4 py-3 text-left text-xl font-medium transition-colors sm:text-2xl",
+                      selectedPatientId === patient.id
+                        ? "bg-primary/6 text-primary"
+                        : "hover:bg-muted",
+                    )}
+                  >
+                    <span className="text-foreground">{patient.name}</span>{" "}
+                    <span className="text-muted-foreground">
+                      {patient.age} y.o {patient.sex}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="flex flex-col gap-5 pt-3 sm:flex-row sm:items-end sm:justify-between">
+            <p className="text-base font-medium text-foreground sm:text-lg">
           <div className="flex flex-col gap-5 pt-3 sm:flex-row sm:items-end sm:justify-between">
             <p className="text-base font-medium text-foreground sm:text-lg">
               Can&apos;t find the patient?
@@ -1025,7 +1161,11 @@ function PatientSelectionModal({
             <Link
               href="/dashboard/patients"
               className="inline-flex h-12 items-center justify-center gap-3 rounded-2xl bg-primary px-6 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
+              href="/dashboard/patients"
+              className="inline-flex h-12 items-center justify-center gap-3 rounded-2xl bg-primary px-6 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
             >
+              <CirclePlus className="size-4" />
+              Browse all patients
               <CirclePlus className="size-4" />
               Browse all patients
             </Link>
@@ -1275,6 +1415,10 @@ function SelectField({
           // `value` is unique among real options (patient UUIDs); `index`
           // disambiguates the placeholder rows whose value is "".
           <option key={`${option.value}-${index}`} value={option.value}>
+        {options.map((option, index) => (
+          // `value` is unique among real options (patient UUIDs); `index`
+          // disambiguates the placeholder rows whose value is "".
+          <option key={`${option.value}-${index}`} value={option.value}>
             {option.label}
           </option>
         ))}
@@ -1300,6 +1444,34 @@ function DoctorOrb() {
   );
 }
 
+function buildClinicalRoute(basePath: string, patientId?: string) {
+  return patientId
+    ? `${basePath}?patient=${encodeURIComponent(patientId)}`
+    : basePath;
+}
+
+function formatChatTimestamp(iso: string): string {
+  const ts = Date.parse(iso);
+  if (Number.isNaN(ts)) return iso;
+  const d = new Date(ts);
+  const today = new Date();
+  const sameDay =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate();
+  if (sameDay) {
+    return d.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+  return d.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 function buildClinicalRoute(basePath: string, patientId?: string) {
   return patientId
     ? `${basePath}?patient=${encodeURIComponent(patientId)}`
