@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BookOpen,
   CreditCard,
   LayoutDashboard,
   LogOut,
@@ -35,6 +36,11 @@ const adminNavItems = [
     label: "Blog",
     href: "/admin/blog",
     icon: <Newspaper className="size-4" />,
+  },
+  {
+    label: "Help pages",
+    href: "/admin/education",
+    icon: <BookOpen className="size-4" />,
   },
 ];
 

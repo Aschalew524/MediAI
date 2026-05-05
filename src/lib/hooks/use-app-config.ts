@@ -167,3 +167,5 @@ export function useAdminConfig() {
 
   return useAsyncData(useCallback(() => getAdminConfig(), []), fallback);
 }
+
+export { useEducationResource } from "./use-education-resource";

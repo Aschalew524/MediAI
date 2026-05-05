@@ -16,12 +16,14 @@ import {
   OrDivider,
 } from "@/components/auth/shared";
 import { postRegister, userFacingAxiosError } from "@/lib/auth-api";
+import { getGoogleOAuthStartUrl, isGoogleSignInUiEnabled } from "@/lib/auth-oauth";
 
 export default function SignUpEmailPage() {
   const router = useRouter();
   const [mismatch, setMismatch] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const showGoogle = isGoogleSignInUiEnabled();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -117,11 +119,21 @@ export default function SignUpEmailPage() {
         </AuthPrimaryButton>
       </form>
 
-      <OrDivider />
-      <AuthOutlineButton aria-label="Sign up with Google">
-        <GoogleMark />
-        Sign up with Google
-      </AuthOutlineButton>
+      {showGoogle ? (
+        <>
+          <OrDivider />
+          <AuthOutlineButton
+            type="button"
+            aria-label="Continue with Google"
+            onClick={() => {
+              window.location.assign(getGoogleOAuthStartUrl());
+            }}
+          >
+            <GoogleMark />
+            Continue with Google
+          </AuthOutlineButton>
+        </>
+      ) : null}
 
       <p className="mt-6 text-center text-sm text-foreground/80">
         Already have account?{" "}
