@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -11,6 +11,7 @@ import {
   ClipboardPlus,
   FileSearch,
   FileText,
+  Loader2,
   Microscope,
   MoreHorizontal,
   Paperclip,
@@ -20,14 +21,23 @@ import {
 } from "lucide-react";
 
 import type { ChatMode } from "@/lib/chat-content";
-import { sendChatMessage } from "@/lib/services/app-content";
+import { getProfessionalName } from "@/lib/dashboard-content";
+import {
+  getPersonalConversationMessages,
+  listPersonalConversations,
+  sendChatMessage,
+  type ApiPersonalConversation,
+} from "@/lib/services/app-content";
+import {
+  listProfessionalPatients,
+  type ApiPatientSummary,
+} from "@/lib/services/professional-api";
 import { cn } from "@/lib/utils";
 
 import {
   formatProfessionalPatient,
   formatProfessionalPatientCompact,
-  getProfessionalPatient,
-  getProfessionalPatients,
+  toProfessionalPatient,
   type ProfessionalPatient,
   ProfessionalDashboardShell,
 } from "./professional-shell";
@@ -40,6 +50,69 @@ type ProfessionalConversationMessage = {
   content: string;
   timestamp: string;
 };
+
+/**
+ * Pulls the registered patient list once (cached at component level via
+ * `useEffect`) and exposes both the array and a helper that finds a patient by
+ * id. All UUIDs come from the backend so URLs like
+ * `/dashboard/ai-doctor/personal?patient=<uuid>` always resolve to a real
+ * patient.
+ */
+function useProfessionalPatients(): {
+  patients: ProfessionalPatient[];
+  isLoading: boolean;
+  error: string | null;
+  findPatient: (id: string | null | undefined) => ProfessionalPatient | null;
+  refresh: () => void;
+} {
+  const [items, setItems] = useState<ApiPatientSummary[]>([]);
+  // Initialise to `true` so the first paint shows the loading spinner without
+  // the cascading `setState`-in-effect that React 19 warns about.
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    listProfessionalPatients({ pageSize: 100 })
+      .then((res) => {
+        if (cancelled) return;
+        setItems(res.items);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const code = isAxiosError(err) ? err.response?.status : undefined;
+        setError(
+          code === 403
+            ? "Only professional accounts can access patient data."
+            : "Could not load registered patients.",
+        );
+        setItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
+
+  const patients = useMemo(
+    () => items.map(toProfessionalPatient),
+    [items],
+  );
+  const findPatient = useCallback(
+    (id: string | null | undefined) =>
+      patients.find((p) => p.id === id) ?? null,
+    [patients],
+  );
+  const refresh = useCallback(() => setReloadToken((v) => v + 1), []);
+
+  return { patients, isLoading, error, findPatient, refresh };
+}
+
+type HistoryFilter = "all" | ChatMode;
 
 const conversationPrompts = [
   {
@@ -68,36 +141,6 @@ const conversationPrompts = [
   },
 ];
 
-function proGeneralSessionKey(patientId: string) {
-  return `mediai:pro:gen:${patientId}`;
-}
-
-/**
- * There is no backend "clinical chat with patient context" path yet. We call
- * {@link postGeneralMessage} (no user profile in the model). JWT is only sent
- * for rate limits. Multi-turn is keyed per patient in sessionStorage.
- */
-function getOrCreateProGeneralSessionId(patientId: string): string {
-  if (typeof window === "undefined") {
-    return "";
-  }
-  const k = proGeneralSessionKey(patientId);
-  let s = sessionStorage.getItem(k);
-  if (!s) {
-    s = crypto.randomUUID();
-    sessionStorage.setItem(k, s);
-  }
-  return s;
-}
-
-function resetProGeneralSessionId(patientId: string) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  const s = crypto.randomUUID();
-  sessionStorage.setItem(proGeneralSessionKey(patientId), s);
-}
-
 const researchPlanItems = [
   {
     title: "Add and Manage up to 50 patients",
@@ -117,11 +160,16 @@ export function ProfessionalChatOptionsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const profile = useDashboardProfile();
+  const {
+    patients,
+    isLoading: patientsLoading,
+    error: patientsError,
+    findPatient,
+  } = useProfessionalPatients();
+
   const [patientPickerOpen, setPatientPickerOpen] = useState(false);
   const selectedPatientId = searchParams.get("patient");
-  const selectedPatient = selectedPatientId
-    ? getProfessionalPatient(profile, selectedPatientId)
-    : null;
+  const selectedPatient = findPatient(selectedPatientId);
 
   return (
     <>
@@ -147,15 +195,27 @@ export function ProfessionalChatOptionsPage() {
               <button
                 type="button"
                 onClick={() => setPatientPickerOpen(true)}
-                className="flex h-13 w-full items-center justify-between rounded-2xl border border-primary/15 bg-white px-4 text-left text-sm text-foreground shadow-[0_26px_60px_-52px_rgba(76,104,220,0.8)] transition-colors hover:border-primary/25"
+                disabled={patientsLoading}
+                className="flex h-13 w-full items-center justify-between rounded-2xl border border-primary/15 bg-white px-4 text-left text-sm text-foreground shadow-[0_26px_60px_-52px_rgba(76,104,220,0.8)] transition-colors hover:border-primary/25 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className={cn(!selectedPatient && "text-muted-foreground")}>
                   {selectedPatient
                     ? formatProfessionalPatient(selectedPatient)
-                    : "Select a patient to start a chat"}
+                    : patientsLoading
+                      ? "Loading registered patients…"
+                      : "Select a patient to start a chat"}
                 </span>
                 <ChevronDown className="size-4 text-muted-foreground" />
               </button>
+
+              {patientsError ? (
+                <p
+                  className="text-center text-xs text-destructive"
+                  role="alert"
+                >
+                  {patientsError}
+                </p>
+              ) : null}
 
               <div className="flex flex-wrap items-center justify-center gap-4">
                 <Link
@@ -184,7 +244,9 @@ export function ProfessionalChatOptionsPage() {
 
       {patientPickerOpen ? (
         <PatientSelectionModal
-          patients={getProfessionalPatients(profile)}
+          patients={patients}
+          isLoading={patientsLoading}
+          error={patientsError}
           selectedPatientId={selectedPatient?.id ?? ""}
           onClose={() => setPatientPickerOpen(false)}
           onSelect={(patient) => {
@@ -204,44 +266,189 @@ export function ProfessionalChatConversationPage({
   initialSeededConversation = false,
 }: {
   mode: ChatMode;
+  /**
+   * Legacy "Last Chat" entry — when set, hydrate the most recent clinical
+   * assistant conversation from the backend instead of starting empty.
+   */
   initialSeededConversation?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const profile = useDashboardProfile();
-  const patient = getProfessionalPatient(profile, searchParams.get("patient"));
+  const doctorName = getProfessionalName(profile);
+  const {
+    patients,
+    isLoading: patientsLoading,
+    error: patientsError,
+    findPatient,
+  } = useProfessionalPatients();
+
+  const requestedPatientId = searchParams.get("patient");
+  const requestedConversationId = searchParams.get("conversationId");
+  const patient = findPatient(requestedPatientId);
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState<ProfessionalConversationMessage[]>(
-    initialSeededConversation
-      ? getSeededProfessionalConversation(patient)
-      : [],
+    [],
   );
   const conversationIdRef = useRef<string | undefined>(undefined);
 
+  // Hydrate the conversation: by URL `?conversationId=…`, or the most recent
+  // one for `?patient=…` when `initialSeededConversation` is set ("Last Chat"),
+  // or empty otherwise.
+  const shouldHydrate =
+    !!requestedConversationId ||
+    (initialSeededConversation && !!requestedPatientId);
+  const [hydrating, setHydrating] = useState<boolean>(shouldHydrate);
+  const [hydrationError, setHydrationError] = useState<string | null>(null);
+
   useEffect(() => {
-    if (!initialSeededConversation) {
+    if (!shouldHydrate) {
       setMessages([]);
       conversationIdRef.current = undefined;
+      setHydrationError(null);
+      setHydrating(false);
+      return;
     }
-  }, [initialSeededConversation, patient.id]);
+    let cancelled = false;
+    setHydrating(true);
+    setHydrationError(null);
+
+    async function load() {
+      try {
+        let conversationId = requestedConversationId ?? undefined;
+        if (!conversationId && requestedPatientId) {
+          const list = await listPersonalConversations({
+            pageSize: 1,
+            patientUserId: requestedPatientId,
+          });
+          conversationId = list.items[0]?.id;
+        }
+        if (!conversationId) {
+          if (cancelled) return;
+          setMessages([]);
+          conversationIdRef.current = undefined;
+          return;
+        }
+        const detail = await getPersonalConversationMessages(conversationId, {
+          limit: 100,
+        });
+        if (cancelled) return;
+        conversationIdRef.current = conversationId;
+        setMessages(
+          detail.items
+            .filter((m) => m.role !== "system")
+            .map((m) => ({
+              role: m.role === "user" ? "user" : "assistant",
+              author: m.role === "user" ? doctorName : "AI Doctor",
+              content: m.content,
+              timestamp: formatChatTimestamp(m.createdAt),
+            })),
+        );
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const code = isAxiosError(err) ? err.response?.status : undefined;
+        setHydrationError(
+          code === 404
+            ? "This conversation could not be found."
+            : code === 401
+              ? "Please sign in again to view this conversation."
+              : "Could not load this conversation. Try again.",
+        );
+        setMessages([]);
+        conversationIdRef.current = undefined;
+      } finally {
+        if (!cancelled) setHydrating(false);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldHydrate, requestedConversationId, requestedPatientId, doctorName]);
+
+  // Patient selector modal for switching/picking a patient inline.
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   if (mode === "general") {
-    return <ResearchAssistantUpgradePage patient={patient} />;
+    return (
+      <ResearchAssistantUpgradePage
+        patient={
+          patient ?? { id: "", name: "this patient", age: "", sex: "" }
+        }
+      />
+    );
   }
+
+  // Without a real patient id we can't safely send a clinical-assistant
+  // request: prompt the user to pick one.
+  if (!requestedPatientId || (!patientsLoading && !patient)) {
+    return (
+      <ProfessionalDashboardShell profile={profile}>
+        <section className="flex min-h-[calc(100vh-11rem)] flex-col items-center justify-center gap-6 text-center">
+          <div className="space-y-2">
+            <h1 className="text-[2.4rem] font-semibold tracking-tight text-foreground">
+              Pick a patient to begin
+            </h1>
+            <p className="text-base text-muted-foreground">
+              The Clinical Assistant uses the selected patient&rsquo;s profile
+              to ground every reply. Choose one of your registered patients to
+              start a conversation.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            disabled={patientsLoading}
+            className="inline-flex h-12 items-center justify-center rounded-xl bg-primary px-6 text-base font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {patientsLoading ? "Loading patients…" : "Select Patient"}
+          </button>
+          {patientsError ? (
+            <p className="text-xs text-destructive" role="alert">
+              {patientsError}
+            </p>
+          ) : null}
+          {pickerOpen ? (
+            <PatientSelectionModal
+              patients={patients}
+              isLoading={patientsLoading}
+              error={patientsError}
+              selectedPatientId=""
+              onClose={() => setPickerOpen(false)}
+              onSelect={(p) => {
+                setPickerOpen(false);
+                router.replace(
+                  buildClinicalRoute("/dashboard/ai-doctor/personal", p.id),
+                );
+              }}
+            />
+          ) : null}
+        </section>
+      </ProfessionalDashboardShell>
+    );
+  }
+
+  // From here on we have either a real patient or are still loading their row.
+  const safePatient: ProfessionalPatient =
+    patient ?? {
+      id: requestedPatientId,
+      name: "Loading…",
+      age: "",
+      sex: "",
+    };
 
   async function submitMessage(nextDraft?: string) {
     const messageText = (nextDraft ?? draft).trim();
     if (!messageText || sending) return;
+    if (!requestedPatientId) return;
 
-    const timestamp = new Date().toLocaleString(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+    const timestamp = formatChatTimestamp(new Date().toISOString());
     const userMessage: ProfessionalConversationMessage = {
       role: "user",
-      author: "Dr. Ashenafi",
+      author: doctorName,
       content: messageText,
       timestamp,
     };
@@ -250,15 +457,24 @@ export function ProfessionalChatConversationPage({
     setDraft("");
     setSending(true);
 
-    const sessionId = getOrCreateProGeneralSessionId(patient.id);
     try {
       const response = await sendChatMessage({
         mode: "personal",
         message: messageText,
         conversationId: conversationIdRef.current,
+        patientUserId: requestedPatientId,
       });
       if (response.conversationId) {
+        const isFirstTurn = !conversationIdRef.current;
         conversationIdRef.current = response.conversationId;
+        // Persist conversationId in the URL on the first turn so refreshing
+        // the page resumes the same thread (and history rows can deep-link).
+        if (isFirstTurn && requestedPatientId) {
+          const params = new URLSearchParams();
+          params.set("patient", requestedPatientId);
+          params.set("conversationId", response.conversationId);
+          router.replace(`/dashboard/ai-doctor/personal?${params.toString()}`);
+        }
       }
       setMessages((current) => [
         ...current,
@@ -274,15 +490,19 @@ export function ProfessionalChatConversationPage({
       const content =
         code === 401
           ? "Please sign in again to continue."
-          : code === 404
-            ? "Finish setting up your profile to use the clinical assistant."
-            : code === 429
-              ? "You're sending messages too quickly — try again in a moment."
-              : code === 503
-                ? "The AI service is temporarily rate-limited. Please try again shortly."
-                : code === 504
-                  ? "The AI service took too long to respond. Please try again."
-                  : "I couldn't load a response right now. Please try again in a moment.";
+          : code === 403
+            ? "Only professional accounts can use the Clinical Assistant."
+            : code === 404
+              ? "Patient not found — refresh and try selecting again."
+              : code === 400
+                ? "This thread is bound to a different patient. Start a new chat from the patient's page."
+                : code === 429
+                  ? "You're sending messages too quickly — try again in a moment."
+                  : code === 503
+                    ? "The AI service is temporarily rate-limited. Please try again shortly."
+                    : code === 504
+                      ? "The AI service took too long to respond. Please try again."
+                      : "I couldn't load a response right now. Please try again in a moment.";
       setMessages((current) => [
         ...current,
         {
@@ -302,19 +522,13 @@ export function ProfessionalChatConversationPage({
       <section
         className={cn(
           "relative flex min-h-[calc(100vh-11rem)] flex-col",
-          messages.length === 0 ? "justify-between" : "gap-6",
+          messages.length === 0 && !hydrating ? "justify-between" : "gap-6",
         )}
       >
         <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-muted-foreground">
-              {formatProfessionalPatientCompact(patient)}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground/90">
-              Replies are general and do not use the patient&rsquo;s stored MediAI profile. Use
-              the notes above for case context in your own words.
-            </p>
-          </div>
+          <p className="text-sm font-medium text-muted-foreground">
+            {formatProfessionalPatientCompact(safePatient)}
+          </p>
           <div className="relative">
             <button
               type="button"
@@ -327,16 +541,16 @@ export function ProfessionalChatConversationPage({
 
             {menuOpen ? (
               <AssistantOptionsMenu
-                patient={patient}
+                patient={safePatient}
                 onClose={() => setMenuOpen(false)}
                 onStartNewConversation={() => {
                   setMenuOpen(false);
                   setMessages([]);
-                  resetProGeneralSessionId(patient.id);
+                  conversationIdRef.current = undefined;
                   router.replace(
                     buildClinicalRoute(
                       "/dashboard/ai-doctor/personal",
-                      patient.id,
+                      safePatient.id,
                     ),
                   );
                 }}
@@ -345,7 +559,20 @@ export function ProfessionalChatConversationPage({
           </div>
         </div>
 
-        {messages.length === 0 ? (
+        {hydrationError ? (
+          <div
+            role="alert"
+            className="rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-3 text-sm text-destructive"
+          >
+            {hydrationError}
+          </div>
+        ) : null}
+
+        {hydrating ? (
+          <div className="flex flex-1 items-center justify-center">
+            <Loader2 className="size-6 animate-spin text-primary" />
+          </div>
+        ) : messages.length === 0 ? (
           <>
             <div className="flex flex-1 flex-col items-center justify-center gap-9 text-center">
               <div className="space-y-3">
@@ -353,8 +580,7 @@ export function ProfessionalChatConversationPage({
                   AI Clinical Assistant
                 </h1>
                 <p className="text-base text-muted-foreground">
-                  Ask anything related to the selected patient&apos;s case. The model answers from
-                  general knowledge only, not this patient&rsquo;s file.
+                  Ask anything related to the selected patient&rsquo;s case.
                 </p>
               </div>
 
@@ -445,58 +671,190 @@ export function ProfessionalChatConversationPage({
 export function ProfessionalChatHistoryPage() {
   const searchParams = useSearchParams();
   const profile = useDashboardProfile();
-  const patients = getProfessionalPatients(profile);
-  const patientId = searchParams.get("patient") ?? "";
-  const patient =
-    patientId && patients.length > 0
-      ? getProfessionalPatient(profile, patientId)
-      : null;
+  const {
+    patients,
+    isLoading: patientsLoading,
+    findPatient,
+  } = useProfessionalPatients();
+
+  const [filter, setFilter] = useState<HistoryFilter>("all");
+  const [patientId, setPatientId] = useState(searchParams.get("patient") ?? "");
+
+  const [conversations, setConversations] = useState<ApiPersonalConversation[]>(
+    [],
+  );
+  const [error, setError] = useState<string | null>(null);
+  // `resolvedKey` advances to the request key only *after* a fetch settles, so
+  // `isLoading` is a pure render-time derivation (avoids the React-19
+  // synchronous-setState-in-effect lint warning).
+  const requestKey = patientId || "__all__";
+  const [resolvedKey, setResolvedKey] = useState<string | null>(null);
+  const isLoading = resolvedKey !== requestKey;
+
+  useEffect(() => {
+    let cancelled = false;
+    listPersonalConversations({
+      pageSize: 100,
+      ...(patientId ? { patientUserId: patientId } : {}),
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setConversations(res.items);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const code = isAxiosError(err) ? err.response?.status : undefined;
+        setError(
+          code === 401
+            ? "Please sign in again to view your conversations."
+            : "Could not load conversation history. Try again.",
+        );
+        setConversations([]);
+      })
+      .finally(() => {
+        if (!cancelled) setResolvedKey(requestKey);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId, requestKey]);
+
+  // The backend stores all professional clinical-assistant chats as
+  // `kind=personal`. Until the schema differentiates clinical vs. research
+  // chats, the "Research Assistant" filter intentionally returns no rows so
+  // the UI matches reality.
+  const items = useMemo(() => {
+    if (filter === "general") return [];
+    return conversations;
+  }, [filter, conversations]);
+
+  const router = useRouter();
 
   return (
     <ProfessionalDashboardShell profile={profile}>
-      <section className="space-y-8">
-        <div className="space-y-3">
-          <Link
-            href={buildClinicalRoute("/dashboard/ai-doctor", patientId)}
-            className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
-          >
-            <span className="text-lg">←</span>
-            <span>Clinical Assistant</span>
-          </Link>
-          <h1 className="text-[2.25rem] font-semibold tracking-tight text-foreground">
-            AI Conversation History
-          </h1>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            There is no saved <strong>per-patient</strong> clinical thread list in this version. The
-            clinical assistant uses <strong>general</strong> answers (it does not load the
-            patient&rsquo;s stored MediAI profile on the server). Open a case below to start a
-            session; history stays in your current browser session for that case only.
-          </p>
+      <section className="space-y-6">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="space-y-3">
+            <Link
+              href="/dashboard/ai-doctor"
+              className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
+            >
+              <span className="text-lg">←</span>
+              <span>Clinical Assistant</span>
+            </Link>
+            <h1 className="text-[2.25rem] font-semibold tracking-tight text-foreground">
+              AI Conversation History
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Resume any past clinical-assistant conversation. Click a row to
+              continue chatting with the AI Doctor about that patient.
+            </p>
+          </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <Link
-            href={buildClinicalRoute(
-              "/dashboard/ai-doctor/personal",
-              patient?.id ?? patients[0]?.id,
-            )}
-            className="block rounded-2xl border border-primary/15 bg-primary/5 p-6 text-left transition-colors hover:border-primary/25"
-          >
-            <p className="text-sm font-medium text-primary">Start clinical chat</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {patient
-                ? `Continue for ${formatProfessionalPatientCompact(patient)}`
-                : "Select a patient on the home screen first, or we’ll use the first in your list when available."}
-            </p>
-          </Link>
-          <Link
-            href={buildClinicalRoute("/dashboard/ai-doctor", undefined)}
-            className="block rounded-2xl border border-primary/15 bg-white p-6 text-left transition-colors hover:border-primary/25"
-          >
-            <p className="text-sm font-medium text-foreground">Choose a patient</p>
-            <p className="mt-2 text-sm text-muted-foreground">Return to the assistant hub to pick who you&rsquo;re working with.</p>
-          </Link>
+        <div className="flex flex-col gap-4 md:flex-row">
+          <SelectField
+            value={filter}
+            onChange={(value) => setFilter(value as HistoryFilter)}
+            options={[
+              { value: "all", label: "All conversations" },
+              { value: "personal", label: "Clinical Assistant" },
+              { value: "general", label: "Research Assistant" },
+            ]}
+          />
+          <SelectField
+            value={patientId}
+            onChange={setPatientId}
+            options={[
+              { value: "", label: patientsLoading ? "Loading patients…" : "All patients" },
+              ...patients.map((patient) => ({
+                value: patient.id,
+                label: formatProfessionalPatient(patient),
+              })),
+            ]}
+          />
         </div>
+
+        {error ? (
+          <div
+            role="alert"
+            className="rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-3 text-sm text-destructive"
+          >
+            {error}
+          </div>
+        ) : null}
+
+        {isLoading ? (
+          <div className="flex min-h-[40vh] items-center justify-center">
+            <Loader2 className="size-6 animate-spin text-primary" />
+          </div>
+        ) : items.length === 0 ? (
+          <DashboardPanel className="rounded-[1.35rem] border-primary/20 px-6 py-10 text-center shadow-none">
+            <p className="text-base font-semibold text-foreground">
+              No conversations yet
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Start a new clinical-assistant chat with one of your patients to
+              see it here.
+            </p>
+          </DashboardPanel>
+        ) : (
+          <div className="space-y-4">
+            {items.map((item) => {
+              const subject = item.patientUserId
+                ? findPatient(item.patientUserId)
+                : null;
+              const subjectLabel = subject
+                ? formatProfessionalPatientCompact(subject)
+                : item.patientUserId
+                  ? "Patient (registered)"
+                  : "Doctor's own chat";
+              const titleSource =
+                item.lastMessagePreview?.split(/\r?\n/)[0]?.trim() ?? "";
+              const title = titleSource
+                ? titleSource.length > 80
+                  ? `${titleSource.slice(0, 79)}…`
+                  : titleSource
+                : "Clinical Assistant chat";
+              const params = new URLSearchParams();
+              if (item.patientUserId) params.set("patient", item.patientUserId);
+              params.set("conversationId", item.id);
+              const href = `/dashboard/ai-doctor/personal?${params.toString()}`;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => router.push(href)}
+                  className="block w-full text-left"
+                >
+                  <DashboardPanel className="rounded-[1.35rem] border-primary/20 px-6 py-5 shadow-none transition-colors hover:border-primary/30">
+                    <div className="space-y-3">
+                      <h2 className="line-clamp-2 text-[1.4rem] font-semibold text-foreground">
+                        {title}
+                      </h2>
+                      <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
+                        <p>
+                          Patient:{" "}
+                          <span className="font-semibold text-foreground">
+                            {subjectLabel}
+                          </span>
+                        </p>
+                        <p>
+                          Last Message:{" "}
+                          <span className="font-semibold text-foreground">
+                            {formatChatTimestamp(item.updatedAt)}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  </DashboardPanel>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </section>
     </ProfessionalDashboardShell>
   );
@@ -564,11 +922,15 @@ function PatientSelectionModal({
   selectedPatientId,
   onClose,
   onSelect,
+  isLoading,
+  error,
 }: {
   patients: ProfessionalPatient[];
   selectedPatientId: string;
   onClose: () => void;
   onSelect: (patient: ProfessionalPatient) => void;
+  isLoading?: boolean;
+  error?: string | null;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm">
@@ -586,35 +948,59 @@ function PatientSelectionModal({
         </div>
 
         <div className="space-y-4">
-          {patients.map((patient) => (
-            <button
-              key={patient.id}
-              type="button"
-              onClick={() => onSelect(patient)}
-              className={cn(
-                "block w-full rounded-2xl px-4 py-3 text-left text-[2rem] font-medium transition-colors sm:text-[2.1rem]",
-                selectedPatientId === patient.id
-                  ? "bg-primary/6 text-primary"
-                  : "hover:bg-muted",
-              )}
-            >
-              <span className="text-foreground">{patient.name}</span>{" "}
-              <span className="text-muted-foreground">
-                {patient.age} y.o {patient.sex}
-              </span>
-            </button>
-          ))}
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
 
-          <div className="flex flex-col gap-5 pt-5 sm:flex-row sm:items-end sm:justify-between">
-            <p className="text-[2rem] font-medium text-foreground sm:text-[2.1rem]">
+          {isLoading ? (
+            <div className="flex min-h-32 items-center justify-center">
+              <Loader2 className="size-6 animate-spin text-primary" />
+            </div>
+          ) : patients.length === 0 ? (
+            <div className="rounded-2xl bg-muted/40 px-4 py-6 text-center">
+              <p className="text-base font-medium text-foreground">
+                No registered patients yet
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Patients appear here once they sign up on this server.
+              </p>
+            </div>
+          ) : (
+            <ul className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+              {patients.map((patient) => (
+                <li key={patient.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(patient)}
+                    className={cn(
+                      "block w-full rounded-2xl px-4 py-3 text-left text-xl font-medium transition-colors sm:text-2xl",
+                      selectedPatientId === patient.id
+                        ? "bg-primary/6 text-primary"
+                        : "hover:bg-muted",
+                    )}
+                  >
+                    <span className="text-foreground">{patient.name}</span>{" "}
+                    <span className="text-muted-foreground">
+                      {patient.age} y.o {patient.sex}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="flex flex-col gap-5 pt-3 sm:flex-row sm:items-end sm:justify-between">
+            <p className="text-base font-medium text-foreground sm:text-lg">
               Can&apos;t find the patient?
             </p>
             <Link
-              href="/dashboard/profile"
-              className="inline-flex h-14 items-center justify-center gap-3 rounded-2xl bg-primary px-7 text-[1.1rem] font-medium text-primary-foreground transition-opacity hover:opacity-95"
+              href="/dashboard/patients"
+              className="inline-flex h-12 items-center justify-center gap-3 rounded-2xl bg-primary px-6 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
             >
-              <CirclePlus className="size-5" />
-              Add New Patient
+              <CirclePlus className="size-4" />
+              Browse all patients
             </Link>
           </div>
         </div>
@@ -858,8 +1244,10 @@ function SelectField({
         onChange={(event) => onChange(event.target.value)}
         className="h-12 w-full appearance-none rounded-xl border border-primary/20 bg-white px-4 pr-10 text-sm outline-none transition-colors focus:border-primary"
       >
-        {options.map((option) => (
-          <option key={option.label} value={option.value}>
+        {options.map((option, index) => (
+          // `value` is unique among real options (patient UUIDs); `index`
+          // disambiguates the placeholder rows whose value is "".
+          <option key={`${option.value}-${index}`} value={option.value}>
             {option.label}
           </option>
         ))}
@@ -885,24 +1273,32 @@ function DoctorOrb() {
   );
 }
 
-function getSeededProfessionalConversation(patient: ProfessionalPatient) {
-  return [
-    {
-      role: "user" as const,
-      author: "Dr. Ashenafi",
-      content:
-        "Ask about differential diagnoses, treatment plans, or clinical insights for this patient case.",
-      timestamp: "14 Apr, 2026",
-    },
-    {
-      role: "assistant" as const,
-      author: "AI Doctor",
-      content: `To provide the most accurate and helpful support, could you please share more details about ${patient.name}'s current condition? Specifically, it would be beneficial to know:\nSymptoms: What symptoms is the patient experiencing?\nMedical History: Are there any relevant past medical conditions or family history that should be considered?\nPreliminary Test Results: Have any tests been conducted, and if so, what were the results?\nSpecific Concerns: Are there any particular concerns or questions you have regarding this case?\nThis information will help in formulating potential differential diagnoses and suggesting appropriate treatment plans.`,
-      timestamp: "14 Apr, 2026",
-    },
-  ];
+function buildClinicalRoute(basePath: string, patientId?: string) {
+  return patientId
+    ? `${basePath}?patient=${encodeURIComponent(patientId)}`
+    : basePath;
 }
 
-function buildClinicalRoute(basePath: string, patientId?: string) {
-  return patientId ? `${basePath}?patient=${patientId}` : basePath;
+function formatChatTimestamp(iso: string): string {
+  const ts = Date.parse(iso);
+  if (Number.isNaN(ts)) return iso;
+  const d = new Date(ts);
+  const today = new Date();
+  const sameDay =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate();
+  if (sameDay) {
+    return d.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+  return d.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

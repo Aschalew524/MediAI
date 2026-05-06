@@ -248,13 +248,35 @@ export function AdminBlogEditorPage({ articleId }: { articleId?: string }) {
               </label>
             </div>
             <label className="block space-y-1.5 text-sm">
-              <span className="font-medium text-foreground">Image URL</span>
+              <span className="font-medium text-foreground">
+                Image URL{" "}
+                <span className="font-normal text-muted-foreground">(optional)</span>
+              </span>
               <input
                 className={inputClass}
                 value={imageSrc}
                 onChange={(e) => setImageSrc(e.target.value)}
-                required
+                placeholder="/cover.png or https://example.com/cover.png"
               />
+              <span className="block text-xs text-muted-foreground">
+                Leave blank to publish without a cover image. Supports relative
+                paths from <code>public/</code> or absolute https URLs.
+              </span>
+              {imageSrc.trim() ? (
+                <span className="mt-2 block">
+                  {/* Use a plain <img> for the preview so admins can paste any
+                      URL during editing without first whitelisting hosts. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imageSrc.trim()}
+                    alt="Cover preview"
+                    className="h-32 w-full rounded-xl border border-primary/15 bg-white object-contain"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                </span>
+              ) : null}
             </label>
             <label className="block space-y-1.5 text-sm">
               <span className="font-medium text-foreground">Intro</span>

@@ -181,6 +181,13 @@ export type ChatSendOptions = {
   conversationId?: string;
   /** General mode: client-generated id to keep an anonymous thread across turns. */
   sessionId?: string;
+  /**
+   * Personal mode (professional callers only): the patient the doctor is
+   * asking the assistant about. The backend feeds the patient's profile to
+   * the LLM and tags the conversation so the doctor's "Conversation History"
+   * groups it under that patient.
+   */
+  patientUserId?: string;
 };
 
 /**
@@ -203,6 +210,7 @@ export async function sendChatMessage(
     }>("/chat/personal/messages", {
       message: opts.message,
       ...(opts.conversationId ? { conversationId: opts.conversationId } : {}),
+      ...(opts.patientUserId ? { patientUserId: opts.patientUserId } : {}),
     });
     return {
       reply: data.reply,
@@ -237,9 +245,13 @@ export async function submitIssueReport(message: string) {
 }
 
 /**
- * One row in the patient's personal AI Doctor chat history.
+ * One row in the personal AI Doctor chat history.
  * Backend filters to `kind: personal` only, so general/anonymous chats
  * never appear here.
+ *
+ * `patientUserId` is set for clinical-assistant rows (a doctor asking the
+ * assistant about a specific patient) and null for the caller's own profile
+ * chats.
  */
 export type ApiPersonalConversation = {
   id: string;
@@ -247,6 +259,7 @@ export type ApiPersonalConversation = {
   createdAt: string;
   updatedAt: string;
   lastMessagePreview?: string;
+  patientUserId?: string | null;
 };
 
 export type ApiPersonalConversationList = {
@@ -278,9 +291,19 @@ function cleanParams(params: Record<string, unknown>): Record<string, string | n
   return out;
 }
 
-/** GET /api/chat/conversations — newest first. */
+/**
+ * GET /api/chat/conversations — newest first.
+ *
+ * `patientUserId` (professional callers only) scopes the listing to clinical
+ * assistant conversations about that one patient. Omit to list every personal
+ * conversation the caller owns.
+ */
 export async function listPersonalConversations(
-  params: { page?: number; pageSize?: number } = {},
+  params: {
+    page?: number;
+    pageSize?: number;
+    patientUserId?: string;
+  } = {},
 ): Promise<ApiPersonalConversationList> {
   const { data } = await api.get<ApiPersonalConversationList>(
     "/chat/conversations",

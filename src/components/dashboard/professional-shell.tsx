@@ -14,14 +14,19 @@ import {
 
 import {
   type DashboardProfile,
-  getProfileName,
-  getProfileSex,
   getProfessionalName,
 } from "@/lib/dashboard-content";
+import type { ApiPatientSummary } from "@/lib/services/professional-api";
 import { cn } from "@/lib/utils";
 
 import { DashboardContainer, DashboardPage } from "./primitives";
 
+/**
+ * Lightweight patient view-model used by the professional clinical-assistant
+ * UI. Built from `ApiPatientSummary` so every piece — the dropdown, the chat
+ * header, the history page — references the same UUID and display strings as
+ * the backend.
+ */
 export type ProfessionalPatient = {
   id: string;
   name: string;
@@ -80,44 +85,21 @@ const professionalSidebarSections: {
   },
 ];
 
-export function getProfessionalPatients(
-  profile: DashboardProfile,
-): ProfessionalPatient[] {
-  const primaryPatient: ProfessionalPatient = {
-    id: slugifyPatientId(
-      getProfileName(profile),
-      profile.age || "23",
-      getProfileSex(profile),
-    ),
-    name: getProfileName(profile),
-    age: profile.age || "23",
-    sex: getProfileSex(profile),
+/** Map a backend `ApiPatientSummary` to the lighter `ProfessionalPatient` view-model. */
+export function toProfessionalPatient(
+  api: ApiPatientSummary,
+): ProfessionalPatient {
+  return {
+    id: api.id,
+    name: api.preferredName?.trim() || api.email,
+    age: api.age || "—",
+    sex:
+      api.sexAtBirth === "male"
+        ? "Male"
+        : api.sexAtBirth === "female"
+          ? "Female"
+          : "Other",
   };
-
-  const defaults: ProfessionalPatient[] = [
-    { id: "christine-23-female", name: "Christine", age: "23", sex: "Female" },
-    { id: "joe-20-male", name: "Joe", age: "20", sex: "Male" },
-    { id: "sara-31-female", name: "Sara", age: "31", sex: "Female" },
-    { id: "abel-37-male", name: "Abel", age: "37", sex: "Male" },
-  ];
-
-  const uniquePatients = new Map<string, ProfessionalPatient>();
-  [primaryPatient, ...defaults].forEach((patient) => {
-    uniquePatients.set(patient.id, patient);
-  });
-
-  return Array.from(uniquePatients.values());
-}
-
-export function getProfessionalPatient(
-  profile: DashboardProfile,
-  patientId?: string | null,
-) {
-  const patients = getProfessionalPatients(profile);
-  return (
-    patients.find((patient) => patient.id === patientId) ??
-    patients[0]
-  );
 }
 
 export function formatProfessionalPatient(patient: ProfessionalPatient) {
@@ -230,10 +212,3 @@ function ProfessionalSidebarSection({
   );
 }
 
-function slugifyPatientId(name: string, age: string, sex: string) {
-  return `${name}-${age}-${sex}`
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}

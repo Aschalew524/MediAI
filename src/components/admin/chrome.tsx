@@ -14,6 +14,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { useDashboardAuth } from "@/components/auth/dashboard-auth-provider";
 import { cn } from "@/lib/utils";
 
 const adminNavItems = [
@@ -46,6 +47,7 @@ const adminNavItems = [
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { logout } = useDashboardAuth();
 
   return (
     <div className="min-h-screen bg-background">
@@ -90,13 +92,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
             })}
           </nav>
 
-          <Link
-            href="/"
+          <button
+            type="button"
+            onClick={logout}
             className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-foreground/75 transition-colors hover:bg-muted hover:text-foreground"
           >
             <LogOut className="size-4" />
             <span className="hidden sm:inline">Sign Out</span>
-          </Link>
+          </button>
         </div>
       </header>
 

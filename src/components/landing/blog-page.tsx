@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Newspaper } from "lucide-react";
 
 import { getFriendlyAxiosMessage } from "@/lib/axios-error-messages";
 import {
@@ -35,6 +35,26 @@ export type BlogPageProps =
       exploreInitial: BlogArticlesListResponse;
     }
   | { variant: "error"; message: string };
+
+function BlogImagePlaceholder({
+  className,
+  iconClassName = "size-10",
+}: {
+  className?: string;
+  iconClassName?: string;
+}) {
+  return (
+    <div
+      className={
+        "flex h-full w-full items-center justify-center bg-linear-to-br from-primary/10 via-primary/5 to-primary/15 text-primary/50 " +
+        (className ?? "")
+      }
+      aria-hidden
+    >
+      <Newspaper className={iconClassName} />
+    </div>
+  );
+}
 
 function articleToCard(a: BlogArticleDto): BlogCardItem {
   return {
@@ -118,14 +138,18 @@ export function BlogPage(props: BlogPageProps) {
                     className="block overflow-hidden rounded-[1.3rem] border border-primary/15 bg-white shadow-[0_20px_60px_-40px_rgba(73,96,188,0.3)] transition-transform hover:-translate-y-px"
                   >
                     <div className="aspect-275/171 w-full bg-white">
-                      <Image
-                        src={featuredArticle.imageSrc}
-                        alt={featuredArticle.title}
-                        width={275}
-                        height={171}
-                        className="h-full w-full object-contain object-center"
-                        priority
-                      />
+                      {featuredArticle.imageSrc?.trim() ? (
+                        <Image
+                          src={featuredArticle.imageSrc}
+                          alt={featuredArticle.title}
+                          width={275}
+                          height={171}
+                          className="h-full w-full object-contain object-center"
+                          priority
+                        />
+                      ) : (
+                        <BlogImagePlaceholder iconClassName="size-12" />
+                      )}
                     </div>
                   </Link>
 
@@ -382,29 +406,32 @@ function BlogSection({
 }
 
 function BlogArticleCard({ card, compact }: { card: BlogCardItem; compact: boolean }) {
-  const isIllustration = card.imageSrc.endsWith(".svg");
+  const trimmedSrc = card.imageSrc?.trim() ?? "";
+  const hasImage = trimmedSrc.length > 0;
+  const isIllustration = trimmedSrc.endsWith(".svg");
+  const imgHeightClass = compact ? "h-[230px]" : "h-[280px]";
 
   return (
     <Link
       href={getBlogArticleHref(card.id)}
       className="block rounded-[1.6rem] border border-primary/35 bg-white p-[30px] shadow-[0_18px_50px_-36px_rgba(73,96,188,0.28)] transition-transform hover:-translate-y-px"
     >
-      <div className="overflow-hidden rounded-[1.2rem]">
-        <Image
-          src={card.imageSrc}
-          alt={card.title}
-          width={420}
-          height={280}
-          className={
-            isIllustration
-              ? compact
-                ? "h-[230px] w-full object-cover object-center"
-                : "h-[280px] w-full object-cover object-center"
-              : compact
-                ? "h-[230px] w-full object-cover"
-                : "h-[280px] w-full object-cover"
-          }
-        />
+      <div className={`overflow-hidden rounded-[1.2rem] ${imgHeightClass}`}>
+        {hasImage ? (
+          <Image
+            src={trimmedSrc}
+            alt={card.title}
+            width={420}
+            height={280}
+            className={
+              isIllustration
+                ? `${imgHeightClass} w-full object-cover object-center`
+                : `${imgHeightClass} w-full object-cover`
+            }
+          />
+        ) : (
+          <BlogImagePlaceholder iconClassName="size-14" />
+        )}
       </div>
 
       <div className="space-y-3 pt-5">
