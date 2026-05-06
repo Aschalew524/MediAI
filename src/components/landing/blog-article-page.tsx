@@ -29,6 +29,7 @@ export function BlogArticlePage({
   sections: { title: string; body: string }[];
 }) {
   const { data } = useLandingConfig();
+  const hasImage = Boolean(imageSrc?.trim());
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -59,16 +60,18 @@ export function BlogArticlePage({
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-[1.5rem] border border-primary/15 bg-white shadow-[0_25px_70px_-45px_rgba(73,96,188,0.35)]">
-              <Image
-                src={imageSrc}
-                alt={title}
-                width={1200}
-                height={700}
-                className="h-auto w-full object-contain"
-                priority
-              />
-            </div>
+            {hasImage ? (
+              <div className="overflow-hidden rounded-[1.5rem] border border-primary/15 bg-white shadow-[0_25px_70px_-45px_rgba(73,96,188,0.35)]">
+                <Image
+                  src={imageSrc}
+                  alt={title}
+                  width={1200}
+                  height={700}
+                  className="h-auto w-full object-contain"
+                  priority
+                />
+              </div>
+            ) : null}
 
             <div className="space-y-8">
               <p className="text-base leading-8 text-foreground/85">{intro}</p>
