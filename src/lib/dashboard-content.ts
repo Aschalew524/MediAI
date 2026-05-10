@@ -7,11 +7,47 @@ export type PreferredFeature =
 
 export type ProfessionalTitle = "dr" | "prof" | "mr" | "ms" | string;
 
+export type DoctorExperienceItem = {
+  title: string;
+  subtitle: string;
+};
+
 export type ProfessionalProfile = {
+  // ── Required (filled during onboarding) ──
   title: ProfessionalTitle;
   fullName: string;
   specialty: string;
   region: string;
+
+  // ── Verification packet (some required at submit, others optional) ──
+  /** Required at submit. Free-form license id supplied by the doctor. */
+  licenseNumber?: string;
+  /** Optional. Authority that issued the license (e.g. "Ethiopian FMHACA"). */
+  licenseAuthority?: string;
+  /** Required at submit (number ≥ 0). */
+  yearsOfExperience?: number;
+  /** Required at submit (non-empty). Becomes paragraphs on the public page. */
+  bio?: string;
+
+  // ── Optional public-profile fields shown on /dashboard/top-doctors/:id ──
+  role?: string;
+  subSpecialty?: string;
+  hospitalAffiliation?: string;
+  educationDegree?: string;
+  educationYear?: string;
+  /** Pre-split paragraphs. If absent the server splits `bio` on blank lines. */
+  biographyParagraphs?: string[];
+  experienceItems?: DoctorExperienceItem[];
+  affiliationItems?: DoctorExperienceItem[];
+  publicationsSummary?: string;
+  diseases?: string[];
+  /** Whole USD dollars. */
+  videoConsultationFee?: number;
+  writtenConsultationFee?: number;
+  heroImageUrl?: string;
+  languages?: string[];
+
+  // ── Existing optional fields used by the wizard's patient-history step ──
   invitePatient?: boolean;
   patientEmail?: string;
   patientHistory?: string;
@@ -27,6 +63,17 @@ export type ProfessionalProfile = {
   attachedHistoryFileName?: string;
 };
 
+export type DoctorVerificationStatus = "pending" | "verified" | "rejected";
+
+export type DoctorVerificationSnapshot = {
+  status: DoctorVerificationStatus;
+  /** Null while doctor is still drafting; non-null = "awaiting admin review". */
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  /** Admin-supplied note (mainly used for rejection reasons). */
+  notes: string | null;
+};
+
 export type DashboardProfile = {
   preferredName: string;
   age: string;
@@ -39,6 +86,8 @@ export type DashboardProfile = {
   sexAtBirth: SexAtBirth;
   preferredFeature: PreferredFeature;
   professionalProfile?: ProfessionalProfile;
+  /** Only set when the account is `role=professional`. */
+  verification?: DoctorVerificationSnapshot;
 };
 
 export const dashboardProfileStorageKey = "mediai-onboarding-profile";

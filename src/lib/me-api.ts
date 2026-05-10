@@ -1,7 +1,12 @@
 import { isAxiosError } from "axios";
 
 import { messageFromAxiosData } from "@/lib/auth.types";
-import type { DashboardProfile, MedicalHistoryData } from "@/lib/dashboard-content";
+import type {
+  DashboardProfile,
+  DoctorVerificationSnapshot,
+  DoctorVerificationStatus,
+  MedicalHistoryData,
+} from "@/lib/dashboard-content";
 import { defaultMedicalHistory } from "@/lib/dashboard-content";
 import api from "@/lib/axios";
 
@@ -71,6 +76,12 @@ export type MeProfileApi = {
   sexAtBirth: "male" | "female" | "other" | null;
   preferredFeature: string;
   professionalProfile?: unknown;
+  verification?: {
+    status: DoctorVerificationStatus;
+    submittedAt: string | null;
+    reviewedAt: string | null;
+    notes: string | null;
+  };
 };
 
 function toProfessional(
@@ -80,6 +91,25 @@ function toProfessional(
     return undefined;
   }
   return raw as DashboardProfile["professionalProfile"];
+}
+
+function toVerification(
+  raw: MeProfileApi["verification"],
+): DoctorVerificationSnapshot | undefined {
+  if (!raw) return undefined;
+  if (
+    raw.status !== "pending" &&
+    raw.status !== "verified" &&
+    raw.status !== "rejected"
+  ) {
+    return undefined;
+  }
+  return {
+    status: raw.status,
+    submittedAt: raw.submittedAt ?? null,
+    reviewedAt: raw.reviewedAt ?? null,
+    notes: raw.notes ?? null,
+  };
 }
 
 export function mapMeProfileToDashboard(
@@ -98,6 +128,36 @@ export function mapMeProfileToDashboard(
     sexAtBirth: p.sexAtBirth,
     preferredFeature: pf,
     professionalProfile: toProfessional(p.professionalProfile),
+    verification: toVerification(p.verification),
+  };
+}
+
+/**
+ * `POST /me/professional/submit-verification` — flips the doctor's status to
+ * "awaiting admin review" once their `professionalProfile` has the required
+ * verification fields filled in.
+ */
+export async function submitProfessionalVerification(): Promise<GetMeProfileResponse> {
+  const { data } = await api.post<{
+    profile: MeProfileApi | null;
+    medicalHistory: Record<string, unknown> | null;
+    aiDoctorSetupCompleted: boolean;
+  }>("/me/professional/submit-verification");
+  if (!data.profile) {
+    return {
+      profile: null,
+      medicalHistory: data.medicalHistory
+        ? normalizeMedicalHistory(data.medicalHistory)
+        : null,
+      aiDoctorSetupCompleted: data.aiDoctorSetupCompleted,
+    };
+  }
+  return {
+    profile: mapMeProfileToDashboard(data.profile),
+    medicalHistory: data.medicalHistory
+      ? normalizeMedicalHistory(data.medicalHistory)
+      : null,
+    aiDoctorSetupCompleted: data.aiDoctorSetupCompleted,
   };
 }
 

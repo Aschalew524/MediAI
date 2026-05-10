@@ -9,6 +9,7 @@ import {
   ClipboardPlus,
   FileText,
   History,
+  UserRound,
   Users,
 } from "lucide-react";
 
@@ -71,6 +72,16 @@ const professionalSidebarSections: {
         label: "Conversation History",
         href: "/dashboard/ai-doctor/history",
         icon: <History className="size-4" />,
+      },
+    ],
+  },
+  {
+    title: "Account",
+    items: [
+      {
+        label: "Public profile",
+        href: "/dashboard/verify-doctor?edit=1",
+        icon: <UserRound className="size-4" />,
       },
     ],
   },

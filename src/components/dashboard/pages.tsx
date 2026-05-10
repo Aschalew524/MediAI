@@ -47,6 +47,7 @@ import {
   stressOptions,
 } from "@/lib/dashboard-content";
 import { clearAccessToken } from "@/lib/auth-storage";
+import { postForgotPassword, userFacingAxiosError } from "@/lib/auth-api";
 import {
   deleteMeAccount,
   patchAiDoctorSetup,
@@ -1519,7 +1520,13 @@ export function AccountSettingsPage() {
         >
           <ResetPasswordForm
             email={resetPasswordEmail}
-            onConfirm={() => {
+            onConfirm={async () => {
+              if (!resetPasswordEmail) {
+                throw new Error(
+                  "No email is on file for this session. Add an email to your account before resetting your password.",
+                );
+              }
+              await postForgotPassword({ email: resetPasswordEmail });
               setPasswordResetDone(true);
               setOpenModal(null);
             }}
@@ -1639,13 +1646,39 @@ function ResetPasswordForm({
   onCancel,
 }: {
   email: string;
-  onConfirm: () => void;
+  /**
+   * Should perform the actual API call. Throwing causes the form to display an
+   * error message; resolving cleanly closes the modal.
+   */
+  onConfirm: () => Promise<void>;
   onCancel: () => void;
 }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const hasEmail = Boolean(email);
+
+  async function handleSubmit() {
+    if (!hasEmail || submitting) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      await onConfirm();
+    } catch (e) {
+      setError(
+        userFacingAxiosError(
+          e,
+          "Could not send the reset email. Please try again in a moment.",
+        ),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <p className="text-sm leading-6 text-muted-foreground">
-        {email ? (
+        {hasEmail ? (
           <>
             We will send a password reset link to{" "}
             <span className="font-semibold text-foreground">{email}</span>. Are you sure
@@ -1658,10 +1691,19 @@ function ResetPasswordForm({
           </>
         )}
       </p>
+      {error ? (
+        <p
+          className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
       <AccountModalActions
         onCancel={onCancel}
-        submitLabel="Send Reset Link"
-        onSubmit={onConfirm}
+        submitLabel={submitting ? "Sending…" : "Send Reset Link"}
+        onSubmit={handleSubmit}
+        disabled={submitting || !hasEmail}
       />
     </div>
   );

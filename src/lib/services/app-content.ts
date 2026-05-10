@@ -18,6 +18,7 @@ import type {
   UserRoleOption,
 } from "@/lib/onboarding-content";
 import type {
+  ChatMode,
   DoctorTypeOption,
   HistoryItem,
 } from "@/lib/chat-content";

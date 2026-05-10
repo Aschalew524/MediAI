@@ -1,5 +1,5 @@
 import api from "@/lib/axios";
-import type { FacilityType } from "@/lib/dashboard-content";
+import type { FacilityType } from "@/lib/health-facilities-api";
 
 /**
  * A facility row as returned by the backend.
