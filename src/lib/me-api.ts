@@ -3,6 +3,7 @@ import { isAxiosError } from "axios";
 import { messageFromAxiosData } from "@/lib/auth.types";
 import type {
   DashboardProfile,
+  DoctorVerificationSnapshot,
   DoctorVerificationStatus,
   MedicalHistoryData,
 } from "@/lib/dashboard-content";
