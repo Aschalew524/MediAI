@@ -24,8 +24,11 @@ import {
 import { messageFromAxiosData } from "@/lib/auth.types";
 import { cn } from "@/lib/utils";
 
+<<<<<<< HEAD
 import { DashboardBackLink } from "@/components/dashboard/primitives";
 
+=======
+>>>>>>> dd2ad00 (Implement doctor verification feature with admin page and related components. Update TypeScript configuration to exclude test files. Add new pages for doctor verifications and verification management, including UI for approving and rejecting verifications. Enhance dashboard navigation to include doctor verification links.)
 const FILTERS: { id: AdminVerificationFilter; label: string }[] = [
   { id: "awaiting", label: "Awaiting review" },
   { id: "verified", label: "Verified" },
@@ -116,9 +119,14 @@ export function AdminVerificationsPage() {
 
   return (
     <div className="space-y-6">
+<<<<<<< HEAD
       <header className="flex flex-wrap items-start gap-3">
         <DashboardBackLink href="/admin" ariaLabel="Back to admin home" className="mt-0.5" />
         <div className="min-w-0 flex-1">
+=======
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+>>>>>>> dd2ad00 (Implement doctor verification feature with admin page and related components. Update TypeScript configuration to exclude test files. Add new pages for doctor verifications and verification management, including UI for approving and rejecting verifications. Enhance dashboard navigation to include doctor verification links.)
           <h1 className="flex items-center gap-2 text-2xl font-semibold text-foreground">
             <BadgeCheck className="size-6 text-primary" /> Doctor verifications
           </h1>
@@ -130,7 +138,11 @@ export function AdminVerificationsPage() {
         <button
           type="button"
           onClick={() => void load()}
+<<<<<<< HEAD
           className="inline-flex shrink-0 items-center gap-2 rounded-full border border-primary/20 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5 disabled:opacity-50"
+=======
+          className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/5 disabled:opacity-50"
+>>>>>>> dd2ad00 (Implement doctor verification feature with admin page and related components. Update TypeScript configuration to exclude test files. Add new pages for doctor verifications and verification management, including UI for approving and rejecting verifications. Enhance dashboard navigation to include doctor verification links.)
           disabled={isLoading}
         >
           <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
@@ -446,20 +458,32 @@ function StatusBadge({
 }) {
   if (status === "verified")
     return (
+<<<<<<< HEAD
       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[0.625rem] leading-none font-medium uppercase tracking-wide text-emerald-800">
+=======
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-800">
+>>>>>>> dd2ad00 (Implement doctor verification feature with admin page and related components. Update TypeScript configuration to exclude test files. Add new pages for doctor verifications and verification management, including UI for approving and rejecting verifications. Enhance dashboard navigation to include doctor verification links.)
         Verified
       </span>
     );
   if (status === "rejected")
     return (
+<<<<<<< HEAD
       <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[0.625rem] leading-none font-medium uppercase tracking-wide text-rose-800">
+=======
+      <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800">
+>>>>>>> dd2ad00 (Implement doctor verification feature with admin page and related components. Update TypeScript configuration to exclude test files. Add new pages for doctor verifications and verification management, including UI for approving and rejecting verifications. Enhance dashboard navigation to include doctor verification links.)
         Rejected
       </span>
     );
   return (
     <span
       className={cn(
+<<<<<<< HEAD
         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] leading-none font-medium uppercase tracking-wide",
+=======
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+>>>>>>> dd2ad00 (Implement doctor verification feature with admin page and related components. Update TypeScript configuration to exclude test files. Add new pages for doctor verifications and verification management, including UI for approving and rejecting verifications. Enhance dashboard navigation to include doctor verification links.)
         hasSubmitted
           ? "bg-amber-100 text-amber-800"
           : "bg-muted text-muted-foreground",

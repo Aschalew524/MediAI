@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, type ReactNode } from "react";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Bell, CircleUserRound, MessageCircleMore, ShieldCheck } from "lucide-react";
 
 import { getProfileName } from "@/lib/dashboard-content";
@@ -11,6 +12,14 @@ import { useDashboardAuth } from "@/components/auth/dashboard-auth-provider";
 import { cn } from "@/lib/utils";
 
 import { useDashboardProfile } from "./use-dashboard-profile";
+import { useUnreadMessages } from "./use-unread-messages";
+
+/**
+ * Routes that intentionally render full-bleed without the nav/avatar/menu
+ * (e.g. the doctor verification gate, where the user isn't yet allowed into
+ * the rest of the dashboard).
+ */
+const SHELL_BYPASS_PATHS: readonly string[] = ["/dashboard/verify-doctor"];
 import { useUnreadMessages } from "./use-unread-messages";
 
 /**
@@ -28,10 +37,18 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       (p) => pathname === p || pathname.startsWith(`${p}/`),
     );
 
+  const pathname = usePathname();
+  const bypassShell =
+    pathname !== null &&
+    SHELL_BYPASS_PATHS.some(
+      (p) => pathname === p || pathname.startsWith(`${p}/`),
+    );
+
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, isLoading: authLoading, logout } = useDashboardAuth();
   const profile = useDashboardProfile();
+  const unreadMessages = useUnreadMessages();
   const unreadMessages = useUnreadMessages();
   const name = getProfileName(profile);
   const displayEmail = user?.email
@@ -73,6 +90,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     return <div className="min-h-screen bg-background">{children}</div>;
   }
 
+  if (bypassShell) {
+    return <div className="min-h-screen bg-background">{children}</div>;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="relative z-40 border-b border-primary/10 bg-background/95 backdrop-blur">
@@ -102,12 +123,21 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   : "Messages"
               }
             >
+            <Link
+              href="/dashboard/messages"
+              className="relative inline-flex"
+              aria-label={
+                unreadMessages > 0
+                  ? `Messages (${unreadMessages} unread)`
+                  : "Messages"
+              }
+            >
               <HeaderIconButton aria-label="Messages">
                 <MessageCircleMore className="size-4" />
               </HeaderIconButton>
               {unreadMessages > 0 ? (
                 <span
-                  className="pointer-events-none absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 text-[0.625rem] leading-none font-semibold leading-none text-destructive-foreground shadow-[0_2px_8px_-2px_rgba(220,38,38,0.6)] ring-2 ring-background"
+                  className="pointer-events-none absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-none text-destructive-foreground shadow-[0_2px_8px_-2px_rgba(220,38,38,0.6)] ring-2 ring-background"
                   aria-hidden="true"
                 >
                   {unreadMessages > 99 ? "99+" : unreadMessages}

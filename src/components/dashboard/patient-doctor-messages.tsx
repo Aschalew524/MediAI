@@ -162,8 +162,16 @@ function PatientMessagesInboxPage() {
  * where doctors were seeing every registered patient (the directory) instead
  * of only their own conversations.
  */
+/**
+ * Doctor inbox at /dashboard/messages. Lists *only* the threads this doctor is
+ * actually a participant in — backed by `GET /me/messages/threads`, which the
+ * backend filters by `doctorUserId === caller`. This is the fix for the bug
+ * where doctors were seeing every registered patient (the directory) instead
+ * of only their own conversations.
+ */
 function ProfessionalMessagesInboxPage() {
   const profile = useDashboardProfile();
+  const [items, setItems] = useState<ApiThreadSummary[]>([]);
   const [items, setItems] = useState<ApiThreadSummary[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -177,8 +185,15 @@ function ProfessionalMessagesInboxPage() {
       try {
         const next = await listMyThreads();
         setItems(next.items);
+        const next = await listMyThreads();
+        setItems(next.items);
       } catch (err: unknown) {
         const code = isAxiosError(err) ? err.response?.status : undefined;
+        if (code === 401) {
+          setLoadError("Please sign in to view your messages.");
+        } else {
+          setLoadError("Could not load patient messages. Try again.");
+        }
         if (code === 401) {
           setLoadError("Please sign in to view your messages.");
         } else {
@@ -217,6 +232,7 @@ function ProfessionalMessagesInboxPage() {
             </h1>
             <p className="text-sm text-muted-foreground">
               Conversations you’ve had with your patients. New replies bubble to the top.
+              Conversations you’ve had with your patients. New replies bubble to the top.
             </p>
           </div>
           <button
@@ -249,9 +265,13 @@ function ProfessionalMessagesInboxPage() {
               variant="empty"
               title="No conversations yet"
               description="Open a patient profile and tap “Message” to start your first conversation. New patient replies will appear here."
+              title="No conversations yet"
+              description="Open a patient profile and tap “Message” to start your first conversation. New patient replies will appear here."
             />
           ) : (
             <ul>
+              {items.map((thread) => (
+                <ProfessionalThreadRow key={thread.threadId} thread={thread} />
               {items.map((thread) => (
                 <ProfessionalThreadRow key={thread.threadId} thread={thread} />
               ))}
@@ -283,10 +303,25 @@ function ProfessionalThreadRow({ thread }: { thread: ApiThreadSummary }) {
     ? `${previewPrefix}${thread.lastMessagePreview}`
     : "No messages yet";
   const hasUnread = thread.unreadCount > 0;
+/**
+ * Inbox row on the doctor side. Renders the patient's name + the last
+ * exchanged message, with an unread badge for messages the patient has sent
+ * that the doctor hasn't opened yet. Clicking jumps into the existing
+ * `/dashboard/patients/:id/messages` chat view.
+ */
+function ProfessionalThreadRow({ thread }: { thread: ApiThreadSummary }) {
+  const name = thread.patientName.trim() || "Unnamed patient";
+  const date = formatTimestamp(thread.lastMessageAt);
+  const previewPrefix = thread.lastMessageSender === "doctor" ? "You: " : "";
+  const preview = thread.lastMessagePreview
+    ? `${previewPrefix}${thread.lastMessagePreview}`
+    : "No messages yet";
+  const hasUnread = thread.unreadCount > 0;
 
   return (
     <li className="border-b border-primary/10 last:border-b-0">
       <Link
+        href={`/dashboard/patients/${encodeURIComponent(thread.patientUserId)}/messages`}
         href={`/dashboard/patients/${encodeURIComponent(thread.patientUserId)}/messages`}
         className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40 sm:px-6"
       >
@@ -301,9 +336,15 @@ function ProfessionalThreadRow({ thread }: { thread: ApiThreadSummary }) {
                 hasUnread && "text-foreground",
               )}
             >
+            <p
+              className={cn(
+                "truncate text-sm font-semibold text-foreground sm:text-base",
+                hasUnread && "text-foreground",
+              )}
+            >
               {name}
             </p>
-            <span className="shrink-0 text-xs text-muted-foreground">
+            <span className="shrink-0 text-[11px] text-muted-foreground">
               {date}
             </span>
           </div>
@@ -319,7 +360,7 @@ function ProfessionalThreadRow({ thread }: { thread: ApiThreadSummary }) {
               {preview}
             </p>
             {hasUnread ? (
-              <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[0.625rem] font-semibold leading-none text-primary-foreground">
+              <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
                 {thread.unreadCount}
               </span>
             ) : null}
