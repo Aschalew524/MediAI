@@ -82,6 +82,9 @@ export function FacilityLocatorPage() {
     lat: null,
     lng: null,
   });
+  // Prevents the auto-resolve-on-mount path (when the browser already has
+  // permission granted) from racing against a manual "Use my location" tap.
+  const geoRequestingRef = useRef(false);
 
   const geoGranted = geoStatus === "granted" && userLat != null && userLng != null;
 
@@ -129,11 +132,40 @@ export function FacilityLocatorPage() {
         return;
       }
       if (statusObj.state === "granted") {
-        setGeoStatus((g) => {
-          const { lat, lng } = coordsRef.current;
-          if (g === "granted" && lat != null && lng != null) return g;
-          return "prompt";
-        });
+        // Permission was already granted in a previous visit. Auto-resolve
+        // the user's coords so the map and distance-sorted list reflect
+        // their *actual* location instead of forcing a fresh click on every
+        // reload. We never bypass the OS prompt — that only ever happens
+        // after the user explicitly granted permission earlier.
+        const { lat, lng } = coordsRef.current;
+        if (lat != null && lng != null) {
+          setGeoStatus("granted");
+          return;
+        }
+        if (
+          typeof navigator !== "undefined" &&
+          "geolocation" in navigator &&
+          !geoRequestingRef.current
+        ) {
+          geoRequestingRef.current = true;
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              if (cancelled) return;
+              setUserLat(pos.coords.latitude);
+              setUserLng(pos.coords.longitude);
+              setGeoStatus("granted");
+              geoRequestingRef.current = false;
+            },
+            () => {
+              // Silent: a previously-granted permission can still fail
+              // (no GPS signal, kill-switch, etc.). The user can retry via
+              // the visible "Use my location" button.
+              geoRequestingRef.current = false;
+              if (!cancelled) setGeoStatus("prompt");
+            },
+            { enableHighAccuracy: false, maximumAge: 60_000, timeout: 15_000 },
+          );
+        }
       }
     };
 
@@ -260,11 +292,20 @@ export function FacilityLocatorPage() {
     );
   }, []);
 
-  const mapZoom = selectedFacility ? 15 : 13;
-
+  // Map centring rules:
+  //   1. A selected facility wins — show that pin.
+  //   2. Else, if we have the user's coords, centre on them so the map
+  //      matches the distance-sorted list below.
+  //   3. Else fall back to a generic "hospitals and pharmacies near me" search
+  //      so the embed at least has *something* to render. We deliberately do
+  //      not name a specific city here — the previous hardcoded "Addis Ababa"
+  //      misled users elsewhere in the world.
+  const mapZoom = selectedFacility ? 15 : geoGranted ? 14 : 13;
   const mapQuery = selectedFacility
-    ? encodeURIComponent(selectedFacility.name + ", " + selectedFacility.address)
-    : encodeURIComponent("hospitals and pharmacies in Addis Ababa");
+    ? encodeURIComponent(`${selectedFacility.name}, ${selectedFacility.address}`)
+    : geoGranted && userLat != null && userLng != null
+      ? `${userLat},${userLng}`
+      : encodeURIComponent("hospitals and pharmacies near me");
 
   const hasMore = items.length < total;
   const showEmpty = !loading && !error && items.length === 0;
@@ -479,14 +520,10 @@ function FacilityCard({
   facility,
   isSelected,
   onSelect,
-  userLat,
-  userLng,
 }: {
   facility: HealthcareFacilityDto;
   isSelected: boolean;
   onSelect: () => void;
-  userLat?: number;
-  userLng?: number;
 }) {
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${facility.latitude},${facility.longitude}`;
   const phoneRaw = facility.phone?.trim();

@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BadgeCheck,
   BookOpen,
   CreditCard,
   LayoutDashboard,
@@ -27,6 +28,11 @@ const adminNavItems = [
     label: "Users & Doctors",
     href: "/admin/users",
     icon: <Users className="size-4" />,
+  },
+  {
+    label: "Doctor verifications",
+    href: "/admin/verifications",
+    icon: <BadgeCheck className="size-4" />,
   },
   {
     label: "Subscriptions",

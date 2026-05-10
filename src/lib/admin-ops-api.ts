@@ -105,3 +105,68 @@ export async function getAdminUsers(options: {
   });
   return data;
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Doctor verification queue                                                  */
+/* -------------------------------------------------------------------------- */
+
+export type AdminVerificationStatus = "pending" | "verified" | "rejected";
+
+export type AdminVerificationFilter =
+  | "pending"
+  | "verified"
+  | "rejected"
+  | "awaiting"
+  | "all";
+
+/** Mirrors `AdminProfessionalVerificationItemDto`. */
+export type AdminProfessionalVerificationItem = {
+  userId: string;
+  email: string;
+  status: AdminVerificationStatus;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  notes: string | null;
+  createdAt: string;
+  professionalProfile: Record<string, unknown>;
+};
+
+export type AdminProfessionalVerificationsResponse = {
+  items: AdminProfessionalVerificationItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
+export async function getAdminProfessionalVerifications(options?: {
+  page?: number;
+  pageSize?: number;
+  status?: AdminVerificationFilter;
+  signal?: AbortSignal;
+}): Promise<AdminProfessionalVerificationsResponse> {
+  const params: Record<string, string | number> = {};
+  if (options?.page) params.page = options.page;
+  if (options?.pageSize) params.pageSize = options.pageSize;
+  if (options?.status) params.status = options.status;
+  const { data } = await api.get<AdminProfessionalVerificationsResponse>(
+    "/admin/professional-verifications",
+    { params, signal: options?.signal },
+  );
+  return data;
+}
+
+export async function approveProfessionalVerification(
+  userId: string,
+): Promise<void> {
+  await api.post(`/admin/professional-verifications/${userId}/approve`);
+}
+
+export async function rejectProfessionalVerification(
+  userId: string,
+  notes: string,
+): Promise<void> {
+  await api.post(`/admin/professional-verifications/${userId}/reject`, {
+    notes,
+  });
+}

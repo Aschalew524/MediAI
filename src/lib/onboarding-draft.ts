@@ -16,7 +16,6 @@ export type OnboardingDraftV1 = {
     sexAtBirth: "male" | "female" | "other" | null;
     preferredFeature:
       | "ai-doctor"
-      | "lab-test-interpretation"
       | "top-doctors"
       | null;
   };
@@ -98,7 +97,6 @@ function normalizeDraft(raw: unknown): OnboardingDraftV1 | null {
       : null;
   const pf =
     f.preferredFeature === "ai-doctor" ||
-    f.preferredFeature === "lab-test-interpretation" ||
     f.preferredFeature === "top-doctors" ||
     f.preferredFeature === null
       ? f.preferredFeature

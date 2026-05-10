@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { useDashboardAuth } from "@/components/auth/dashboard-auth-provider";
@@ -23,6 +23,8 @@ import {
 } from "@/lib/dashboard-content";
 import type { DashboardProfile, MedicalHistoryData } from "@/lib/dashboard-content";
 import { useDashboardConfig } from "@/lib/hooks/use-app-config";
+
+const VERIFY_DOCTOR_PATH = "/dashboard/verify-doctor";
 
 type DashboardMeContextValue = {
   /** Server-backed profile, or config default while not loaded */
@@ -41,6 +43,7 @@ const DashboardMeContext = createContext<DashboardMeContextValue | null>(null);
 
 export function DashboardMeProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { isLoading: authLoading, isAuthenticated } = useDashboardAuth();
   const { data: config } = useDashboardConfig();
   const fallback = config.defaultDashboardProfile;
@@ -83,6 +86,33 @@ export function DashboardMeProvider({ children }: { children: ReactNode }) {
       setIsMeLoading(false);
     }
   }, [isAuthenticated, router]);
+
+  /**
+   * Doctor-verification gate. Unverified professionals anywhere outside
+   * /dashboard/verify-doctor are redirected TO /dashboard/verify-doctor.
+   *
+   * We deliberately do NOT bounce verified doctors out of the verify-doctor
+   * route — the page doubles as the "edit my public profile" surface, and
+   * the verify-doctor page itself handles the "just-got-approved" transition
+   * by routing the user to /dashboard.
+   *
+   * Personal users are never affected (they have no `verification` block).
+   */
+  useEffect(() => {
+    const profile = raw?.profile;
+    if (!profile) return;
+    if (!profile.professionalProfile && !profile.verification) return;
+    if (pathname === null) return;
+
+    const isOnVerifyPage =
+      pathname === VERIFY_DOCTOR_PATH ||
+      pathname.startsWith(`${VERIFY_DOCTOR_PATH}/`);
+    const isVerified = profile.verification?.status === "verified";
+
+    if (!isVerified && !isOnVerifyPage) {
+      router.replace(VERIFY_DOCTOR_PATH);
+    }
+  }, [raw, pathname, router]);
 
   useEffect(() => {
     if (authLoading) return;

@@ -112,6 +112,11 @@ export async function listProfessionalPatientMessages(
     `/professional/patients/${encodeURIComponent(patientId)}/messages`,
     { params: clean({ limit }) },
   );
+  // Backend marks patient → doctor messages as read on this fetch, so let the
+  // navbar's unread-badge refresh instead of waiting for its 30s poll.
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("mediai:messages-changed"));
+  }
   return data;
 }
 
