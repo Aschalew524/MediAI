@@ -55,6 +55,7 @@ import { useAdminConfig } from "@/lib/hooks/use-app-config";
 import { cn } from "@/lib/utils";
 
 import {
+  DashboardBackLink,
   DashboardContainer,
   DashboardPage,
   DashboardPanel,
@@ -467,6 +468,7 @@ export function UserManagementPage() {
   return (
     <DashboardPage>
       <DashboardContainer className="space-y-8">
+        <DashboardBackLink href="/admin" ariaLabel="Back to admin home" />
         <DashboardSectionHeader
           title="User & Doctor Management"
           description="Browse every registered MediAI account. Search by email, narrow by role, and review onboarding completion."
@@ -604,7 +606,7 @@ function UserRow({ user }: { user: AdminUserListItem }) {
 function RoleBadge({ user }: { user: AdminUserListItem }) {
   if (user.appRole === "admin") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-0.5 text-[0.625rem] leading-none font-semibold uppercase tracking-wide text-amber-700">
         <ClipboardList className="size-3" />
         Admin
       </span>
@@ -612,7 +614,7 @@ function RoleBadge({ user }: { user: AdminUserListItem }) {
   }
   if (user.profileRole === "professional") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-0.5 text-[0.625rem] leading-none font-semibold uppercase tracking-wide text-primary">
         <Stethoscope className="size-3" />
         Doctor
       </span>
@@ -620,13 +622,13 @@ function RoleBadge({ user }: { user: AdminUserListItem }) {
   }
   if (user.profileRole === "personal") {
     return (
-      <span className="inline-flex rounded-full bg-muted px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <span className="inline-flex rounded-full bg-muted px-3 py-0.5 text-[0.625rem] leading-none font-semibold uppercase tracking-wide text-muted-foreground">
         Patient
       </span>
     );
   }
   return (
-    <span className="inline-flex rounded-full bg-muted/60 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+    <span className="inline-flex rounded-full bg-muted/60 px-3 py-0.5 text-[0.625rem] leading-none font-semibold uppercase tracking-wide text-muted-foreground">
       No role
     </span>
   );
@@ -636,7 +638,7 @@ function OnboardingBadge({ hasProfile }: { hasProfile: boolean }) {
   return (
     <span
       className={cn(
-        "inline-flex rounded-full px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+        "inline-flex rounded-full px-3 py-0.5 text-[0.625rem] leading-none font-semibold uppercase tracking-wide",
         hasProfile
           ? "bg-emerald-50 text-emerald-600"
           : "bg-amber-50 text-amber-600",
@@ -781,6 +783,7 @@ export function SubscriptionManagementPage() {
   return (
     <DashboardPage>
       <DashboardContainer className="space-y-8">
+        <DashboardBackLink href="/admin" ariaLabel="Back to admin home" />
         <DashboardSectionHeader
           title="Subscriptions & Payments"
           description="Manage service plans, pricing, and monitor transaction statuses."
@@ -877,7 +880,7 @@ function PlansPanel({
                     {plan.name}
                   </p>
                   {!plan.active ? (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[0.625rem] leading-none font-semibold uppercase tracking-wide text-muted-foreground">
                       Hidden
                     </span>
                   ) : null}
@@ -1133,7 +1136,7 @@ function TransactionStatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex rounded-full px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+        "inline-flex rounded-full px-3 py-0.5 text-[0.625rem] leading-none font-semibold uppercase tracking-wide",
         status === "completed" && "bg-emerald-50 text-emerald-600",
         status === "pending" && "bg-amber-50 text-amber-600",
         status === "failed" && "bg-red-50 text-red-500",

@@ -67,7 +67,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <span>
               <span className="text-primary">MediAI</span>
             </span>
-            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[0.625rem] font-semibold uppercase leading-none tracking-wide text-primary sm:text-xs">
               Admin
             </span>
           </Link>

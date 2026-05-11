@@ -185,7 +185,7 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
                   </button>
 
                   {openMenu === item.label ? (
-                    <div className="absolute left-1/2 top-full z-50 mt-2 w-[430px] -translate-x-1/2 rounded-sm border border-primary/15 bg-white p-5 shadow-[0_28px_80px_-40px_rgba(73,96,188,0.4)]">
+                    <div className="absolute left-1/2 top-full z-50 mt-2 w-[min(26.875rem,calc(100vw-2rem))] -translate-x-1/2 rounded-sm border border-primary/15 bg-white p-5 shadow-[0_28px_80px_-40px_rgba(73,96,188,0.4)]">
                       <div className="space-y-5">
                         {item.items.map((subItem) => {
                           const SubIcon = subItem.icon
@@ -197,7 +197,7 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
                               key={subItem.label}
                               href={subItem.href}
                               onClick={() => setOpenMenu(null)}
-                              className="flex items-center gap-4 text-[17px] font-medium text-foreground transition-colors hover:text-primary"
+                              className="flex min-h-11 items-center gap-4 text-lg font-medium text-foreground transition-colors hover:text-primary"
                             >
                               {SubIcon ? (
                                 <SubIcon className="size-7 shrink-0 text-primary" />
@@ -380,7 +380,7 @@ function AssistantDemo() {
               placeholder="Type your questions here..."
               readOnly
             />
-            <div className="inline-flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+            <div className="inline-flex size-10 min-h-10 min-w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
               <Send className="size-4" />
             </div>
           </div>

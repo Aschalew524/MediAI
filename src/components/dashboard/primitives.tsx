@@ -56,7 +56,7 @@ export function CompletionRing({
   size?: "sm" | "md";
 }) {
   const dimension = size === "sm" ? "size-10" : "size-12";
-  const inner = size === "sm" ? "size-8 text-[10px]" : "size-10 text-xs";
+  const inner = size === "sm" ? "size-8 text-[0.625rem] leading-none" : "size-10 text-xs leading-none";
   const degrees = Math.max(0, Math.min(value, 100)) * 3.6;
 
   return (
@@ -116,13 +116,36 @@ export function DashboardSectionHeader({
   return (
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
         {description ? (
           <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{description}</p>
         ) : null}
       </div>
       {trailing}
     </div>
+  );
+}
+
+export function DashboardBackLink({
+  href = "/dashboard",
+  ariaLabel = "Back",
+  className,
+}: {
+  href?: string;
+  ariaLabel?: string;
+  className?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-label={ariaLabel}
+      className={cn(
+        "inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-primary/15 text-foreground/80 transition-colors hover:bg-muted hover:text-primary",
+        className,
+      )}
+    >
+      <ArrowLeft className="size-4" />
+    </Link>
   );
 }
 
@@ -140,14 +163,8 @@ export function DashboardBackTitle({
 }) {
   return (
     <div className="space-y-3">
-      <Link
-        href={backHref}
-        aria-label={backAriaLabel}
-        className="inline-flex size-10 items-center justify-center rounded-full border border-primary/15 text-foreground/80 transition-colors hover:bg-muted hover:text-primary"
-      >
-        <ArrowLeft className="size-4" />
-      </Link>
-      <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">{title}</h1>
+      <DashboardBackLink href={backHref} ariaLabel={backAriaLabel} />
+      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
       {description ? (
         <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{description}</p>
       ) : null}
@@ -166,7 +183,7 @@ export function DashboardListRow({
 }) {
   const content = (
     <div className="flex items-center justify-between gap-4 py-4.5">
-      <span className="text-[15px] font-medium sm:text-base">{title}</span>
+      <span className="text-sm font-medium sm:text-base">{title}</span>
       <div className="flex items-center gap-3 text-muted-foreground">
         {trailing}
         <ChevronRight className="size-4.5" />

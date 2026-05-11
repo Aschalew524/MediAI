@@ -234,6 +234,12 @@ export const dashboardCards = [
     accent: "messages" as const,
   },
   {
+    title: "Health Blog",
+    description: "Read articles on AI healthcare, wellness, and MediAI updates.",
+    href: "/dashboard/blog",
+    accent: "bot" as const,
+  },
+  {
     title: "Find Nearby Facilities",
     description: "Locate verified hospitals, clinics, and pharmacies near you.",
     href: "/dashboard/facility-locator",

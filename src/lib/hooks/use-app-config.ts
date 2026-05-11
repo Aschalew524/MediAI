@@ -62,9 +62,40 @@ import {
   getDashboardConfig,
   getLandingContent,
   getOnboardingConfig,
+  type DashboardConfigResponse,
 } from "@/lib/services/app-content";
 
 import { useAsyncData } from "./use-async-data";
+
+/**
+ * Remote `/dashboard/config` (or a stale client cache) may omit newer cards.
+ * Reconcile with the bundled fallback so order and entries like Health Blog
+ * stay in sync with the app while still allowing the API to override fields
+ * per `href`.
+ */
+function mergeDashboardConfigWithFallback(
+  api: DashboardConfigResponse,
+  fb: DashboardConfigResponse,
+): DashboardConfigResponse {
+  const apiByHref = new Map(api.dashboardCards.map((c) => [c.href, c]));
+  const dashboardCards = fb.dashboardCards.map((item) => {
+    const hit = apiByHref.get(item.href);
+    return hit ? { ...item, ...hit } : item;
+  });
+  const fbHrefs = new Set(fb.dashboardCards.map((c) => c.href));
+  const extras = api.dashboardCards.filter((c) => !fbHrefs.has(c.href));
+  return {
+    ...api,
+    dashboardCards: [...dashboardCards, ...extras],
+    consultDoctorsCard: api.consultDoctorsCard ?? fb.consultDoctorsCard,
+    mainHealthInfoSections:
+      api.mainHealthInfoSections.length > 0
+        ? api.mainHealthInfoSections
+        : fb.mainHealthInfoSections,
+    defaultDashboardProfile:
+      api.defaultDashboardProfile ?? fb.defaultDashboardProfile,
+  };
+}
 
 export function useLandingConfig() {
   const fallback = useMemo(
@@ -115,13 +146,18 @@ export function useDashboardConfig() {
     () => ({
       defaultDashboardProfile: fallbackDefaultDashboardProfile,
       dashboardCards: fallbackDashboardCards.map((item) => ({ ...item })),
-      consultDoctorsCard: fallbackConsultDoctorsCard,
+      consultDoctorsCard: { ...fallbackConsultDoctorsCard },
       mainHealthInfoSections: [...fallbackMainHealthInfoSections],
     }),
     [],
   );
 
-  return useAsyncData(useCallback(() => getDashboardConfig(), []), fallback);
+  const loader = useCallback(async () => {
+    const api = await getDashboardConfig();
+    return mergeDashboardConfigWithFallback(api, fallback);
+  }, [fallback]);
+
+  return useAsyncData(loader, fallback);
 }
 
 export function useChatConfig() {

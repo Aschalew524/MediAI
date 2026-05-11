@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 
 import {
   DashboardActionButton,
+  DashboardBackLink,
   DashboardContainer,
   DashboardPage,
 } from "./primitives";
@@ -208,7 +209,8 @@ function AIDoctorIntro({
   onStart: () => void;
 }) {
   return (
-    <section className="flex min-h-[calc(100vh-12rem)] items-center">
+    <section className="flex min-h-[calc(100vh-12rem)] flex-col gap-6">
+      <DashboardBackLink href="/dashboard" ariaLabel="Back to dashboard" />
       <div className="grid w-full gap-10 lg:grid-cols-[220px_1fr] lg:items-center">
         <div className="flex justify-center lg:justify-start">
           <DoctorOrb />
@@ -358,8 +360,9 @@ function MedicalHistoryWizard({
   }
 
   return (
-    <section className="flex min-h-[calc(100vh-12rem)] items-center justify-center py-8">
+    <section className="flex min-h-[calc(100vh-12rem)] flex-col items-center justify-center py-8">
       <div className="w-full max-w-3xl space-y-8">
+        <DashboardBackLink href="/dashboard" ariaLabel="Back to dashboard" />
         <MedicalHistoryProgress
           currentStep={stepIndex + 1}
           sectionTitle={step.sectionTitle ?? "Medical History"}
@@ -587,8 +590,11 @@ function MedicalHistorySuccess({
   onContinueLocal: () => void;
 }) {
   return (
-    <section className="flex min-h-[calc(100vh-12rem)] items-center justify-center py-8">
+    <section className="flex min-h-[calc(100vh-12rem)] flex-col items-center justify-center py-8">
       <div className="w-full max-w-2xl space-y-8 text-center">
+        <div className="text-left">
+          <DashboardBackLink href="/dashboard" ariaLabel="Back to dashboard" />
+        </div>
         {serverError ? (
           <div
             className="mx-auto max-w-lg rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-left text-sm text-destructive"
