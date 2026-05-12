@@ -5,6 +5,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { isAxiosError } from "axios";
 import {
+  ArrowLeft,
   ChevronDown,
   ChevronRight,
   CircleUserRound,
@@ -245,9 +246,9 @@ export function ProfessionalPatientProfilePage({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <Link
             href="/dashboard/patients"
-            className="inline-flex items-center gap-3 text-sm font-medium text-foreground transition-colors hover:text-primary"
+            className="inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-primary"
           >
-            <span className="text-lg">←</span>
+            <ArrowLeft className="size-4 shrink-0" aria-hidden />
             <span>Go to All Patients</span>
           </Link>
 
@@ -267,7 +268,7 @@ export function ProfessionalPatientProfilePage({
 
                 <div className="min-w-0 flex-1 space-y-4">
                   <div className="space-y-1">
-                    <h1 className="text-[2rem] font-semibold leading-none text-foreground">
+                    <h1 className="text-3xl font-semibold leading-none text-foreground sm:text-4xl">
                       {getProfileName(patient)}
                     </h1>
                     <p className="text-sm text-foreground/80">
@@ -334,7 +335,7 @@ export function ProfessionalPatientProfilePage({
           <div className="grid gap-4 xl:grid-cols-[1.05fr_1fr]">
             <div className="rounded-[1.35rem] border border-primary/15 bg-white px-5 py-5 shadow-[0_26px_70px_-56px_rgba(76,104,220,0.8)]">
               <div className="flex items-center justify-between gap-4">
-                <h2 className="text-[1.7rem] font-semibold text-foreground">
+                <h2 className="text-xl font-semibold text-foreground sm:text-2xl">
                   AI Medical Assistant
                 </h2>
                 <Link
@@ -424,7 +425,7 @@ export function ProfessionalPatientProfilePage({
                     }
                     className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left"
                   >
-                    <span className="text-[1.05rem] font-medium text-foreground">
+                    <span className="text-base font-medium text-foreground">
                       {sectionLabels[sectionId]}
                     </span>
                     {isExpanded ? (
@@ -664,7 +665,7 @@ function InfoListCard({
       className="rounded-[1.35rem] border border-primary/15 bg-white px-5 py-5 shadow-[0_26px_70px_-56px_rgba(76,104,220,0.8)]"
     >
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-[1.7rem] font-semibold text-foreground">{title}</h2>
+        <h2 className="text-xl font-semibold text-foreground sm:text-2xl">{title}</h2>
         <button
           type="button"
           onClick={onAction}
@@ -709,7 +710,7 @@ function NoDataCard({
   return (
     <div className="rounded-[1.35rem] border border-primary/15 bg-white px-5 py-5 shadow-[0_26px_70px_-56px_rgba(76,104,220,0.8)]">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-[1.7rem] font-semibold text-foreground">{title}</h2>
+        <h2 className="text-xl font-semibold text-foreground sm:text-2xl">{title}</h2>
         {actionLabel && onAction ? (
           <button
             type="button"
@@ -760,7 +761,7 @@ function EditMainDetailsModal({
     <ModalFrame onClose={onClose}>
       <div className="space-y-6">
         <div className="space-y-2">
-          <h2 className="text-[2rem] font-semibold text-foreground">
+          <h2 className="text-3xl font-semibold text-foreground sm:text-4xl">
             Edit Main Details
           </h2>
         </div>
@@ -838,14 +839,14 @@ function ActionHistoryModal({
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <History className="size-5 text-primary" />
-          <h2 className="text-[1.9rem] font-semibold text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
             Action History
           </h2>
         </div>
 
         <div className="relative px-6 py-4">
           <div className="text-center">
-            <p className="text-[1.4rem] font-medium text-foreground">
+            <p className="text-lg font-medium text-foreground sm:text-xl">
               Last update
             </p>
             <p className="mt-1 text-sm text-muted-foreground">{formatted}</p>
@@ -907,7 +908,7 @@ function LifestyleHabitsModal({
     <ModalFrame onClose={onClose} maxWidthClassName="max-w-5xl">
       <form onSubmit={submitForm} className="space-y-6">
         <div className="space-y-2">
-          <h2 className="text-[1.9rem] font-semibold text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
             Lifestyle and Habits
           </h2>
           <p className="text-sm text-muted-foreground">
@@ -1018,7 +1019,7 @@ function VitalSignsModal({
     <ModalFrame onClose={onClose} maxWidthClassName="max-w-5xl">
       <form onSubmit={submitForm} className="space-y-6">
         <div className="space-y-2">
-          <h2 className="text-[1.9rem] font-semibold text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
             BMI Information
           </h2>
           <p className="text-sm font-medium text-foreground">Unit</p>
@@ -1145,7 +1146,7 @@ function SectionEditorModal({
   return (
     <ModalFrame onClose={onClose} maxWidthClassName="max-w-4xl">
       <form onSubmit={submitForm} className="space-y-5">
-        <h2 className="text-[1.75rem] font-semibold text-foreground">
+        <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">
           Edit
         </h2>
         <textarea

@@ -7,6 +7,7 @@ import { ExternalLink, Pencil, Plus, Search, Trash2 } from "lucide-react";
 
 import {
   DashboardActionButton,
+  DashboardBackLink,
   DashboardContainer,
   DashboardPage,
   DashboardPanel,
@@ -83,6 +84,7 @@ export function AdminBlogListPage() {
     <>
       <DashboardPage>
         <DashboardContainer className="space-y-8">
+          <DashboardBackLink href="/admin" ariaLabel="Back to admin home" />
           <DashboardSectionHeader
             title="Blog"
             description="Create and manage marketing posts. Unpublishing hides an article from the public blog (same as soft delete)."
@@ -174,7 +176,7 @@ export function AdminBlogListPage() {
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-foreground">{row.title}</p>
                     <p className="truncate text-xs text-muted-foreground">{row.author}</p>
-                    <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{row.id}</p>
+                    <p className="mt-0.5 font-mono text-xs text-muted-foreground">{row.id}</p>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground lg:mt-0">{row.category}</p>
                   <div className="mt-2 lg:mt-0">

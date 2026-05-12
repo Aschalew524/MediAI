@@ -17,6 +17,7 @@ import {
   type ApiPatientSummary,
 } from "@/lib/services/professional-api";
 import { useDashboardProfile } from "./use-dashboard-profile";
+import { DashboardBackLink } from "./primitives";
 import { ProfessionalDashboardShell } from "./professional-shell";
 
 const PAGE_SIZE = 24;
@@ -120,12 +121,15 @@ export function PatientListPage() {
     <ProfessionalDashboardShell profile={profile}>
       <div className="space-y-6">
         <div className="flex flex-col gap-2">
-          <p className="text-sm text-muted-foreground">
-            Home / <span className="font-semibold text-foreground">Patients</span>
-          </p>
+          <div className="flex items-center gap-3">
+            <DashboardBackLink href="/dashboard" ariaLabel="Back to dashboard" />
+            <p className="text-sm text-muted-foreground">
+              Home / <span className="font-semibold text-foreground">Patients</span>
+            </p>
+          </div>
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h1 className="text-[2.4rem] font-semibold tracking-tight text-foreground">
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
                 Patients
               </h1>
               <p className="text-sm text-muted-foreground">
@@ -289,13 +293,10 @@ function EmptyState({ query }: { query: string }) {
           : "When patients complete the onboarding flow they will appear here automatically."}
       </p>
       {query ? null : (
-        <Link
-          href="/dashboard"
-          className="mt-2 inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
-        >
-          <span aria-hidden>←</span>
-          Back to dashboard
-        </Link>
+        <div className="mt-2 flex flex-col items-center gap-2">
+          <DashboardBackLink href="/dashboard" ariaLabel="Back to dashboard" />
+          <p className="text-xs text-muted-foreground">Return to your dashboard</p>
+        </div>
       )}
     </div>
   );

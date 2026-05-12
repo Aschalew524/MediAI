@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useReducer } from "react";
 import Link from "next/link";
 import { isAxiosError } from "axios";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 import {
   getProfessionalPatient,
@@ -99,7 +99,7 @@ export function PatientDetailPage({ patientId }: { patientId: string }) {
             href="/dashboard/patients"
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
           >
-            <span aria-hidden>←</span>
+            <ArrowLeft className="size-4" aria-hidden />
             Back to all patients
           </Link>
         </div>

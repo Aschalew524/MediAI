@@ -19,24 +19,28 @@ export const userRoleOptions: UserRoleOption[] = [
   },
 ];
 
-export const ethiopianRegions = [
-  "Addis Ababa",
+/**
+ * Nine regional states (kililoch) plus the two chartered cities — the only
+ * location options offered during onboarding and verification.
+ */
+export const ethiopiaRegionalStates = [
   "Afar",
   "Amhara",
   "Benishangul-Gumuz",
-  "Dire Dawa",
   "Gambela",
   "Harari",
-  "Jimma",
-  "Bahir Dar",
-  "Mekelle",
-  "Hawassa",
   "Oromia",
-  "Sidama",
   "Somali",
-  "South West Ethiopia",
   "Southern Nations, Nationalities, and Peoples",
   "Tigray",
+] as const;
+
+export const ethiopiaCharteredCities = ["Addis Ababa", "Dire Dawa"] as const;
+
+/** Flat list for API/config consumers (same 11 values as the two groups above). */
+export const ethiopianRegions: string[] = [
+  ...ethiopiaRegionalStates,
+  ...ethiopiaCharteredCities,
 ];
 
 export const onboardingStepLabels = [

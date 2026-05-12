@@ -11,8 +11,8 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowLeft,
   Bell,
+  BookOpen,
   ChevronDown,
   ClipboardPlus,
   FileText,
@@ -71,6 +71,7 @@ import {
   CompletionRing,
   CompletionBar,
   DashboardActionButton,
+  DashboardBackLink,
   DashboardBackTitle,
   DashboardContainer,
   DashboardListRow,
@@ -102,41 +103,70 @@ export function DashboardHomePage() {
   );
 
   return (
-    <DashboardPage>
-      <DashboardContainer className="space-y-6">
-        <Link href="/dashboard/profile" className="block transition-transform hover:-translate-y-px">
-          <DashboardPanel className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-5">
-            <div className="min-w-0">
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{name}&rsquo;s</h1>
-              <p className="mt-1 text-sm text-muted-foreground">Health Profile</p>
-              <p className="mt-1 max-w-[16rem] text-[11px] leading-snug text-muted-foreground">
-                v1 estimate from your basics + medical history forms (not AI Doctor setup or documents).
-              </p>
+    <DashboardPage className="py-8 sm:py-10">
+      <DashboardContainer className="space-y-8">
+        <Link
+          href="/dashboard/profile"
+          className="block transition-transform duration-300 hover:-translate-y-0.5"
+        >
+          <DashboardPanel className="relative overflow-hidden border-primary/10 px-5 py-5 sm:px-8 sm:py-6">
+            <div
+              className="pointer-events-none absolute inset-0 bg-linear-to-br from-primary/[0.06] via-transparent to-transparent"
+              aria-hidden
+            />
+            <div className="relative flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
+              <div className="min-w-0 space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary/90">
+                  Overview
+                </p>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                  {name}&rsquo;s health profile
+                </h1>
+                <p className="text-sm text-muted-foreground">Completion snapshot</p>
+                <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
+                  v1 estimate from your basics and medical history forms (not AI
+                  Doctor setup or documents).
+                </p>
+              </div>
+              <CompletionRing value={profileCompletion} />
             </div>
-            <CompletionRing value={profileCompletion} />
           </DashboardPanel>
         </Link>
 
-        <div className="grid gap-5 md:grid-cols-2">
-          {config.dashboardCards.map((card) => (
-            <DashboardShortcutCard
-              key={card.title + card.description}
-              title={card.title}
-              description={card.description}
-              href={card.href}
-              accent={card.accent}
-              muted={"muted" in card ? card.muted : undefined}
-            />
-          ))}
+        <div>
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+                Quick actions
+              </h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Jump to tools and programs
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {config.dashboardCards.map((card) => (
+              <DashboardShortcutCard
+                key={card.href}
+                title={card.title}
+                description={card.description}
+                href={card.href}
+                accent={card.accent}
+                muted={"muted" in card ? card.muted : undefined}
+              />
+            ))}
+          </div>
         </div>
 
-        <DashboardShortcutCard
-          title={config.consultDoctorsCard.title}
-          description={config.consultDoctorsCard.description}
-          href={config.consultDoctorsCard.href}
-          accent="doctors"
-          wide
-        />
+        <div className="pt-1">
+          <DashboardShortcutCard
+            title={config.consultDoctorsCard.title}
+            description={config.consultDoctorsCard.description}
+            href={config.consultDoctorsCard.href}
+            accent="doctors"
+            wide
+          />
+        </div>
       </DashboardContainer>
     </DashboardPage>
   );
@@ -213,10 +243,14 @@ function ProfessionalDashboardHomePage({
 
   return (
     <ProfessionalDashboardShell profile={profile}>
-      <DashboardPanel className="rounded-[1.6rem] px-7 py-7 shadow-none">
-        <div className="space-y-6">
+      <DashboardPanel className="relative overflow-hidden rounded-3xl border-primary/10 px-6 py-6 shadow-[0_22px_70px_-48px_rgba(76,104,220,0.28)] sm:px-8 sm:py-8">
+        <div
+          className="pointer-events-none absolute inset-0 bg-linear-to-br from-primary/[0.05] via-transparent to-transparent"
+          aria-hidden
+        />
+        <div className="relative space-y-6">
           <div className="space-y-2">
-            <h1 className="text-[2.4rem] font-semibold tracking-tight text-foreground">
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
               Hello {professionalName}!
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
@@ -231,7 +265,7 @@ function ProfessionalDashboardHomePage({
                 value={selectedPatient}
                 onChange={(event) => handlePatientSelect(event.target.value)}
                 disabled={isLoadingPatients}
-                className="h-13 w-full appearance-none rounded-xl border border-primary/12 bg-white px-4 pr-10 text-sm text-foreground outline-none transition-colors focus:border-primary disabled:opacity-60"
+                className="h-12 min-h-12 w-full appearance-none rounded-xl border border-primary/12 bg-white px-4 py-2.5 pr-10 text-base text-foreground outline-none transition-colors focus:border-primary disabled:opacity-60 sm:h-11 sm:min-h-11 sm:text-sm"
               >
                 <option value="">
                   {isLoadingPatients
@@ -268,7 +302,7 @@ function ProfessionalDashboardHomePage({
         </div>
       </DashboardPanel>
 
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <ProfessionalDashboardCard
           title="Clinical Assistant"
           href="/dashboard/ai-doctor"
@@ -288,6 +322,12 @@ function ProfessionalDashboardHomePage({
           title="Patients"
           href="/dashboard/patients"
           visual={<PatientsVisual />}
+        />
+        <ProfessionalDashboardCard
+          title="Health Blog"
+          description="Care guides, product news, and wellness reads."
+          href="/dashboard/blog"
+          visual={<BlogStackVisual />}
         />
       </div>
     </ProfessionalDashboardShell>
@@ -320,10 +360,10 @@ function ProfessionalDashboardCard({
   visual: ReactNode;
 }) {
   const content = (
-    <DashboardPanel className="min-h-52 overflow-hidden rounded-[1.35rem] border-primary/20 px-5 py-6 shadow-none sm:px-8 sm:py-7">
+    <DashboardPanel className="min-h-52 overflow-hidden rounded-3xl border-primary/12 px-5 py-6 shadow-[0_20px_64px_-50px_rgba(76,104,220,0.28)] transition-all duration-300 hover:border-primary/18 hover:shadow-[0_28px_80px_-44px_rgba(76,104,220,0.38)] sm:px-8 sm:py-7">
       <div className="flex h-full flex-col items-start justify-between gap-5 sm:flex-row sm:items-center sm:gap-8">
         <div className="space-y-2">
-          <h2 className="max-w-sm text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-[2rem]">
+          <h2 className="max-w-sm text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
             {title}
           </h2>
           {description ? (
@@ -418,6 +458,17 @@ function PatientsVisual() {
   );
 }
 
+function BlogStackVisual() {
+  return (
+    <div className="relative flex size-32 items-center justify-center">
+      <div className="absolute inset-3 rounded-full bg-primary/8 blur-3xl" />
+      <div className="relative rounded-[1.25rem] border border-primary/15 bg-white px-4 py-3 shadow-[0_22px_70px_-42px_rgba(76,104,220,0.6)]">
+        <BookOpen className="size-9 text-primary" strokeWidth={1.75} aria-hidden />
+      </div>
+    </div>
+  );
+}
+
 function DashboardShortcutCard({
   title,
   description,
@@ -436,18 +487,21 @@ function DashboardShortcutCard({
   const cardContent = (
     <DashboardPanel
       className={cn(
-        "group relative overflow-hidden px-6 py-5",
-        wide && "min-h-32",
-        !wide && "min-h-28",
+        "group relative overflow-hidden transition-all duration-300",
+        "hover:border-primary/18 hover:shadow-[0_32px_88px_-44px_rgba(76,104,220,0.42)]",
+        muted && "opacity-[0.92]",
+        wide && "min-h-[8.5rem] sm:min-h-36",
+        !wide && "min-h-[7.5rem] sm:min-h-32",
       )}
     >
-      <div className="relative z-10 flex min-h-24 flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div className="space-y-1">
-          <h2 className="max-w-xs text-xl font-semibold leading-tight">
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-primary/[0.04] via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      <div className="relative z-10 flex min-h-[6.5rem] flex-col justify-between gap-4 sm:min-h-0 sm:flex-row sm:items-center">
+        <div className="min-w-0 space-y-1.5">
+          <h2 className="max-w-[14rem] text-lg font-semibold leading-snug tracking-tight text-foreground sm:max-w-xs sm:text-xl">
             {title}
           </h2>
           {description ? (
-            <p className="max-w-md text-sm text-muted-foreground">
+            <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
               {muted ? `○ ${description}` : description}
             </p>
           ) : null}
@@ -473,6 +527,17 @@ function VisualAccent({
   accent: "bot" | "facilities" | "doctors" | "messages";
   title: string;
 }) {
+  if (title === "Health Blog") {
+    return (
+      <div className="relative flex size-20 shrink-0 items-center justify-center sm:size-[5.25rem]">
+        <div className="absolute inset-2 rounded-full bg-primary/10 blur-2xl" />
+        <div className="relative rounded-2xl border border-primary/15 bg-white p-3.5 shadow-[0_18px_48px_-32px_rgba(76,104,220,0.65)]">
+          <BookOpen className="size-8 text-primary" strokeWidth={1.75} aria-hidden />
+        </div>
+      </div>
+    );
+  }
+
   if (title === "Check Up Plan") {
     return (
       <div className="relative flex size-20 items-center justify-center">
@@ -730,7 +795,7 @@ function ConsumerHealthProfilePage({
                   <CompletionRing value={completion.segments.medical} size="sm" />
                 </span>
               ) : (
-                <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-dashed border-primary/25 bg-muted/30 text-[10px] font-semibold text-muted-foreground">
+                <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-dashed border-primary/25 bg-muted/30 text-[0.625rem] font-semibold leading-none text-muted-foreground">
                   —
                 </span>
               )}
@@ -951,7 +1016,7 @@ export function MainHealthInformationPage() {
           {completion ? (
             <div className="flex shrink-0 flex-col items-start gap-1 lg:items-end">
               <CompletionBar value={completion.segments.mainHealthHub} label="hub" />
-              <p className="max-w-[14rem] text-[11px] leading-snug text-muted-foreground lg:text-right">
+              <p className="max-w-[14rem] text-xs leading-snug text-muted-foreground lg:text-right">
                 v1: average of general profile and medical/lifestyle forms.
               </p>
             </div>
@@ -1335,14 +1400,8 @@ export function NotificationsPage() {
     <DashboardPage>
       <DashboardContainer className="space-y-12">
         <div className="flex items-center gap-3">
-          <Link
-            href="/dashboard"
-            aria-label="Back to dashboard"
-            className="inline-flex size-10 items-center justify-center rounded-full border border-primary/15 text-foreground/80 transition-colors hover:bg-muted hover:text-primary"
-          >
-            <ArrowLeft className="size-4" />
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">Notifications</h1>
+          <DashboardBackLink href="/dashboard" ariaLabel="Back to dashboard" />
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Notifications</h1>
         </div>
 
         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -1351,10 +1410,11 @@ export function NotificationsPage() {
           </div>
           <h2 className="text-2xl font-semibold tracking-tight text-foreground">You don&rsquo;t have any notification yet</h2>
           <p className="mt-2 text-sm text-muted-foreground">There are currently no notifications to display.</p>
-          <Link href="/dashboard" className="mt-8">
-            <button className="inline-flex h-12 items-center justify-center rounded-xl bg-primary px-8 text-[15px] font-medium text-primary-foreground transition-opacity hover:opacity-95">
-              Go to My Dashboard
-            </button>
+          <Link
+            href="/dashboard"
+            className="mt-8 inline-flex h-12 min-h-12 items-center justify-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-95 sm:px-8 sm:text-base"
+          >
+            Go to My Dashboard
           </Link>
         </div>
       </DashboardContainer>
@@ -1386,14 +1446,8 @@ export function AccountSettingsPage() {
       <DashboardPage>
         <DashboardContainer className="space-y-8">
           <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              aria-label="Back to dashboard"
-              className="inline-flex size-10 items-center justify-center rounded-full border border-primary/15 text-foreground/80 transition-colors hover:bg-muted hover:text-primary"
-            >
-              <ArrowLeft className="size-4" />
-            </Link>
-            <h1 className="text-xl font-semibold tracking-tight sm:text-[1.75rem]">Account Settings</h1>
+            <DashboardBackLink href="/dashboard" ariaLabel="Back to dashboard" />
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Account Settings</h1>
           </div>
 
           <DashboardPanel className="divide-y divide-primary/10 bg-white p-0">
@@ -1415,7 +1469,7 @@ export function AccountSettingsPage() {
                 </p>
                 <p className="text-muted-foreground">
                   Subscription plan:{" "}
-                  <span className="rounded-full bg-primary/15 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                  <span className="rounded-full bg-primary/15 px-3 py-0.5 text-[0.625rem] font-semibold uppercase leading-none tracking-wide text-primary sm:text-xs">
                     Free
                   </span>
                 </p>

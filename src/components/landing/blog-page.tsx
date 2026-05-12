@@ -435,8 +435,8 @@ function BlogArticleCard({ card, compact }: { card: BlogCardItem; compact: boole
       </div>
 
       <div className="space-y-3 pt-5">
-        <p className="text-[13px] font-medium underline underline-offset-2">{card.category}</p>
-        <h3 className="text-[1.1rem] font-medium leading-8 text-foreground">{card.title}</h3>
+        <p className="text-xs font-medium underline underline-offset-2 sm:text-sm">{card.category}</p>
+        <h3 className="text-lg font-medium leading-snug text-foreground sm:text-xl sm:leading-8">{card.title}</h3>
         <p className="text-sm text-muted-foreground">
           {card.date} | {card.readTime}
         </p>

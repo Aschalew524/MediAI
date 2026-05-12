@@ -180,7 +180,7 @@ function ProfessionalSidebarSection({
   return (
     <div className="space-y-3">
       {title ? (
-        <p className="px-1 text-[13px] font-medium text-muted-foreground/80">
+        <p className="px-1 text-xs font-medium text-muted-foreground/80">
           {title}
         </p>
       ) : null}
@@ -196,7 +196,7 @@ function ProfessionalSidebarSection({
               key={item.label}
               href={item.href}
               className={cn(
-                "group flex items-center gap-2.5 rounded-lg px-1 py-1 text-[15px] transition-colors",
+                "group flex min-h-10 items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors sm:min-h-0 sm:px-1 sm:py-1",
                 isActive
                   ? "text-foreground"
                   : "text-foreground/80 hover:text-foreground",

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import Link from "next/link";
 import {
   BadgeCheck,
   Clock,
@@ -27,6 +26,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import {
+  DashboardBackLink,
   DashboardBackTitle,
   DashboardContainer,
   DashboardPage,
@@ -90,13 +90,10 @@ export function FacilityLocatorDetailPage({ facilityId }: { facilityId: string }
     return (
       <DashboardPage>
         <DashboardContainer className="space-y-5">
-          <Link
+          <DashboardBackLink
             href="/dashboard/facility-locator"
-            className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
-          >
-            <span className="text-lg">←</span>
-            <span>Back to facility locator</span>
-          </Link>
+            ariaLabel="Back to facility locator"
+          />
 
           {state.kind === "loading" ? (
             <DashboardPanel className="px-6 py-10">
@@ -138,16 +135,11 @@ export function FacilityLocatorDetailPage({ facilityId }: { facilityId: string }
   return (
     <DashboardPage>
       <DashboardContainer className="space-y-6">
-        <div className="space-y-2">
-          <Link
-            href="/dashboard/facility-locator"
-            className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
-          >
-            <span className="text-lg">←</span>
-            <span>Back to facility locator</span>
-          </Link>
-          <DashboardBackTitle title="Facility details" />
-        </div>
+        <DashboardBackTitle
+          title="Facility details"
+          backHref="/dashboard/facility-locator"
+          backAriaLabel="Back to facility locator"
+        />
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
           <DashboardPanel className="space-y-5 px-6 py-6">
@@ -257,7 +249,7 @@ function FacilityTypeBadge({ type }: { type: FacilityType }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+        "inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[0.625rem] font-semibold uppercase leading-none tracking-wide sm:text-xs",
         type === "hospital" && "bg-primary/10 text-primary",
         type === "pharmacy" && "bg-emerald-50 text-emerald-600",
         type === "clinic" && "bg-amber-50 text-amber-600",

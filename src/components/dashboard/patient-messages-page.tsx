@@ -315,7 +315,7 @@ function Bubble({
         isDoctor ? "items-end" : "items-start",
       )}
     >
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {senderLabel} · {dateLabel}
       </div>
       <div
@@ -388,7 +388,7 @@ function Composer({
           Send
         </button>
       </div>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">
+      <p className="mt-1.5 text-xs text-muted-foreground">
         Enter to send · Shift + Enter for newline
       </p>
     </form>

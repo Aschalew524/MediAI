@@ -574,7 +574,7 @@ function FacilityCard({
                 {facility.address}
               </p>
               {distanceLine ? (
-                <p className="mt-0.5 pl-4 text-[11px] text-muted-foreground">{distanceLine}</p>
+                <p className="mt-0.5 pl-4 text-xs text-muted-foreground">{distanceLine}</p>
               ) : null}
             </div>
           </div>
@@ -582,7 +582,7 @@ function FacilityCard({
           <div className="flex shrink-0 flex-col items-end gap-1">
             <FacilityTypeBadge type={facility.type} />
             {typeof facility.distanceKm === "number" ? (
-              <span className="text-[11px] font-semibold text-primary">
+              <span className="text-xs font-semibold text-primary">
                 {formatDistance(facility.distanceKm)}
               </span>
             ) : null}
@@ -668,7 +668,7 @@ function FacilityTypeBadge({ type }: { type: FacilityType }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+        "inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-[0.625rem] font-semibold uppercase leading-none tracking-wide sm:text-xs",
         type === "hospital" && "bg-primary/10 text-primary",
         type === "pharmacy" && "bg-emerald-50 text-emerald-600",
         type === "clinic" && "bg-amber-50 text-amber-600",

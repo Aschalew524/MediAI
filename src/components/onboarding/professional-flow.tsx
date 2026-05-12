@@ -37,6 +37,10 @@ import type {
   SexOption,
 } from "@/lib/onboarding-content";
 import {
+  ethiopiaCharteredCities,
+  ethiopiaRegionalStates,
+} from "@/lib/onboarding-content";
+import {
   clearProfessionalOnboardingDraft,
   loadProfessionalOnboardingDraft,
   saveProfessionalOnboardingDraft,
@@ -546,11 +550,20 @@ export function ProfessionalOnboardingFlow({
                   }
                 >
                   <option value="">Select your Region</option>
-                  {config.ethiopianRegions.map((region) => (
-                    <option key={region} value={region}>
-                      {region}
-                    </option>
-                  ))}
+                  <optgroup label="Regional states">
+                    {ethiopiaRegionalStates.map((region) => (
+                      <option key={region} value={region}>
+                        {region}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Chartered cities">
+                    {ethiopiaCharteredCities.map((region) => (
+                      <option key={region} value={region}>
+                        {region}
+                      </option>
+                    ))}
+                  </optgroup>
                 </SelectField>
               </FieldWrapper>
             </div>

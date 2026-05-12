@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 
 import {
+  DashboardBackLink,
   DashboardActionButton,
   DashboardContainer,
   DashboardPage,
@@ -65,6 +66,7 @@ export function AdminEducationListPage() {
     <>
       <DashboardPage>
         <DashboardContainer className="space-y-8">
+          <DashboardBackLink href="/admin" ariaLabel="Back to admin home" />
           <DashboardSectionHeader
             title="Help pages"
             description="Edit symptom guide, glossary, and knowledge base content. Unpublishing hides a page from public URLs (soft delete)."
@@ -121,7 +123,7 @@ export function AdminEducationListPage() {
                   <div className="mt-2 sm:mt-0">
                     <span
                       className={cn(
-                        "inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                        "inline-flex rounded-full px-2.5 py-0.5 text-[0.625rem] font-semibold uppercase leading-none tracking-wide sm:text-xs",
                         row.published
                           ? "bg-emerald-50 text-emerald-700"
                           : "bg-muted text-muted-foreground",

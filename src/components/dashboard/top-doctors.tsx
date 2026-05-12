@@ -36,6 +36,7 @@ import { type ConsultationType, type TopDoctor } from "@/lib/top-doctors-content
 
 import {
   DashboardActionButton,
+  DashboardBackLink,
   DashboardBackTitle,
   DashboardContainer,
   DashboardPage,
@@ -289,13 +290,10 @@ export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
     return (
       <DashboardPage>
         <DashboardContainer className="space-y-5">
-          <Link
+          <DashboardBackLink
             href="/dashboard/top-doctors"
-            className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
-          >
-            <span className="text-lg">←</span>
-            <span>Back to top doctors</span>
-          </Link>
+            ariaLabel="Back to top doctors"
+          />
           {state.kind === "loading" ? (
             <DashboardPanel className="px-6 py-10">
               <p className="text-sm text-muted-foreground">Loading profile…</p>
@@ -331,13 +329,10 @@ export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
       <DashboardPage>
         <DashboardContainer className="space-y-5">
           <div className="space-y-2">
-            <Link
+            <DashboardBackLink
               href="/dashboard/top-doctors"
-              className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
-            >
-              <span className="text-lg">←</span>
-              <span>Doctor&apos;s Biography</span>
-            </Link>
+              ariaLabel="Back to top doctors"
+            />
 
             <div className="max-w-md text-sm text-muted-foreground">
               <p>
