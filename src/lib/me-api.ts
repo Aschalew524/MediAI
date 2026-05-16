@@ -3,7 +3,6 @@ import { isAxiosError } from "axios";
 import { messageFromAxiosData } from "@/lib/auth.types";
 import type {
   DashboardProfile,
-  DoctorVerificationSnapshot,
   DoctorVerificationStatus,
   MedicalHistoryData,
 } from "@/lib/dashboard-content";
@@ -105,6 +104,20 @@ function parsePreferredFeatureFromApi(
     default:
       return null;
   }
+}
+
+function toVerification(
+  raw: MeProfileApi["verification"],
+): DashboardProfile["verification"] {
+  if (!raw) {
+    return undefined;
+  }
+  return {
+    status: raw.status,
+    submittedAt: raw.submittedAt,
+    reviewedAt: raw.reviewedAt,
+    notes: raw.notes,
+  };
 }
 
 export function mapMeProfileToDashboard(

@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import { Bell, CircleUserRound, MessageCircleMore, ShieldCheck } from "lucide-react";
 
 import { getProfileName } from "@/lib/dashboard-content";
+import { getMyBilling, type MyBillingResponse } from "@/lib/payments-api";
 import { useDashboardAuth } from "@/components/auth/dashboard-auth-provider";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +46,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     );
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [billing, setBilling] = useState<MyBillingResponse | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, isLoading: authLoading, logout } = useDashboardAuth();
   const profile = useDashboardProfile();
@@ -59,6 +61,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const accountId = user?.id
     ? user.id.slice(0, 8).toUpperCase()
     : "—";
+  const billingState = user?.id ? billing : null;
+  const assistantBadge = billingState?.assistantAccess.active ? "Paid" : "Free";
+  const assistantSubline = billingState?.assistantAccess.active
+    ? billingState.assistantAccess.planName ?? "Assistant access active"
+    : "General chat only";
 
   useEffect(() => {
     if (!menuOpen) {
@@ -86,9 +93,26 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     };
   }, [menuOpen]);
 
-  if (bypassShell) {
-    return <div className="min-h-screen bg-background">{children}</div>;
-  }
+  useEffect(() => {
+    let cancelled = false;
+    if (!user?.id) return;
+
+    void getMyBilling()
+      .then((next) => {
+        if (!cancelled) {
+          setBilling(next);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBilling(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, user?.id]);
 
   if (bypassShell) {
     return <div className="min-h-screen bg-background">{children}</div>;
@@ -161,8 +185,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 aria-label="Open profile menu"
                 className="inline-flex items-center gap-2 rounded-full border border-primary/10 px-2 py-1 transition-colors hover:bg-muted"
               >
-                <span className="rounded-full bg-primary px-2 py-0.5 text-[0.625rem] leading-none font-semibold uppercase tracking-wide text-primary-foreground">
-                  Free
+                <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
+                  {assistantBadge}
                 </span>
                 <CircleUserRound className="size-5 text-muted-foreground" />
               </button>
@@ -172,8 +196,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   <div className="flex items-center gap-3">
                     <div className="relative inline-flex size-12 items-center justify-center rounded-full bg-muted text-primary">
                       <CircleUserRound className="size-7" />
-                      <span className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2 py-0.5 text-[0.625rem] leading-none font-semibold text-primary-foreground">
-                        Free
+                      <span className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                        {assistantBadge}
                       </span>
                     </div>
                     <div className="space-y-0.5">
@@ -181,6 +205,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                       <p className="text-xs text-muted-foreground">
                         Account: {accountId}
                       </p>
+                      <p className="text-xs text-muted-foreground">{assistantSubline}</p>
                     </div>
                   </div>
 

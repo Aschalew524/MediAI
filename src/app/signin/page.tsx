@@ -7,6 +7,7 @@ import { Lock, Mail } from "lucide-react";
 import { Suspense } from "react";
 
 import {
+  AuthFormErrorAlert,
   AuthOutlineButton,
   AuthPageShell,
   AuthPrimaryButton,
@@ -17,6 +18,7 @@ import {
   OrDivider,
 } from "@/components/auth/shared";
 import { postLogin, userFacingAxiosError } from "@/lib/auth-api";
+import api from "@/lib/axios";
 import {
   getGoogleOAuthStartUrl,
   isGoogleSignInUiEnabled,
@@ -28,8 +30,31 @@ function SignInForm() {
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
   const [formError, setFormError] = useState<string | null>(null);
+  const [dbPreflightError, setDbPreflightError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const showGoogle = isGoogleSignInUiEnabled();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await api.get("/health/database");
+        if (!cancelled) setDbPreflightError(null);
+      } catch (err) {
+        if (!cancelled) {
+          setDbPreflightError(
+            userFacingAxiosError(
+              err,
+              "Database is unavailable. Ensure PostgreSQL is running and DATABASE_URL user/password match your server (e.g. password for role `medi_ai`).",
+            ),
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const err = searchParams.get("error");
@@ -55,15 +80,17 @@ function SignInForm() {
     const email = String(fd.get("email") ?? "");
     const password = String(fd.get("password") ?? "");
     try {
-      await postLogin({ email, password });
-      if (
+      const session = await postLogin({ email, password });
+      const safeFrom =
         from &&
         !from.startsWith("//") &&
         (from.startsWith("/dashboard") || from.startsWith("/admin"))
-      ) {
-        router.push(from);
+          ? from
+          : null;
+      if (session.user.appRole === "admin") {
+        router.push(safeFrom?.startsWith("/admin") ? safeFrom : "/admin");
       } else {
-        router.push("/dashboard");
+        router.push(safeFrom ?? "/dashboard");
       }
     } catch (err) {
       setFormError(
@@ -81,13 +108,8 @@ function SignInForm() {
           Sign in to continue to the app.
         </p>
       ) : null}
-      {formError ? (
-        <p
-          role="alert"
-          className="mb-4 w-full rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-        >
-          {formError}
-        </p>
+      {dbPreflightError || formError ? (
+        <AuthFormErrorAlert message={dbPreflightError ?? formError ?? ""} />
       ) : null}
 
       <form className="w-full space-y-4" onSubmit={handleSubmit}>

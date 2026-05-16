@@ -16,6 +16,7 @@ import {
   ChevronDown,
   GraduationCap,
   Link2,
+  Loader2,
   SquareLibrary,
   UserRound,
   Video,
@@ -24,6 +25,13 @@ import {
 
 import { cn } from "@/lib/utils";
 import { getFriendlyAxiosMessage } from "@/lib/axios-error-messages";
+import {
+  getMyBilling,
+  createConsultationBooking,
+  initiateConsultationPayment,
+  userFacingPaymentError,
+  type BillingConsultation,
+} from "@/lib/payments-api";
 import {
   getTopDoctorById,
   getTopDoctorSpecialties,
@@ -251,7 +259,6 @@ function TopDoctorCard({ doctor }: { doctor: TopDoctor }) {
 
 type BiographyState =
   | { kind: "loading" }
-  | { kind: "invalid" }
   | { kind: "notFound" }
   | { kind: "error"; message: string }
   | { kind: "ok"; doctor: TopDoctor };
@@ -260,13 +267,13 @@ export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
   const [state, setState] = useState<BiographyState>({ kind: "loading" });
   const [consultationModalOpen, setConsultationModalOpen] = useState(false);
   const [consultationType, setConsultationType] = useState<ConsultationType>("video");
+  const [recentConsultation, setRecentConsultation] = useState<BillingConsultation | null>(null);
+  const invalidDoctorId = !isValidTopDoctorId(doctorId);
 
   useEffect(() => {
-    if (!isValidTopDoctorId(doctorId)) {
-      setState({ kind: "invalid" });
+    if (invalidDoctorId) {
       return;
     }
-    setState({ kind: "loading" });
     getTopDoctorById(doctorId)
       .then((doctor) => {
         setState({ kind: "ok", doctor });
@@ -284,9 +291,32 @@ export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
           });
         }
       });
-  }, [doctorId]);
+  }, [doctorId, invalidDoctorId]);
 
-  if (state.kind === "loading" || state.kind === "error" || state.kind === "invalid" || state.kind === "notFound") {
+  useEffect(() => {
+    if (invalidDoctorId) {
+      return;
+    }
+    let cancelled = false;
+    void getMyBilling()
+      .then((billing) => {
+        if (cancelled) return;
+        setRecentConsultation(
+          billing.recentConsultations.find((item) => item.topDoctorId === doctorId) ?? null,
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRecentConsultation(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [doctorId, invalidDoctorId]);
+
+  if (invalidDoctorId || state.kind === "loading" || state.kind === "error" || state.kind === "notFound") {
     return (
       <DashboardPage>
         <DashboardContainer className="space-y-5">
@@ -299,7 +329,7 @@ export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
               <p className="text-sm text-muted-foreground">Loading profile…</p>
             </DashboardPanel>
           ) : null}
-          {state.kind === "invalid" ? (
+          {invalidDoctorId ? (
             <DashboardPanel className="px-6 py-8">
               <p className="text-sm text-foreground">
                 This link does not look like a valid doctor id. Return to the directory to pick a
@@ -370,7 +400,7 @@ export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
                   className="flex items-center gap-2 text-base text-primary underline-offset-4 hover:underline"
                 >
                   <Video className="size-4" />
-                  <span>Video consultation: ${doctor.consultationFees.video}</span>
+                  <span>Video consultation: ETB {doctor.consultationFees.video}</span>
                 </button>
                 <button
                   type="button"
@@ -381,8 +411,19 @@ export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
                   className="flex items-center gap-2 text-base text-primary underline-offset-4 hover:underline"
                 >
                   <SquareLibrary className="size-4" />
-                  <span>Written consultation: ${doctor.consultationFees.written}</span>
+                  <span>Written consultation: ETB {doctor.consultationFees.written}</span>
                 </button>
+                {recentConsultation ? (
+                  <div className="rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3 text-sm">
+                    <p className="font-medium text-foreground">
+                      Latest booking status: {recentConsultation.status.replace(/_/g, " ")}
+                    </p>
+                    <p className="mt-1 text-muted-foreground">
+                      {recentConsultation.consultationType === "video" ? "Video" : "Written"} consultation
+                      at {recentConsultation.consultationFeeDisplay}
+                    </p>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -426,7 +467,7 @@ export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
               <h2 className="text-xl font-semibold tracking-tight">Biography</h2>
             </div>
             <div className="space-y-3 text-sm leading-relaxed text-foreground/95">
-              {doctor.biography.map((paragraph, i) => (
+              {doctor.biography.map((paragraph: string, i: number) => (
                 <p key={i}>{paragraph}</p>
               ))}
             </div>
@@ -535,6 +576,18 @@ function VideoConsultationModal({
   onClose: () => void;
 }) {
   const [selectedType, setSelectedType] = useState<ConsultationType>(consultationType);
+  const [submitting, setSubmitting] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  const feeForSelectedType =
+    selectedType === "video"
+      ? doctor.consultationFees.video
+      : doctor.consultationFees.written;
+  const canPaySelected = feeForSelectedType > 0;
+
+  useEffect(() => {
+    setPaymentError(null);
+  }, [selectedType]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm">
@@ -551,16 +604,52 @@ function VideoConsultationModal({
         <div className="space-y-2 pt-4 text-center">
           <h2 className="text-2xl font-bold tracking-tight">Choose for consultation</h2>
           <p className="text-sm text-muted-foreground">
-            This is a preview only. Booking and payment are not available in this version. Fill out
-            the form to express interest; we are not processing requests yet.
+            Create a consultation request, then continue to Chapa checkout to confirm payment.
           </p>
         </div>
 
         <form
           className="mt-6 grid gap-6 lg:mt-8 lg:grid-cols-[1fr_1fr]"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
-            onClose();
+            setPaymentError(null);
+            if (!canPaySelected) {
+              setPaymentError(
+                selectedType === "video"
+                  ? "This doctor has not set a video consultation fee (ETB) yet. They can add it under Dashboard → Doctor verification → Edit profile (?edit=1)."
+                  : "This doctor has not set a written consultation fee (ETB) yet. They can add it under Dashboard → Doctor verification → Edit profile (?edit=1).",
+              );
+              return;
+            }
+            setSubmitting(true);
+            try {
+              const formData = new FormData(event.currentTarget);
+              const details = [
+                `Full name: ${String(formData.get("fullName") ?? "").trim()}`,
+                `Phone: ${String(formData.get("phone") ?? "").trim()}`,
+                `Location: ${String(formData.get("location") ?? "").trim()}`,
+                `Diagnosis: ${String(formData.get("diagnosis") ?? "").trim()}`,
+                `Notes: ${String(formData.get("notes") ?? "").trim()}`,
+              ]
+                .filter((item) => !item.endsWith(":"))
+                .join("\n");
+              const booking = await createConsultationBooking({
+                topDoctorId: doctor.id,
+                consultationType: selectedType,
+                patientNotes: details || undefined,
+              });
+              const payment = await initiateConsultationPayment(booking.id);
+              window.location.assign(payment.checkoutUrl);
+            } catch (error: unknown) {
+              setPaymentError(
+                userFacingPaymentError(
+                  error,
+                  "We could not start this consultation payment. Please try again.",
+                ),
+              );
+            } finally {
+              setSubmitting(false);
+            }
           }}
         >
           <div className="self-start rounded-2xl border border-primary/25 p-4">
@@ -589,10 +678,17 @@ function VideoConsultationModal({
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             </ConsultationField>
 
+            {!canPaySelected ? (
+              <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950">
+                Paid checkout is unavailable for this consultation type until the doctor publishes a positive fee (whole ETB) on their public profile.
+              </p>
+            ) : null}
+
             <ConsultationField>
               <input
                 required
                 type="text"
+                name="fullName"
                 placeholder="Full Name"
                 className="h-12 w-full rounded-xl border border-primary/20 bg-white px-4 text-sm outline-none ring-0 transition-colors focus:border-primary"
               />
@@ -602,6 +698,7 @@ function VideoConsultationModal({
               <input
                 required
                 type="tel"
+                name="phone"
                 placeholder="Number"
                 className="h-12 w-full rounded-xl border border-primary/20 bg-white px-4 text-sm outline-none ring-0 transition-colors focus:border-primary"
               />
@@ -610,6 +707,7 @@ function VideoConsultationModal({
             <ConsultationField>
               <input
                 type="text"
+                name="location"
                 placeholder="City/Country"
                 className="h-12 w-full rounded-xl border border-primary/20 bg-white px-4 text-sm outline-none ring-0 transition-colors focus:border-primary"
               />
@@ -618,6 +716,7 @@ function VideoConsultationModal({
             <ConsultationField>
               <input
                 type="text"
+                name="diagnosis"
                 placeholder="Diagnosis"
                 className="h-12 w-full rounded-xl border border-primary/20 bg-white px-4 text-sm outline-none ring-0 transition-colors focus:border-primary"
               />
@@ -626,18 +725,31 @@ function VideoConsultationModal({
             <ConsultationField>
               <textarea
                 rows={4}
+                name="notes"
                 placeholder="Disease Discription"
                 className="w-full rounded-xl border border-primary/20 bg-white px-4 py-3 text-sm outline-none ring-0 transition-colors focus:border-primary"
               />
             </ConsultationField>
 
+            {paymentError ? (
+              <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                {paymentError}
+              </p>
+            ) : null}
+
             <button
-              type="button"
-              disabled
-              className="h-12 w-full cursor-not-allowed rounded-xl border border-dashed border-muted-foreground/30 bg-muted/40 px-6 text-base font-medium text-muted-foreground"
-              title="Booking is not available in v1"
+              type="submit"
+              disabled={submitting || !canPaySelected}
+              className="flex h-12 w-full items-center justify-center rounded-xl bg-primary px-6 text-base font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Go to payment (unavailable)
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Redirecting to payment…
+                </>
+              ) : (
+                "Go to payment"
+              )}
             </button>
           </div>
         </form>
@@ -660,9 +772,10 @@ function DoctorImage({
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
-  const isRemote = /^https?:\/\//i.test(src) || src.startsWith("data:");
+  const trimmed = src?.trim() ?? "";
+  const isRemote = /^https?:\/\//i.test(trimmed) || trimmed.startsWith("data:");
 
-  if (failed) {
+  if (!trimmed || failed) {
     return (
       <div
         className={cn(
@@ -678,7 +791,7 @@ function DoctorImage({
   if (isRemote) {
     return (
       <img
-        src={src}
+        src={trimmed}
         alt={alt}
         className={cn("h-full w-full object-cover", className)}
         onError={() => setFailed(true)}
@@ -690,7 +803,7 @@ function DoctorImage({
 
   return (
     <Image
-      src={src}
+      src={trimmed}
       alt={alt}
       width={900}
       height={675}

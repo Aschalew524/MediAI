@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Lock, Mail } from "lucide-react";
 
 import {
+  AuthFormErrorAlert,
   AuthOutlineButton,
   AuthPageShell,
   AuthPrimaryButton,
@@ -77,12 +78,7 @@ export default function SignUpEmailPage() {
           Passwords do not match. Please re-enter and try again.
         </p>
       ) : formError ? (
-        <p
-          role="alert"
-          className="mb-4 w-full rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-        >
-          {formError}
-        </p>
+        <AuthFormErrorAlert message={formError} />
       ) : null}
 
       <form className="w-full space-y-4" onSubmit={handleSubmit}>

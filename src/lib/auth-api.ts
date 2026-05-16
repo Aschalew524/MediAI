@@ -45,7 +45,7 @@ export function userFacingAxiosError(
   if (status === 503) {
     return (
       messageFromAxiosData(err.response?.data) ??
-        "The server could not reach the database. Check backend DATABASE_URL and that PostgreSQL is running."
+        "Database is unavailable. Ensure PostgreSQL is running and DATABASE_URL user/password match your server (e.g. password for role `medi_ai`)."
     );
   }
   if (status === 422) {

@@ -148,6 +148,7 @@ export function ChatConversationPage({
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [hydrating, setHydrating] = useState<boolean>(shouldHydrate);
   const [hydrationError, setHydrationError] = useState<string | null>(null);
+  const [assistantAccessRequired, setAssistantAccessRequired] = useState(false);
   const [draft, setDraft] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const doctorTypeMenuRef = useRef<HTMLDivElement>(null);
@@ -202,7 +203,13 @@ export function ChatConversationPage({
       } catch (err: unknown) {
         if (cancelled) return;
         const code = isAxiosError(err) ? err.response?.status : undefined;
+        if (mode === "personal" && code === 403) {
+          setAssistantAccessRequired(true);
+        }
         setHydrationError(
+          code === 403 && mode === "personal"
+            ? "An active assistant pass is required to open personalized chat history."
+            : 
           code === 404
             ? "This conversation could not be found."
             : code === 401
@@ -220,26 +227,7 @@ export function ChatConversationPage({
     return () => {
       cancelled = true;
     };
-  }, [shouldHydrate, requestedConversationId, name]);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handlePointerDown(event: PointerEvent) {
-      const el = doctorTypeMenuRef.current;
-      if (el && !el.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [menuOpen]);
+  }, [mode, shouldHydrate, requestedConversationId, name]);
 
   if (isProfessional) {
     return (
@@ -264,6 +252,7 @@ export function ChatConversationPage({
     setDraft("");
 
     setSending(true);
+    setAssistantAccessRequired(false);
 
     try {
       if (mode === "general" && !sessionIdRef.current) {
@@ -292,9 +281,14 @@ export function ChatConversationPage({
     } catch (err: unknown) {
       const code = isAxiosError(err) ? err.response?.status : undefined;
       const fallbackAuthor = mode === "personal" ? "AI Doctor" : "General Chat";
+      if (mode === "personal" && code === 403) {
+        setAssistantAccessRequired(true);
+      }
       const content =
         code === 401
           ? "Please sign in again to continue this conversation."
+          : code === 403 && mode === "personal"
+            ? "Personalized AI Doctor requires an active assistant pass. Open Billing to continue."
           : code === 404
             ? "Finish setting up your health profile to use the AI Doctor."
             : code === 429
@@ -315,17 +309,36 @@ export function ChatConversationPage({
 
   return (
     <>
-      <DashboardPage className="pb-0">
-        <DashboardContainer className="flex min-h-[calc(100vh-6rem)] max-w-5xl flex-col px-4 sm:px-6">
-          <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-primary/10 bg-linear-to-b from-primary/[0.04] via-background to-background shadow-[0_24px_80px_-48px_rgba(76,104,220,0.35)] sm:rounded-3xl">
-            <header className="sticky top-0 z-20 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-primary/10 bg-background/90 px-4 py-3 backdrop-blur-md sm:px-5 sm:py-4">
-              <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-                <DashboardBackLink
-                  href="/dashboard/ai-doctor"
-                  ariaLabel="Back to AI Doctor"
-                  className="shrink-0"
-                />
-                <div className="relative min-w-0 flex-1" ref={doctorTypeMenuRef}>
+      <DashboardPage>
+        <DashboardContainer>
+          {assistantAccessRequired ? (
+            <DashboardPanel className="mb-4 border-primary/20 bg-primary/5 px-5 py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    Personalized AI Doctor is locked until payment is confirmed.
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    General chat is still free, but personalized conversations use your saved medical context.
+                  </p>
+                </div>
+                <Link
+                  href="/pricing"
+                  className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  View assistant plans
+                </Link>
+              </div>
+            </DashboardPanel>
+          ) : null}
+          <section
+            className={cn(
+              "space-y-8 py-8",
+              messages.length === 0 && "flex min-h-[calc(100vh-12rem)] flex-col justify-center",
+            )}
+          >
+            <div className="flex flex-col justify-between gap-6 md:flex-row md:items-start">
+              <div className="relative">
                 <button
                   type="button"
                   onClick={() => setMenuOpen((open) => !open)}
@@ -636,6 +649,7 @@ export function ChatHistoryPage() {
   const [items, setItems] = useState<ApiPersonalConversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [assistantAccessRequired, setAssistantAccessRequired] = useState(false);
 
   useEffect(() => {
     if (isProfessional) return;
@@ -649,9 +663,12 @@ export function ChatHistoryPage() {
       .catch((err: unknown) => {
         if (cancelled) return;
         const code = isAxiosError(err) ? err.response?.status : undefined;
+        setAssistantAccessRequired(code === 403);
         setError(
           code === 401
             ? "Please sign in again to view your chat history."
+            : code === 403
+              ? "An active assistant pass is required to view personalized chat history."
             : "Could not load your chat history. Try again.",
         );
         setItems([]);
@@ -684,7 +701,22 @@ export function ChatHistoryPage() {
           </div>
         ) : error && items.length === 0 ? (
           <DashboardPanel className="px-5 py-8 text-center">
-            <p className="text-sm font-semibold text-destructive">{error}</p>
+            <p
+              className={cn(
+                "text-sm font-semibold",
+                assistantAccessRequired ? "text-foreground" : "text-destructive",
+              )}
+            >
+              {error}
+            </p>
+            {assistantAccessRequired ? (
+              <Link
+                href="/pricing"
+                className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                View assistant plans
+              </Link>
+            ) : null}
           </DashboardPanel>
         ) : items.length === 0 ? (
           <DashboardPanel className="flex flex-col items-center gap-3 px-6 py-10 text-center">

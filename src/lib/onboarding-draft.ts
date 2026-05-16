@@ -17,6 +17,7 @@ export type OnboardingDraftV1 = {
     preferredFeature:
       | "ai-doctor"
       | "top-doctors"
+      | "lab-test-interpretation"
       | null;
   };
 };
@@ -98,6 +99,7 @@ function normalizeDraft(raw: unknown): OnboardingDraftV1 | null {
   const pf =
     f.preferredFeature === "ai-doctor" ||
     f.preferredFeature === "top-doctors" ||
+    f.preferredFeature === "lab-test-interpretation" ||
     f.preferredFeature === null
       ? f.preferredFeature
       : null;
