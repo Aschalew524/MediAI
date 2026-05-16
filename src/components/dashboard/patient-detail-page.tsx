@@ -100,7 +100,7 @@ export function PatientDetailPage({ patientId }: { patientId: string }) {
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
           >
             <ArrowLeft className="size-4" aria-hidden />
-            Back to all patients
+            Back to My patients
           </Link>
         </div>
       </ProfessionalDashboardShell>

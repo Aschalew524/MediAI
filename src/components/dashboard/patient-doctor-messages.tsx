@@ -134,7 +134,7 @@ function PatientMessagesInboxPage() {
             <ThreadsEmptyState
               variant="empty"
               title="No conversations yet"
-              description="When a doctor sends you a message you’ll see it here. You can also reach out from the AI Doctor or your health profile."
+              description="Browse Top Doctors, open a profile, then tap “Message doctor” to start a conversation."
             />
           ) : (
             <ul>

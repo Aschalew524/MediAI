@@ -107,6 +107,30 @@ function notifyMessagesChanged() {
   window.dispatchEvent(new Event("mediai:messages-changed"));
 }
 
+export type ApiStartDoctorThread = {
+  threadId: string;
+  doctorUserId: string;
+  doctorName: string;
+  doctorSpecialty: string | null;
+};
+
+/**
+ * Patient opens a conversation with a verified doctor (from Top Doctors).
+ * Creates the thread when needed; pass `body` to send a first message immediately.
+ */
+export async function startConversationWithDoctor(
+  doctorUserId: string,
+  body?: string,
+): Promise<ApiStartDoctorThread> {
+  const payload = body?.trim() ? { body: body.trim() } : {};
+  const { data } = await api.post<ApiStartDoctorThread>(
+    `/me/messages/doctors/${encodeURIComponent(doctorUserId)}`,
+    payload,
+  );
+  notifyMessagesChanged();
+  return data;
+}
+
 /** Patient → doctor reply in an existing thread. */
 export async function sendMyMessage(
   threadId: string,
