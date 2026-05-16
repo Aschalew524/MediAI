@@ -5,10 +5,13 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  CalendarDays,
   CircleHelp,
+  ClipboardList,
   ClipboardPlus,
   FileText,
   History,
+  MessageCircleMore,
   UserRound,
   Users,
 } from "lucide-react";
@@ -21,6 +24,7 @@ import type { ApiPatientSummary } from "@/lib/services/professional-api";
 import { cn } from "@/lib/utils";
 
 import { DashboardContainer, DashboardPage } from "./primitives";
+import { useUnreadMessages } from "./use-unread-messages";
 
 /**
  * Lightweight patient view-model used by the professional clinical-assistant
@@ -39,6 +43,7 @@ type ProfessionalSidebarItem = {
   label: string;
   href: string;
   icon: ReactNode;
+  badge?: number;
 };
 
 const professionalSidebarSections: {
@@ -51,6 +56,26 @@ const professionalSidebarSections: {
         label: "My patients",
         href: "/dashboard/patients",
         icon: <Users className="size-4" />,
+      },
+    ],
+  },
+  {
+    title: "Practice",
+    items: [
+      {
+        label: "Messages",
+        href: "/dashboard/messages",
+        icon: <MessageCircleMore className="size-4" />,
+      },
+      {
+        label: "Appointments",
+        href: "/dashboard/appointments",
+        icon: <CalendarDays className="size-4" />,
+      },
+      {
+        label: "Booking requests",
+        href: "/dashboard/booking-requests",
+        icon: <ClipboardList className="size-4" />,
       },
     ],
   },
@@ -130,6 +155,16 @@ export function ProfessionalDashboardShell({
   contentClassName?: string;
 }) {
   const professionalName = getProfessionalName(profile);
+  const unreadMessages = useUnreadMessages();
+
+  const sidebarSections = professionalSidebarSections.map((section) => ({
+    ...section,
+    items: section.items.map((item) =>
+      item.href === "/dashboard/messages" && unreadMessages > 0
+        ? { ...item, badge: unreadMessages }
+        : item,
+    ),
+  }));
 
   return (
     <DashboardPage>
@@ -147,7 +182,7 @@ export function ProfessionalDashboardShell({
                   </p>
                 </div>
 
-                {professionalSidebarSections.map((section, index) => (
+                {sidebarSections.map((section, index) => (
                   <ProfessionalSidebarSection
                     key={section.title ?? `section-${index}`}
                     title={section.title}
@@ -195,7 +230,7 @@ function ProfessionalSidebarSection({
               key={item.label}
               href={item.href}
               className={cn(
-                "group flex min-h-10 items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors sm:min-h-0 sm:px-1 sm:py-1",
+                "group flex min-h-10 w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors sm:min-h-0 sm:px-1 sm:py-1",
                 isActive
                   ? "text-foreground"
                   : "text-foreground/80 hover:text-foreground",
@@ -214,6 +249,11 @@ function ProfessionalSidebarSection({
               <span className={cn("font-medium", isActive && "font-semibold")}>
                 {item.label}
               </span>
+              {item.badge && item.badge > 0 ? (
+                <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                  {item.badge > 99 ? "99+" : item.badge}
+                </span>
+              ) : null}
             </Link>
           );
         })}
