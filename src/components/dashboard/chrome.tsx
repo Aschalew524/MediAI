@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, type ReactNode } from "react";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { usePathname } from "next/navigation";
 import { Bell, CircleUserRound, MessageCircleMore, ShieldCheck } from "lucide-react";
 
 import { getProfileName } from "@/lib/dashboard-content";
@@ -13,14 +12,6 @@ import { useDashboardAuth } from "@/components/auth/dashboard-auth-provider";
 import { cn } from "@/lib/utils";
 
 import { useDashboardProfile } from "./use-dashboard-profile";
-import { useUnreadMessages } from "./use-unread-messages";
-
-/**
- * Routes that intentionally render full-bleed without the nav/avatar/menu
- * (e.g. the doctor verification gate, where the user isn't yet allowed into
- * the rest of the dashboard).
- */
-const SHELL_BYPASS_PATHS: readonly string[] = ["/dashboard/verify-doctor"];
 import { useUnreadMessages } from "./use-unread-messages";
 
 /**
@@ -38,19 +29,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       (p) => pathname === p || pathname.startsWith(`${p}/`),
     );
 
-  const pathname = usePathname();
-  const bypassShell =
-    pathname !== null &&
-    SHELL_BYPASS_PATHS.some(
-      (p) => pathname === p || pathname.startsWith(`${p}/`),
-    );
-
   const [menuOpen, setMenuOpen] = useState(false);
   const [billing, setBilling] = useState<MyBillingResponse | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, isLoading: authLoading, logout } = useDashboardAuth();
   const profile = useDashboardProfile();
-  const unreadMessages = useUnreadMessages();
   const unreadMessages = useUnreadMessages();
   const name = getProfileName(profile);
   const displayEmail = user?.email
@@ -121,7 +104,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <header className="relative z-40 border-b border-primary/10 bg-background/95 backdrop-blur">
-        <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-2 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 text-sm font-medium text-foreground"
@@ -138,15 +121,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </Link>
 
           <div className="relative flex items-center gap-2 sm:gap-3">
-            <Link
-              href="/dashboard/messages"
-              className="relative inline-flex"
-              aria-label={
-                unreadMessages > 0
-                  ? `Messages (${unreadMessages} unread)`
-                  : "Messages"
-              }
-            >
             <Link
               href="/dashboard/messages"
               className="relative inline-flex"
@@ -215,7 +189,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                     {(
                       [
                         { label: "Help & Support", href: "/knowledge-base" },
-                        { label: "Health Blog", href: "/dashboard/blog" },
                         { label: "Billing", href: "/pricing" },
                         { label: "Account Settings", href: "/dashboard/account-settings" },
                       ] as const
@@ -261,7 +234,7 @@ function HeaderIconButton({
     <button
       type="button"
       className={cn(
-        "inline-flex size-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full border border-primary/10 text-muted-foreground transition-colors hover:bg-muted hover:text-primary sm:size-10 sm:min-h-10 sm:min-w-10",
+        "inline-flex size-9 items-center justify-center rounded-full border border-primary/10 text-muted-foreground transition-colors hover:bg-muted hover:text-primary",
         className,
       )}
       {...props}

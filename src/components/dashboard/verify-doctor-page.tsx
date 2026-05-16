@@ -11,10 +11,6 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
-<<<<<<< HEAD
-  ChevronDown,
-=======
->>>>>>> dd2ad00 (Implement doctor verification feature with admin page and related components. Update TypeScript configuration to exclude test files. Add new pages for doctor verifications and verification management, including UI for approving and rejecting verifications. Enhance dashboard navigation to include doctor verification links.)
   Clock,
   Loader2,
   ShieldAlert,
@@ -31,20 +27,8 @@ import {
   dispatchMeRefresh,
 } from "@/lib/me-api";
 import type { ProfessionalProfile } from "@/lib/dashboard-content";
-<<<<<<< HEAD
-import {
-  ethiopiaCharteredCities,
-  ethiopiaRegionalStates,
-  ethiopianRegions,
-} from "@/lib/onboarding-content";
 import { cn } from "@/lib/utils";
 
-import { DashboardBackLink } from "@/components/dashboard/primitives";
-
-=======
-import { cn } from "@/lib/utils";
-
->>>>>>> dd2ad00 (Implement doctor verification feature with admin page and related components. Update TypeScript configuration to exclude test files. Add new pages for doctor verifications and verification management, including UI for approving and rejecting verifications. Enhance dashboard navigation to include doctor verification links.)
 /* -------------------------------------------------------------------------- */
 /*  Form state                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -318,10 +302,6 @@ export function VerifyDoctorPage() {
   return (
     <div className="min-h-screen bg-linear-to-br from-primary/5 via-background to-background px-5 py-10 sm:px-8">
       <div className="mx-auto w-full max-w-4xl space-y-6">
-<<<<<<< HEAD
-        <DashboardBackLink href="/dashboard" ariaLabel="Back to dashboard" />
-=======
->>>>>>> dd2ad00 (Implement doctor verification feature with admin page and related components. Update TypeScript configuration to exclude test files. Add new pages for doctor verifications and verification management, including UI for approving and rejecting verifications. Enhance dashboard navigation to include doctor verification links.)
         <Header
           status={status}
           submittedAt={submittedAt}
@@ -425,38 +405,6 @@ export function VerifyDoctorPage() {
               />
             </Field>
             <Field label="Region" htmlFor="region">
-<<<<<<< HEAD
-              <div className="relative">
-                <select
-                  id="region"
-                  value={form.region}
-                  onChange={(e) => setField("region", e.target.value)}
-                  className={cn(inputClass, "appearance-none pr-10")}
-                >
-                  <option value="">Where you primarily practice (optional)</option>
-                  {form.region && !ethiopianRegions.includes(form.region) ? (
-                    <option value={form.region}>
-                      {form.region} (saved — choose a standard region below)
-                    </option>
-                  ) : null}
-                  <optgroup label="Regional states">
-                    {ethiopiaRegionalStates.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Chartered cities">
-                    {ethiopiaCharteredCities.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              </div>
-=======
               <input
                 id="region"
                 value={form.region}
@@ -464,7 +412,6 @@ export function VerifyDoctorPage() {
                 className={inputClass}
                 placeholder="Where you primarily practice"
               />
->>>>>>> dd2ad00 (Implement doctor verification feature with admin page and related components. Update TypeScript configuration to exclude test files. Add new pages for doctor verifications and verification management, including UI for approving and rejecting verifications. Enhance dashboard navigation to include doctor verification links.)
             </Field>
           </div>
 
