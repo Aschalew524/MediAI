@@ -836,6 +836,14 @@ function DoctorImage({
   const [failed, setFailed] = useState(false);
   const trimmed = src?.trim() ?? "";
   const isRemote = /^https?:\/\//i.test(trimmed) || trimmed.startsWith("data:");
+  // `next/image` only accepts (a) absolute http(s)/data URLs or (b) paths
+  // rooted at "/" (served from /public). Anything else — relative paths
+  // like "uploads/foo.png", bare filenames, protocol-relative "//cdn/x"
+  // strings — makes the component throw `Failed to construct 'URL': Invalid
+  // URL` at render time, which crashes the whole route. Treat those as
+  // remote-ish and let the plain <img> tag deal with them (it just 404s
+  // gracefully instead of throwing).
+  const isPublicAsset = trimmed.startsWith("/");
 
   if (!trimmed || failed) {
     return (
@@ -850,7 +858,7 @@ function DoctorImage({
     );
   }
 
-  if (isRemote) {
+  if (isRemote || !isPublicAsset) {
     return (
       <img
         src={trimmed}
