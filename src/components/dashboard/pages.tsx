@@ -254,7 +254,7 @@ function ProfessionalDashboardHomePage({
               Hello {professionalName}!
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Manage patients, screenings, and assistant workflows from one
+              Manage your patients, screenings, and assistant workflows from one
               place.
             </p>
           </div>
@@ -271,7 +271,7 @@ function ProfessionalDashboardHomePage({
                   {isLoadingPatients
                     ? "Loading patients…"
                     : patients.length === 0
-                      ? "No registered patients yet"
+                      ? "No patients linked to you yet"
                       : "Jump to a patient…"}
                 </option>
                 {patients.map((patient) => (
@@ -288,12 +288,12 @@ function ProfessionalDashboardHomePage({
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Or browse the full directory in{" "}
+                Or open{" "}
                 <Link
                   href="/dashboard/patients"
                   className="font-medium text-primary hover:underline"
                 >
-                  All patients
+                  My patients
                 </Link>
                 .
               </p>
@@ -319,7 +319,8 @@ function ProfessionalDashboardHomePage({
           visual={<LabSheetVisual />}
         />
         <ProfessionalDashboardCard
-          title="Patients"
+          title="My patients"
+          description="Profiles and health records for patients linked to you."
           href="/dashboard/patients"
           visual={<PatientsVisual />}
         />
@@ -649,9 +650,8 @@ export function HealthProfilePage() {
   const profile = useDashboardProfile();
   const router = useRouter();
 
-  // Doctors no longer have a personal "Health Profile" page in this app — the
-  // dedicated patient directory at /dashboard/patients is the entry point for
-  // viewing and messaging patients.
+  // Doctors no longer have a personal "Health Profile" page — My patients is the
+  // entry point for profiles and messaging.
   useEffect(() => {
     if (profile.professionalProfile) {
       router.replace("/dashboard/patients");
@@ -662,7 +662,7 @@ export function HealthProfilePage() {
     return (
       <ProfessionalDashboardShell profile={profile}>
         <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
-          Redirecting to patients…
+          Redirecting to My patients…
         </div>
       </ProfessionalDashboardShell>
     );

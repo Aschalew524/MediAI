@@ -135,7 +135,7 @@ export function PatientMessagesPage({ patientId }: { patientId: string }) {
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
           >
             <ArrowLeft className="size-4" />
-            Back to all patients
+            Back to My patients
           </Link>
         </div>
       </ProfessionalDashboardShell>
@@ -157,7 +157,7 @@ export function PatientMessagesPage({ patientId }: { patientId: string }) {
             Back to {patientName}&rsquo;s profile
           </Link>
           <p className="text-sm text-muted-foreground">
-            Home / Patients /{" "}
+            Home / My patients /{" "}
             <Link
               href={`/dashboard/patients/${patientId}`}
               className="hover:underline"

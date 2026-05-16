@@ -77,7 +77,7 @@ function useProfessionalPatients(): {
         setError(
           code === 403
             ? "Only professional accounts can access patient data."
-            : "Could not load registered patients.",
+            : "Could not load your patients.",
         );
         setItems([]);
       })
@@ -218,7 +218,7 @@ export function ProfessionalChatOptionsPage() {
                   {selectedPatient
                     ? formatProfessionalPatient(selectedPatient)
                     : patientsLoading
-                      ? "Loading registered patients…"
+                      ? "Loading your patients…"
                       : "Select a patient to start a chat"}
                 </span>
                 <ChevronDown className="size-4 text-muted-foreground" />
@@ -410,8 +410,8 @@ export function ProfessionalChatConversationPage({
             </h1>
             <p className="text-base text-muted-foreground">
               The Clinical Assistant uses the selected patient&rsquo;s profile
-              to ground every reply. Choose one of your registered patients to
-              start a conversation.
+              to ground every reply. Choose one of your patients from My patients
+              to start a conversation.
             </p>
           </div>
           <button
@@ -828,7 +828,7 @@ function PatientSelectionModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm">
       <div className="w-full max-w-4xl rounded-[1.75rem] bg-white p-5 shadow-[0_40px_100px_-48px_rgba(0,0,0,0.5)]">
         <div className="mb-4 flex items-start justify-between gap-4">
-          <p className="text-sm text-muted-foreground">Select Patient</p>
+          <p className="text-sm text-muted-foreground">Select from My patients</p>
           <button
             type="button"
             onClick={onClose}
@@ -853,10 +853,10 @@ function PatientSelectionModal({
           ) : patients.length === 0 ? (
             <div className="rounded-2xl bg-muted/40 px-4 py-6 text-center">
               <p className="text-base font-medium text-foreground">
-                No registered patients yet
+                No patients in your list yet
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Patients appear here once they sign up on this server.
+                Patients are added when they message you from Top Doctors.
               </p>
             </div>
           ) : (
@@ -882,59 +882,12 @@ function PatientSelectionModal({
               ))}
             </ul>
           )}
-          {error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          ) : null}
-
-          {isLoading ? (
-            <div className="flex min-h-32 items-center justify-center">
-              <Loader2 className="size-6 animate-spin text-primary" />
-            </div>
-          ) : patients.length === 0 ? (
-            <div className="rounded-2xl bg-muted/40 px-4 py-6 text-center">
-              <p className="text-base font-medium text-foreground">
-                No registered patients yet
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Patients appear here once they sign up on this server.
-              </p>
-            </div>
-          ) : (
-            <ul className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-              {patients.map((patient) => (
-                <li key={patient.id}>
-                  <button
-                    type="button"
-                    onClick={() => onSelect(patient)}
-                    className={cn(
-                      "block w-full rounded-2xl px-4 py-3 text-left text-xl font-medium transition-colors sm:text-2xl",
-                      selectedPatientId === patient.id
-                        ? "bg-primary/6 text-primary"
-                        : "hover:bg-muted",
-                    )}
-                  >
-                    <span className="text-foreground">{patient.name}</span>{" "}
-                    <span className="text-muted-foreground">
-                      {patient.age} y.o {patient.sex}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="flex flex-col gap-5 pt-3 sm:flex-row sm:items-end sm:justify-between">
-            <p className="text-base font-medium text-foreground sm:text-lg">
-              Can&apos;t find the patient?
-            </p>
+          <div className="pt-3 text-center">
             <Link
               href="/dashboard/patients"
-              className="inline-flex h-12 items-center justify-center gap-3 rounded-2xl bg-primary px-6 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-95"
+              className="text-sm font-medium text-primary hover:underline"
             >
-              <CirclePlus className="size-4" />
-              Browse all patients
+              Open My patients for full profiles
             </Link>
           </div>
         </div>

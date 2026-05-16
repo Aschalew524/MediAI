@@ -46,10 +46,9 @@ const professionalSidebarSections: {
   items: ProfessionalSidebarItem[];
 }[] = [
   {
-    title: "Patients",
     items: [
       {
-        label: "All patients",
+        label: "My patients",
         href: "/dashboard/patients",
         icon: <Users className="size-4" />,
       },

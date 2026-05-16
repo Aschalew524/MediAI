@@ -11,12 +11,15 @@ import {
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { isAxiosError } from "axios";
 import {
   BriefcaseBusiness,
   ChevronDown,
   GraduationCap,
   Link2,
   Loader2,
+  MessageCircleMore,
   SquareLibrary,
   UserRound,
   Video,
@@ -41,7 +44,9 @@ import {
   listTopDoctors,
 } from "@/lib/top-doctors-api";
 import { type ConsultationType, type TopDoctor } from "@/lib/top-doctors-content";
+import { startConversationWithDoctor } from "@/lib/services/messages-api";
 
+import { useDashboardProfile } from "./use-dashboard-profile";
 import {
   DashboardActionButton,
   DashboardBackLink,
@@ -264,11 +269,41 @@ type BiographyState =
   | { kind: "ok"; doctor: TopDoctor };
 
 export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
+  const router = useRouter();
+  const dashboardProfile = useDashboardProfile();
+  const isPatientAccount = !dashboardProfile.professionalProfile;
   const [state, setState] = useState<BiographyState>({ kind: "loading" });
   const [consultationModalOpen, setConsultationModalOpen] = useState(false);
   const [consultationType, setConsultationType] = useState<ConsultationType>("video");
   const [recentConsultation, setRecentConsultation] = useState<BillingConsultation | null>(null);
+  const [messageError, setMessageError] = useState<string | null>(null);
+  const [isStartingMessage, setIsStartingMessage] = useState(false);
   const invalidDoctorId = !isValidTopDoctorId(doctorId);
+
+  async function handleMessageDoctor() {
+    if (state.kind !== "ok") return;
+    setMessageError(null);
+    setIsStartingMessage(true);
+    try {
+      const { threadId } = await startConversationWithDoctor(state.doctor.id);
+      router.push(`/dashboard/messages/${encodeURIComponent(threadId)}`);
+    } catch (err: unknown) {
+      const code = isAxiosError(err) ? err.response?.status : undefined;
+      if (code === 403) {
+        setMessageError("Only patient accounts can message doctors.");
+      } else if (code === 404) {
+        setMessageError("This doctor is not available for messaging.");
+      } else if (code === 401) {
+        setMessageError("Please sign in to message this doctor.");
+      } else {
+        setMessageError(
+          getFriendlyAxiosMessage(err, "Could not start the conversation. Try again."),
+        );
+      }
+    } finally {
+      setIsStartingMessage(false);
+    }
+  }
 
   useEffect(() => {
     if (invalidDoctorId) {
@@ -390,6 +425,33 @@ export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
               </div>
 
               <div className="space-y-3">
+                {isPatientAccount ? (
+                  <div className="space-y-2 rounded-2xl border border-primary/15 bg-primary/[0.03] px-4 py-4">
+                    <h2 className="text-lg font-semibold">Contact</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Review this profile, then message the doctor when you are ready.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void handleMessageDoctor()}
+                      disabled={isStartingMessage}
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-95 disabled:opacity-60"
+                    >
+                      {isStartingMessage ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <MessageCircleMore className="size-4" />
+                      )}
+                      Message doctor
+                    </button>
+                    {messageError ? (
+                      <p className="text-sm text-destructive" role="alert">
+                        {messageError}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 <h2 className="text-lg font-semibold">Consultation Fees</h2>
                 <button
                   type="button"

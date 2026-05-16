@@ -124,18 +124,20 @@ export function PatientListPage() {
           <div className="flex items-center gap-3">
             <DashboardBackLink href="/dashboard" ariaLabel="Back to dashboard" />
             <p className="text-sm text-muted-foreground">
-              Home / <span className="font-semibold text-foreground">Patients</span>
+              Home / <span className="font-semibold text-foreground">My patients</span>
             </p>
           </div>
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                Patients
+                My patients
               </h1>
               <p className="text-sm text-muted-foreground">
                 {isLoading
-                  ? "Loading registered patients…"
-                  : `${total} registered patient${total === 1 ? "" : "s"} on this server.`}
+                  ? "Loading your patients…"
+                  : total === 0
+                    ? "Patients who message you from Top Doctors appear here."
+                    : `${total} patient${total === 1 ? "" : "s"} in your care.`}
               </p>
             </div>
           </div>
@@ -178,7 +180,7 @@ function SearchBar({
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Search patients by name or email…"
+        placeholder="Search my patients by name or email…"
         className="h-12 w-full rounded-xl border border-primary/12 bg-white pl-11 pr-4 text-sm outline-none transition-colors focus:border-primary"
       />
     </label>
@@ -285,12 +287,12 @@ function EmptyState({ query }: { query: string }) {
         <Users className="size-7" />
       </div>
       <p className="text-base font-medium text-foreground">
-        {query ? "No patients matched your search" : "No registered patients yet"}
+        {query ? "No patients matched your search" : "No patients yet"}
       </p>
       <p className="max-w-md text-sm">
         {query
           ? "Try a different name or email."
-          : "When patients complete the onboarding flow they will appear here automatically."}
+          : "When a patient messages you from Top Doctors, they are added to My patients and you can open their full profile here."}
       </p>
       {query ? null : (
         <div className="mt-2 flex flex-col items-center gap-2">

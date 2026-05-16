@@ -249,12 +249,12 @@ export function ProfessionalPatientProfilePage({
             className="inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-primary"
           >
             <ArrowLeft className="size-4 shrink-0" aria-hidden />
-            <span>Go to All Patients</span>
+            <span>Back to My patients</span>
           </Link>
 
           <p className="text-sm text-muted-foreground">
-            Home / Patients /{" "}
-            <span className="font-semibold text-foreground">Patient Profile</span>
+            Home / My patients /{" "}
+            <span className="font-semibold text-foreground">Patient profile</span>
           </p>
         </div>
 
