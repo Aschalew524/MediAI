@@ -73,6 +73,7 @@ type PersonalFormLike = {
   preferredFeature:
     | "ai-doctor"
     | "top-doctors"
+    | "lab-test-interpretation"
     | null;
 };
 

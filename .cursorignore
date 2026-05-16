@@ -1,0 +1,8 @@
+# Cursor: do not index Next output or deps (avoids CPU/RAM storms when `.next` churns).
+.next/
+node_modules/
+out/
+build/
+coverage/
+.turbo/
+.vercel/

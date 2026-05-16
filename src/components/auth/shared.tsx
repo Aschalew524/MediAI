@@ -42,6 +42,32 @@ export function OrDivider() {
   );
 }
 
+/** Long server messages (e.g. Prisma P1000 → 503) need clearer layout than a single-line error. */
+export function AuthFormErrorAlert({ message }: { message: string }) {
+  const isInfrastructure =
+    /database is unavailable|postgresql is running|DATABASE_URL|role `medi_ai`|service unavailable/i.test(
+      message,
+    );
+  if (isInfrastructure) {
+    return (
+      <div
+        role="alert"
+        className="mb-4 max-h-[min(40vh,320px)] w-full overflow-y-auto rounded-xl border border-amber-500/35 bg-amber-500/[0.07] px-3 py-3 text-left text-sm leading-relaxed text-amber-950 dark:border-amber-400/35 dark:bg-amber-400/10 dark:text-amber-50"
+      >
+        <p className="whitespace-pre-wrap break-words">{message}</p>
+      </div>
+    );
+  }
+  return (
+    <p
+      role="alert"
+      className="mb-4 w-full rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+    >
+      {message}
+    </p>
+  );
+}
+
 export function LegalDisclaimer({ verb }: { verb: "signing in" | "signing up" }) {
   return (
     <p className="mt-8 max-w-sm text-center text-xs leading-relaxed text-muted-foreground">

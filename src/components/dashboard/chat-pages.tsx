@@ -31,7 +31,7 @@ import {
 } from "@/lib/services/app-content";
 import { cn } from "@/lib/utils";
 
-import { DashboardActionButton, DashboardBackLink, DashboardBackTitle, DashboardContainer, DashboardPage, DashboardPanel } from "./primitives";
+import { DashboardActionButton, DashboardContainer, DashboardPage, DashboardPanel } from "./primitives";
 import {
   ProfessionalChatConversationPage,
   ProfessionalChatHistoryPage,
@@ -58,11 +58,8 @@ export function ChatOptionsPage() {
   return (
     <DashboardPage>
       <DashboardContainer>
-        <section className="flex min-h-[calc(100vh-12rem)] flex-col py-8">
-          <div className="mb-6 flex w-full max-w-4xl justify-start self-center">
-            <DashboardBackLink href="/dashboard" ariaLabel="Back to dashboard" />
-          </div>
-          <div className="mx-auto w-full max-w-4xl space-y-12 text-center">
+        <section className="flex min-h-[calc(100vh-12rem)] items-center justify-center py-8">
+          <div className="w-full max-w-4xl space-y-12 text-center">
             <div className="space-y-5">
               <div className="mx-auto">
                 <DoctorOrb />
@@ -148,9 +145,9 @@ export function ChatConversationPage({
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [hydrating, setHydrating] = useState<boolean>(shouldHydrate);
   const [hydrationError, setHydrationError] = useState<string | null>(null);
+  const [assistantAccessRequired, setAssistantAccessRequired] = useState(false);
   const [draft, setDraft] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const doctorTypeMenuRef = useRef<HTMLDivElement>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [issueDraft, setIssueDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -202,7 +199,13 @@ export function ChatConversationPage({
       } catch (err: unknown) {
         if (cancelled) return;
         const code = isAxiosError(err) ? err.response?.status : undefined;
+        if (mode === "personal" && code === 403) {
+          setAssistantAccessRequired(true);
+        }
         setHydrationError(
+          code === 403 && mode === "personal"
+            ? "An active assistant pass is required to open personalized chat history."
+            : 
           code === 404
             ? "This conversation could not be found."
             : code === 401
@@ -220,26 +223,7 @@ export function ChatConversationPage({
     return () => {
       cancelled = true;
     };
-  }, [shouldHydrate, requestedConversationId, name]);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handlePointerDown(event: PointerEvent) {
-      const el = doctorTypeMenuRef.current;
-      if (el && !el.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [menuOpen]);
+  }, [mode, shouldHydrate, requestedConversationId, name]);
 
   if (isProfessional) {
     return (
@@ -264,6 +248,7 @@ export function ChatConversationPage({
     setDraft("");
 
     setSending(true);
+    setAssistantAccessRequired(false);
 
     try {
       if (mode === "general" && !sessionIdRef.current) {
@@ -292,9 +277,14 @@ export function ChatConversationPage({
     } catch (err: unknown) {
       const code = isAxiosError(err) ? err.response?.status : undefined;
       const fallbackAuthor = mode === "personal" ? "AI Doctor" : "General Chat";
+      if (mode === "personal" && code === 403) {
+        setAssistantAccessRequired(true);
+      }
       const content =
         code === 401
           ? "Please sign in again to continue this conversation."
+          : code === 403 && mode === "personal"
+            ? "Personalized AI Doctor requires an active assistant pass. Open Billing to continue."
           : code === 404
             ? "Finish setting up your health profile to use the AI Doctor."
             : code === 429
@@ -315,43 +305,43 @@ export function ChatConversationPage({
 
   return (
     <>
-      <DashboardPage className="pb-0">
-        <DashboardContainer className="flex min-h-[calc(100vh-6rem)] max-w-5xl flex-col px-4 sm:px-6">
-          <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-primary/10 bg-linear-to-b from-primary/[0.04] via-background to-background shadow-[0_24px_80px_-48px_rgba(76,104,220,0.35)] sm:rounded-3xl">
-            <header className="sticky top-0 z-20 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-primary/10 bg-background/90 px-4 py-3 backdrop-blur-md sm:px-5 sm:py-4">
-              <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-                <DashboardBackLink
-                  href="/dashboard/ai-doctor"
-                  ariaLabel="Back to AI Doctor"
-                  className="shrink-0"
-                />
-                <div className="relative min-w-0 flex-1" ref={doctorTypeMenuRef}>
+      <DashboardPage>
+        <DashboardContainer>
+          {assistantAccessRequired ? (
+            <DashboardPanel className="mb-4 border-primary/20 bg-primary/5 px-5 py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    Personalized AI Doctor is locked until payment is confirmed.
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    General chat is still free, but personalized conversations use your saved medical context.
+                  </p>
+                </div>
+                <Link
+                  href="/pricing"
+                  className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  View assistant plans
+                </Link>
+              </div>
+            </DashboardPanel>
+          ) : null}
+          <section
+            className={cn(
+              "space-y-8 py-8",
+              messages.length === 0 && "flex min-h-[calc(100vh-12rem)] flex-col justify-center",
+            )}
+          >
+            <div className="flex flex-col justify-between gap-6 md:flex-row md:items-start">
+              <div className="relative">
                 <button
                   type="button"
                   onClick={() => setMenuOpen((open) => !open)}
-                  aria-expanded={menuOpen}
-                  aria-haspopup="menu"
-                  className="group flex max-w-full items-center gap-2 rounded-xl py-1.5 text-left transition-colors hover:bg-muted/80 sm:gap-3 sm:px-2"
+                  className="inline-flex items-center gap-3 text-4xl font-semibold tracking-tight"
                 >
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-lg text-primary shadow-inner sm:size-11">
-                    {mode === "personal" ? "✦" : "◇"}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-lg font-semibold tracking-tight text-foreground sm:text-xl">
-                      {mode === "personal" ? `${name}'s AI Doctor` : "General Chat"}
-                    </span>
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {mode === "personal"
-                        ? "Personal · uses your health profile"
-                        : "General · no saved memory"}
-                    </span>
-                  </span>
-                  <ChevronDown
-                    className={cn(
-                      "ml-auto size-5 shrink-0 text-muted-foreground transition-transform",
-                      menuOpen && "rotate-180",
-                    )}
-                  />
+                  <span>{mode === "personal" ? `${name}'s AI Doctor` : "General Chat"}</span>
+                  <ChevronDown className="size-5 text-muted-foreground" />
                 </button>
 
                 {menuOpen ? (
@@ -370,7 +360,6 @@ export function ChatConversationPage({
                   />
                 ) : null}
               </div>
-              </div>
 
               {messages.length > 0 ? (
                 <button
@@ -388,93 +377,77 @@ export function ChatConversationPage({
                       );
                     }
                   }}
-                  className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-white px-4 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary/5 sm:h-10 sm:px-5"
+                  className="inline-flex h-12 min-w-52 items-center justify-center gap-3 rounded-xl border border-primary/25 bg-white px-6 text-base font-medium text-primary transition-colors hover:bg-muted"
                 >
                   <Plus className="size-4" />
-                  New chat
+                  New Chat
                 </button>
               ) : null}
-            </header>
-
-            <div className="flex min-h-0 flex-1 flex-col">
-              {hydrationError ? (
-                <div
-                  role="alert"
-                  className="mx-4 mt-4 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive sm:mx-5"
-                >
-                  {hydrationError}
-                </div>
-              ) : null}
-
-              {hydrating ? (
-                <div className="flex flex-1 items-center justify-center py-20">
-                  <Loader2 className="size-8 animate-spin text-primary" />
-                </div>
-              ) : messages.length === 0 ? (
-                <div className="flex flex-1 flex-col items-center justify-center px-4 py-10 sm:py-14">
-                  <EmptyChatState mode={mode} />
-                </div>
-              ) : (
-                <div
-                  className="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:space-y-5 sm:px-5 sm:py-6"
-                  role="log"
-                  aria-live="polite"
-                >
-                  {messages.map((message, index) =>
-                    message.role === "user" ? (
-                      <div
-                        key={`${message.role}-${index}`}
-                        className="ml-auto flex max-w-[min(100%,42rem)] flex-col items-end gap-1.5"
-                      >
-                        <div className="rounded-2xl rounded-br-md bg-primary px-4 py-3 text-primary-foreground shadow-md sm:px-5 sm:py-3.5">
-                          <p className="whitespace-pre-wrap text-sm leading-relaxed sm:text-base">
-                            {message.content}
-                          </p>
-                        </div>
-                        <span className="pr-1 text-xs font-medium text-muted-foreground">
-                          {message.author}
-                        </span>
-                      </div>
-                    ) : (
-                      <div
-                        key={`${message.role}-${index}`}
-                        className="mr-auto flex max-w-[min(100%,42rem)] flex-col gap-2"
-                      >
-                        <div className="rounded-2xl rounded-bl-md border border-primary/12 bg-card px-4 py-3 shadow-sm sm:px-5 sm:py-3.5">
-                          <div className="mb-2 flex items-center justify-between gap-3 border-b border-primary/8 pb-2">
-                            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
-                              <span className="inline-flex size-7 items-center justify-center rounded-lg bg-primary/10 text-sm">
-                                ✦
-                              </span>
-                              <span>{message.author}</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setReportOpen(true)}
-                              className="shrink-0 text-xs font-medium text-primary underline-offset-2 hover:underline"
-                            >
-                              Report
-                            </button>
-                          </div>
-                          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90 sm:text-base">
-                            {message.content}
-                          </p>
-                        </div>
-                      </div>
-                    ),
-                  )}
-                </div>
-              )}
-
-              <div className="shrink-0 border-t border-primary/10 bg-background/95 p-4 backdrop-blur-md sm:p-5">
-                <ChatComposer
-                  value={draft}
-                  onChange={setDraft}
-                  onSend={submitMessage}
-                  sending={sending}
-                />
-              </div>
             </div>
+
+            {hydrationError ? (
+              <div
+                role="alert"
+                className="rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-3 text-sm text-destructive"
+              >
+                {hydrationError}
+              </div>
+            ) : null}
+
+            {hydrating ? (
+              <div className="flex min-h-[40vh] items-center justify-center">
+                <Loader2 className="size-6 animate-spin text-primary" />
+              </div>
+            ) : messages.length === 0 ? (
+              <EmptyChatState mode={mode} />
+            ) : (
+              <div className="space-y-5">
+                {messages.map((message, index) =>
+                  message.role === "user" ? (
+                    <DashboardPanel key={`${message.role}-${index}`} className="ml-auto max-w-4xl px-5 py-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                          <span>👤</span>
+                          <span>{message.author}</span>
+                        </div>
+                        <p className="text-base">{message.content}</p>
+                      </div>
+                    </DashboardPanel>
+                  ) : (
+                    <div
+                      key={`${message.role}-${index}`}
+                      className="rounded-[1.25rem] border border-primary/15 bg-primary/5 px-5 py-4 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                          <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary/10">
+                            ✦
+                          </span>
+                          <span>{message.author}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setReportOpen(true)}
+                          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                        >
+                          Report Issue
+                        </button>
+                      </div>
+                      <p className="mt-3 text-base leading-7 text-foreground/90">
+                        {message.content}
+                      </p>
+                    </div>
+                  ),
+                )}
+              </div>
+            )}
+
+            <ChatComposer
+              value={draft}
+              onChange={setDraft}
+              onSend={submitMessage}
+              sending={sending}
+            />
           </section>
         </DashboardContainer>
       </DashboardPage>
@@ -504,18 +477,13 @@ export function ChatConversationPage({
 
 function EmptyChatState({ mode }: { mode: ChatMode }) {
   return (
-    <div className="flex w-full max-w-lg flex-col items-center gap-8 text-center">
-      <div className="relative">
-        <div className="absolute inset-0 rounded-full bg-primary/15 blur-2xl" aria-hidden />
-        <DoctorOrb />
-      </div>
-      <div className="space-y-3">
-        <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-          How can I help you?
-        </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground sm:text-base sm:leading-relaxed">
+    <div className="flex flex-col items-center justify-center gap-6 text-center">
+      <DoctorOrb />
+      <div className="space-y-2">
+        <p className="max-w-xl text-base leading-7 text-muted-foreground">
           {getAssistantPrompt(mode)}
         </p>
+        <h2 className="text-3xl font-semibold tracking-tight">How can I help you?</h2>
       </div>
     </div>
   );
@@ -533,35 +501,29 @@ function ChatComposer({
   sending?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-primary/12 bg-white/90 p-1 shadow-inner ring-1 ring-primary/5 backdrop-blur-sm">
-      <div className="flex items-center gap-2 px-2 py-2 sm:gap-3 sm:px-3 sm:py-2.5">
-        <Paperclip className="size-4 shrink-0 text-primary/60" aria-hidden />
+    <div className="rounded-2xl border border-primary/25 bg-white px-4 py-3 shadow-sm">
+      <div className="flex items-center gap-3">
+        <Paperclip className="size-4 text-primary" />
         <input
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
-              void onSend();
+              onSend();
             }
           }}
-          placeholder="Ask a question…"
-          className="min-h-10 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground sm:text-base"
+          placeholder="Type Your Questions Here..."
+          className="flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
           disabled={sending}
-          aria-label="Message to AI doctor"
         />
         <button
           type="button"
-          onClick={() => void onSend()}
+          onClick={onSend}
           disabled={sending}
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md transition hover:opacity-90 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45"
-          aria-label="Send message"
+          className="inline-flex size-9 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/8"
         >
-          {sending ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <SendHorizonal className="size-4" />
-          )}
+          <SendHorizonal className="size-4" />
         </button>
       </div>
     </div>
@@ -585,41 +547,26 @@ function DoctorTypeMenu({
   onSelect: (mode: ChatMode) => void;
 }) {
   return (
-    <div
-      role="menu"
-      className="absolute left-0 right-0 top-full z-30 mt-2 w-full max-w-sm rounded-2xl border border-primary/12 bg-card p-2 shadow-[0_24px_60px_-28px_rgba(73,96,188,0.5)] ring-1 ring-primary/10 sm:right-auto sm:w-80"
-    >
-      <div className="space-y-1">
+    <div className="absolute left-0 top-12 z-20 w-80 rounded-2xl border border-primary/15 bg-white p-4 shadow-[0_24px_60px_-35px_rgba(73,96,188,0.7)]">
+      <div className="space-y-3">
         {doctorTypeOptions.map((option) => {
           const displayTitle =
             option.id === "personal" ? personalTitle : option.title;
-          const selected = currentMode === option.id;
           return (
             <button
               key={option.id}
               type="button"
-              role="menuitemradio"
-              aria-checked={selected}
               onClick={() => onSelect(option.id)}
-              className={cn(
-                "flex w-full items-start justify-between gap-3 rounded-xl px-3 py-3 text-left transition-colors",
-                selected ? "bg-primary/10 ring-1 ring-primary/15" : "hover:bg-muted/80",
-              )}
+              className="flex w-full items-start justify-between gap-4 rounded-xl px-3 py-2 text-left transition-colors hover:bg-muted"
             >
-              <div className="min-w-0 space-y-0.5">
-                <p className="font-semibold text-foreground">{displayTitle}</p>
-                <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">{displayTitle}</p>
+                <p className="text-sm leading-5 text-muted-foreground">
                   {option.description}
                 </p>
               </div>
-              <span className="mt-0.5 shrink-0 text-primary" aria-hidden>
-                {selected ? (
-                  <span className="inline-flex size-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                    ✓
-                  </span>
-                ) : (
-                  <Circle className="size-5 text-muted-foreground/50" />
-                )}
+              <span className="mt-1 text-primary">
+                {currentMode === option.id ? "◉" : <Circle className="size-4" />}
               </span>
             </button>
           );
@@ -636,6 +583,7 @@ export function ChatHistoryPage() {
   const [items, setItems] = useState<ApiPersonalConversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [assistantAccessRequired, setAssistantAccessRequired] = useState(false);
 
   useEffect(() => {
     if (isProfessional) return;
@@ -649,9 +597,12 @@ export function ChatHistoryPage() {
       .catch((err: unknown) => {
         if (cancelled) return;
         const code = isAxiosError(err) ? err.response?.status : undefined;
+        setAssistantAccessRequired(code === 403);
         setError(
           code === 401
             ? "Please sign in again to view your chat history."
+            : code === 403
+              ? "An active assistant pass is required to view personalized chat history."
             : "Could not load your chat history. Try again.",
         );
         setItems([]);
@@ -671,12 +622,21 @@ export function ChatHistoryPage() {
   return (
     <DashboardPage>
       <DashboardContainer className="space-y-8">
-        <DashboardBackTitle
-          title="Chat History"
-          description="Conversations with your AI Doctor (most recent first). Open one to continue the chat — the assistant remembers everything you've discussed."
-          backHref="/dashboard/ai-doctor"
-          backAriaLabel="Back to AI Doctor"
-        />
+        <div className="space-y-5">
+          <Link
+            href="/dashboard/ai-doctor"
+            className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
+          >
+            <span className="text-lg">←</span>
+            <span>My Dashboard</span>
+          </Link>
+          <h1 className="text-4xl font-semibold tracking-tight">Chat History</h1>
+          <p className="text-sm text-muted-foreground">
+            Conversations with your AI Doctor (most recent first). Open one to
+            continue the chat — the assistant remembers everything you’ve
+            discussed.
+          </p>
+        </div>
 
         {isLoading ? (
           <div className="flex min-h-[40vh] items-center justify-center">
@@ -684,7 +644,22 @@ export function ChatHistoryPage() {
           </div>
         ) : error && items.length === 0 ? (
           <DashboardPanel className="px-5 py-8 text-center">
-            <p className="text-sm font-semibold text-destructive">{error}</p>
+            <p
+              className={cn(
+                "text-sm font-semibold",
+                assistantAccessRequired ? "text-foreground" : "text-destructive",
+              )}
+            >
+              {error}
+            </p>
+            {assistantAccessRequired ? (
+              <Link
+                href="/pricing"
+                className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                View assistant plans
+              </Link>
+            ) : null}
           </DashboardPanel>
         ) : items.length === 0 ? (
           <DashboardPanel className="flex flex-col items-center gap-3 px-6 py-10 text-center">

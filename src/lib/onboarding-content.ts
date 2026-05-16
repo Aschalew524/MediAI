@@ -79,7 +79,7 @@ export const sexOptions: SexOption[] = [
 ];
 
 export type FeatureOption = {
-  id: "ai-doctor" | "top-doctors";
+  id: "ai-doctor" | "top-doctors" | "lab-test-interpretation";
   title: string;
   description: string;
 };
@@ -94,6 +94,12 @@ export const featureOptions: FeatureOption[] = [
     id: "top-doctors",
     title: "Consultation with Top Doctors",
     description: "Access 350+ top doctors from the US and Ethiopia.",
+  },
+  {
+    id: "lab-test-interpretation",
+    title: "Lab test interpretation",
+    description:
+      "A dedicated flow for understanding lab results is coming soon. You can open this area from the dashboard for updates.",
   },
 ];
 

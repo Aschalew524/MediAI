@@ -212,7 +212,7 @@ function ProfessionalMessagesInboxPage() {
             <p className="text-sm text-muted-foreground">
               Home / <span className="font-semibold text-foreground">Messages</span>
             </p>
-            <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+            <h1 className="mt-2 text-[2.4rem] font-semibold tracking-tight text-foreground">
               Patient Messages
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -303,7 +303,7 @@ function ProfessionalThreadRow({ thread }: { thread: ApiThreadSummary }) {
             >
               {name}
             </p>
-            <span className="shrink-0 text-xs text-muted-foreground">
+            <span className="shrink-0 text-[11px] text-muted-foreground">
               {date}
             </span>
           </div>
@@ -319,7 +319,7 @@ function ProfessionalThreadRow({ thread }: { thread: ApiThreadSummary }) {
               {preview}
             </p>
             {hasUnread ? (
-              <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[0.625rem] font-semibold leading-none text-primary-foreground">
+              <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
                 {thread.unreadCount}
               </span>
             ) : null}
@@ -358,7 +358,7 @@ function ThreadRow({ thread }: { thread: ApiThreadSummary }) {
             >
               {thread.doctorName}
             </p>
-            <span className="shrink-0 text-xs text-muted-foreground">
+            <span className="shrink-0 text-[11px] text-muted-foreground">
               {date}
             </span>
           </div>
@@ -374,13 +374,13 @@ function ThreadRow({ thread }: { thread: ApiThreadSummary }) {
               {preview}
             </p>
             {hasUnread ? (
-              <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[0.625rem] font-semibold leading-none text-primary-foreground">
+              <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
                 {thread.unreadCount}
               </span>
             ) : null}
           </div>
           {thread.doctorSpecialty ? (
-            <p className="mt-0.5 text-xs uppercase tracking-wide text-muted-foreground">
+            <p className="mt-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
               {thread.doctorSpecialty}
             </p>
           ) : null}
@@ -701,7 +701,7 @@ function Bubble({
         message.mine ? "items-end" : "items-start",
       )}
     >
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {senderLabel} · {dateLabel}
       </div>
       <div
@@ -774,7 +774,7 @@ function Composer({
           Send
         </button>
       </div>
-      <p className="mt-1.5 text-xs text-muted-foreground">
+      <p className="mt-1.5 text-[11px] text-muted-foreground">
         Enter to send · Shift + Enter for newline
       </p>
     </form>

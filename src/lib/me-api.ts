@@ -3,7 +3,6 @@ import { isAxiosError } from "axios";
 import { messageFromAxiosData } from "@/lib/auth.types";
 import type {
   DashboardProfile,
-  DoctorVerificationSnapshot,
   DoctorVerificationStatus,
   MedicalHistoryData,
 } from "@/lib/dashboard-content";
@@ -35,7 +34,8 @@ export type CompleteOnboardingPayload = {
   sexAtBirth: "male" | "female" | "other";
   preferredFeature:
     | "ai-doctor"
-    | "top-doctors";
+    | "top-doctors"
+    | "lab-test-interpretation";
 };
 
 export type GetMeProfileResponse = {
@@ -93,29 +93,37 @@ function toProfessional(
   return raw as DashboardProfile["professionalProfile"];
 }
 
+function parsePreferredFeatureFromApi(
+  raw: string,
+): DashboardProfile["preferredFeature"] {
+  switch (raw) {
+    case "ai-doctor":
+    case "top-doctors":
+    case "lab-test-interpretation":
+      return raw;
+    default:
+      return null;
+  }
+}
+
 function toVerification(
   raw: MeProfileApi["verification"],
-): DoctorVerificationSnapshot | undefined {
-  if (!raw) return undefined;
-  if (
-    raw.status !== "pending" &&
-    raw.status !== "verified" &&
-    raw.status !== "rejected"
-  ) {
+): DashboardProfile["verification"] {
+  if (!raw) {
     return undefined;
   }
   return {
     status: raw.status,
-    submittedAt: raw.submittedAt ?? null,
-    reviewedAt: raw.reviewedAt ?? null,
-    notes: raw.notes ?? null,
+    submittedAt: raw.submittedAt,
+    reviewedAt: raw.reviewedAt,
+    notes: raw.notes,
   };
 }
 
 export function mapMeProfileToDashboard(
   p: MeProfileApi,
 ): DashboardProfile {
-  const pf = p.preferredFeature as DashboardProfile["preferredFeature"];
+  const pf = parsePreferredFeatureFromApi(p.preferredFeature);
   return {
     preferredName: p.preferredName,
     age: p.age,

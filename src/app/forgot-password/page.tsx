@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Mail } from "lucide-react";
 
 import {
+  AuthFormErrorAlert,
   AuthPageShell,
   AuthPrimaryButton,
   IconInput,
@@ -79,14 +80,7 @@ export default function ForgotPasswordPage() {
             Please enter your email and we will send you the link to reset a password.
           </p>
 
-          {formError ? (
-            <p
-              role="alert"
-              className="mb-4 w-full rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-            >
-              {formError}
-            </p>
-          ) : null}
+          {formError ? <AuthFormErrorAlert message={formError} /> : null}
 
           <form className="w-full space-y-5" onSubmit={handleSubmit}>
             <IconInput

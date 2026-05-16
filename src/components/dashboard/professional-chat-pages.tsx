@@ -41,7 +41,7 @@ import {
   type ProfessionalPatient,
   ProfessionalDashboardShell,
 } from "./professional-shell";
-import { DashboardBackLink, DashboardBackTitle, DashboardPanel } from "./primitives";
+import { DashboardPanel } from "./primitives";
 import { useDashboardProfile } from "./use-dashboard-profile";
 
 type ProfessionalConversationMessage = {
@@ -51,13 +51,6 @@ type ProfessionalConversationMessage = {
   timestamp: string;
 };
 
-/**
- * Pulls the registered patient list once (cached at component level via
- * `useEffect`) and exposes both the array and a helper that finds a patient by
- * id. All UUIDs come from the backend so URLs like
- * `/dashboard/ai-doctor/personal?patient=<uuid>` always resolve to a real
- * patient.
- */
 function useProfessionalPatients(): {
   patients: ProfessionalPatient[];
   isLoading: boolean;
@@ -66,8 +59,6 @@ function useProfessionalPatients(): {
   refresh: () => void;
 } {
   const [items, setItems] = useState<ApiPatientSummary[]>([]);
-  // Initialise to `true` so the first paint shows the loading spinner without
-  // the cascading `setState`-in-effect that React 19 warns about.
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -98,10 +89,7 @@ function useProfessionalPatients(): {
     };
   }, [reloadToken]);
 
-  const patients = useMemo(
-    () => items.map(toProfessionalPatient),
-    [items],
-  );
+  const patients = useMemo(() => items.map(toProfessionalPatient), [items]);
   const findPatient = useCallback(
     (id: string | null | undefined) =>
       patients.find((p) => p.id === id) ?? null,
@@ -111,8 +99,6 @@ function useProfessionalPatients(): {
 
   return { patients, isLoading, error, findPatient, refresh };
 }
-
-type HistoryFilter = "all" | ChatMode;
 
 const conversationPrompts = [
   {
@@ -140,6 +126,36 @@ const conversationPrompts = [
     icon: FileSearch,
   },
 ];
+
+function proGeneralSessionKey(patientId: string) {
+  return `mediai:pro:gen:${patientId}`;
+}
+
+/**
+ * There is no backend "clinical chat with patient context" path yet. We call
+ * {@link postGeneralMessage} (no user profile in the model). JWT is only sent
+ * for rate limits. Multi-turn is keyed per patient in sessionStorage.
+ */
+function getOrCreateProGeneralSessionId(patientId: string): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  const k = proGeneralSessionKey(patientId);
+  let s = sessionStorage.getItem(k);
+  if (!s) {
+    s = crypto.randomUUID();
+    sessionStorage.setItem(k, s);
+  }
+  return s;
+}
+
+function resetProGeneralSessionId(patientId: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const s = crypto.randomUUID();
+  sessionStorage.setItem(proGeneralSessionKey(patientId), s);
+}
 
 const researchPlanItems = [
   {
@@ -175,16 +191,13 @@ export function ProfessionalChatOptionsPage() {
     <>
       <ProfessionalDashboardShell profile={profile}>
         <section className="flex min-h-[calc(100vh-11rem)] flex-col justify-center">
-          <div className="mx-auto mb-8 flex w-full max-w-4xl justify-start">
-            <DashboardBackLink href="/dashboard" ariaLabel="Back to dashboard" />
-          </div>
           <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-10 text-center">
             <div className="space-y-5">
               <div className="mx-auto">
                 <DoctorOrb />
               </div>
               <div className="space-y-2">
-                <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+                <h1 className="text-[2.7rem] font-semibold tracking-tight text-foreground">
                   AI Clinical Assistant
                 </h1>
                 <p className="text-base text-muted-foreground">
@@ -199,7 +212,7 @@ export function ProfessionalChatOptionsPage() {
                 type="button"
                 onClick={() => setPatientPickerOpen(true)}
                 disabled={patientsLoading}
-                className="flex h-12 min-h-12 w-full items-center justify-between rounded-2xl border border-primary/15 bg-white px-4 py-3 text-left text-base text-foreground shadow-[0_26px_60px_-52px_rgba(76,104,220,0.8)] transition-colors hover:border-primary/25 disabled:cursor-not-allowed disabled:opacity-60 sm:h-11 sm:min-h-11 sm:text-sm"
+                className="flex h-13 w-full items-center justify-between rounded-2xl border border-primary/15 bg-white px-4 text-left text-sm text-foreground shadow-[0_26px_60px_-52px_rgba(76,104,220,0.8)] transition-colors hover:border-primary/25 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className={cn(!selectedPatient && "text-muted-foreground")}>
                   {selectedPatient
@@ -291,7 +304,6 @@ export function ProfessionalChatConversationPage({
   const patient = findPatient(requestedPatientId);
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const assistantOptionsRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState<ProfessionalConversationMessage[]>(
@@ -373,25 +385,6 @@ export function ProfessionalChatConversationPage({
     };
   }, [shouldHydrate, requestedConversationId, requestedPatientId, doctorName]);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handlePointerDown(event: PointerEvent) {
-      const el = assistantOptionsRef.current;
-      if (el && !el.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [menuOpen]);
-
   // Patient selector modal for switching/picking a patient inline.
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -410,15 +403,9 @@ export function ProfessionalChatConversationPage({
   if (!requestedPatientId || (!patientsLoading && !patient)) {
     return (
       <ProfessionalDashboardShell profile={profile}>
-        <section className="relative flex min-h-[calc(100vh-11rem)] flex-col items-center justify-center gap-6 text-center">
-          <div className="absolute left-0 top-0">
-            <DashboardBackLink
-              href="/dashboard/ai-doctor"
-              ariaLabel="Back to clinical assistant"
-            />
-          </div>
+        <section className="flex min-h-[calc(100vh-11rem)] flex-col items-center justify-center gap-6 text-center">
           <div className="space-y-2">
-            <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+            <h1 className="text-[2.4rem] font-semibold tracking-tight text-foreground">
               Pick a patient to begin
             </h1>
             <p className="text-base text-muted-foreground">
@@ -474,7 +461,10 @@ export function ProfessionalChatConversationPage({
     if (!messageText || sending) return;
     if (!requestedPatientId) return;
 
-    const timestamp = formatChatTimestamp(new Date().toISOString());
+    const timestamp = new Date().toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
     const userMessage: ProfessionalConversationMessage = {
       role: "user",
       author: doctorName,
@@ -486,6 +476,7 @@ export function ProfessionalChatConversationPage({
     setDraft("");
     setSending(true);
 
+    getOrCreateProGeneralSessionId(safePatient.id);
     try {
       const response = await sendChatMessage({
         mode: "personal",
@@ -554,14 +545,14 @@ export function ProfessionalChatConversationPage({
           messages.length === 0 && !hydrating ? "justify-between" : "gap-6",
         )}
       >
-        <div className="flex items-center justify-between gap-4" ref={assistantOptionsRef}>
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <DashboardBackLink
-              href={buildClinicalRoute("/dashboard/ai-doctor", safePatient.id)}
-              ariaLabel="Back to clinical assistant"
-            />
-            <p className="min-w-0 truncate text-sm font-medium text-muted-foreground">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-muted-foreground">
               {formatProfessionalPatientCompact(safePatient)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground/90">
+              Replies are general and do not use the patient&rsquo;s stored MediAI profile. Use
+              the notes above for case context in your own words.
             </p>
           </div>
           <div className="relative">
@@ -569,8 +560,6 @@ export function ProfessionalChatConversationPage({
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
               className="inline-flex size-10 items-center justify-center rounded-xl bg-primary/6 text-primary transition-colors hover:bg-primary/10"
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
               aria-label="Open clinical assistant options"
             >
               <MoreHorizontal className="size-4" />
@@ -583,7 +572,7 @@ export function ProfessionalChatConversationPage({
                 onStartNewConversation={() => {
                   setMenuOpen(false);
                   setMessages([]);
-                  conversationIdRef.current = undefined;
+                  resetProGeneralSessionId(safePatient.id);
                   router.replace(
                     buildClinicalRoute(
                       "/dashboard/ai-doctor/personal",
@@ -613,11 +602,12 @@ export function ProfessionalChatConversationPage({
           <>
             <div className="flex flex-1 flex-col items-center justify-center gap-9 text-center">
               <div className="space-y-3">
-                <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+                <h1 className="text-[2.7rem] font-semibold tracking-tight text-foreground">
                   AI Clinical Assistant
                 </h1>
                 <p className="text-base text-muted-foreground">
-                  Ask anything related to the selected patient&rsquo;s case.
+                  Ask anything related to the selected patient&apos;s case. The model answers from
+                  general knowledge only, not this patient&rsquo;s file.
                 </p>
               </div>
 
@@ -672,7 +662,7 @@ export function ProfessionalChatConversationPage({
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-                      <span className="inline-flex size-6 items-center justify-center rounded-full bg-primary/10 text-[0.625rem] font-semibold leading-none">
+                      <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary/10 text-[11px]">
                         {message.role === "user" ? "D" : "AI"}
                       </span>
                       <span>{message.author}</span>
@@ -708,180 +698,55 @@ export function ProfessionalChatConversationPage({
 export function ProfessionalChatHistoryPage() {
   const searchParams = useSearchParams();
   const profile = useDashboardProfile();
-  const {
-    patients,
-    isLoading: patientsLoading,
-    findPatient,
-  } = useProfessionalPatients();
-
-  const [filter, setFilter] = useState<HistoryFilter>("all");
-  const [patientId, setPatientId] = useState(searchParams.get("patient") ?? "");
-
-  const [conversations, setConversations] = useState<ApiPersonalConversation[]>(
-    [],
-  );
-  const [error, setError] = useState<string | null>(null);
-  // `resolvedKey` advances to the request key only *after* a fetch settles, so
-  // `isLoading` is a pure render-time derivation (avoids the React-19
-  // synchronous-setState-in-effect lint warning).
-  const requestKey = patientId || "__all__";
-  const [resolvedKey, setResolvedKey] = useState<string | null>(null);
-  const isLoading = resolvedKey !== requestKey;
-
-  useEffect(() => {
-    let cancelled = false;
-    listPersonalConversations({
-      pageSize: 100,
-      ...(patientId ? { patientUserId: patientId } : {}),
-    })
-      .then((res) => {
-        if (cancelled) return;
-        setConversations(res.items);
-        setError(null);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        const code = isAxiosError(err) ? err.response?.status : undefined;
-        setError(
-          code === 401
-            ? "Please sign in again to view your conversations."
-            : "Could not load conversation history. Try again.",
-        );
-        setConversations([]);
-      })
-      .finally(() => {
-        if (!cancelled) setResolvedKey(requestKey);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [patientId, requestKey]);
-
-  // The backend stores all professional clinical-assistant chats as
-  // `kind=personal`. Until the schema differentiates clinical vs. research
-  // chats, the "Research Assistant" filter intentionally returns no rows so
-  // the UI matches reality.
-  const items = useMemo(() => {
-    if (filter === "general") return [];
-    return conversations;
-  }, [filter, conversations]);
-
-  const router = useRouter();
+  const { patients, findPatient } = useProfessionalPatients();
+  const patientId = searchParams.get("patient") ?? "";
+  const patient = findPatient(patientId);
 
   return (
     <ProfessionalDashboardShell profile={profile}>
-      <section className="space-y-6">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-          <DashboardBackTitle
-            title="AI Conversation History"
-            description="Resume any past clinical-assistant conversation. Click a row to continue chatting with the AI Doctor about that patient."
-            backHref="/dashboard/ai-doctor"
-            backAriaLabel="Back to clinical assistant"
-          />
-        </div>
-
-        <div className="flex flex-col gap-4 md:flex-row">
-          <SelectField
-            value={filter}
-            onChange={(value) => setFilter(value as HistoryFilter)}
-            options={[
-              { value: "all", label: "All conversations" },
-              { value: "personal", label: "Clinical Assistant" },
-              { value: "general", label: "Research Assistant" },
-            ]}
-          />
-          <SelectField
-            value={patientId}
-            onChange={setPatientId}
-            options={[
-              { value: "", label: patientsLoading ? "Loading patients…" : "All patients" },
-              ...patients.map((patient) => ({
-                value: patient.id,
-                label: formatProfessionalPatient(patient),
-              })),
-            ]}
-          />
-        </div>
-
-        {error ? (
-          <div
-            role="alert"
-            className="rounded-2xl border border-destructive/30 bg-destructive/5 px-5 py-3 text-sm text-destructive"
+      <section className="space-y-8">
+        <div className="space-y-3">
+          <Link
+            href={buildClinicalRoute("/dashboard/ai-doctor", patientId)}
+            className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
           >
-            {error}
-          </div>
-        ) : null}
+            <span className="text-lg">←</span>
+            <span>Clinical Assistant</span>
+          </Link>
+          <h1 className="text-[2.25rem] font-semibold tracking-tight text-foreground">
+            AI Conversation History
+          </h1>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+            There is no saved <strong>per-patient</strong> clinical thread list in this version. The
+            clinical assistant uses <strong>general</strong> answers (it does not load the
+            patient&rsquo;s stored MediAI profile on the server). Open a case below to start a
+            session; history stays in your current browser session for that case only.
+          </p>
+        </div>
 
-        {isLoading ? (
-          <div className="flex min-h-[40vh] items-center justify-center">
-            <Loader2 className="size-6 animate-spin text-primary" />
-          </div>
-        ) : items.length === 0 ? (
-          <DashboardPanel className="rounded-[1.35rem] border-primary/20 px-6 py-10 text-center shadow-none">
-            <p className="text-base font-semibold text-foreground">
-              No conversations yet
+        <div className="grid gap-4 md:grid-cols-2">
+          <Link
+            href={buildClinicalRoute(
+              "/dashboard/ai-doctor/personal",
+              patient?.id ?? patients[0]?.id,
+            )}
+            className="block rounded-2xl border border-primary/15 bg-primary/5 p-6 text-left transition-colors hover:border-primary/25"
+          >
+            <p className="text-sm font-medium text-primary">Start clinical chat</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {patient
+                ? `Continue for ${formatProfessionalPatientCompact(patient)}`
+                : "Select a patient on the home screen first, or we’ll use the first in your list when available."}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Start a new clinical-assistant chat with one of your patients to
-              see it here.
-            </p>
-          </DashboardPanel>
-        ) : (
-          <div className="space-y-4">
-            {items.map((item) => {
-              const subject = item.patientUserId
-                ? findPatient(item.patientUserId)
-                : null;
-              const subjectLabel = subject
-                ? formatProfessionalPatientCompact(subject)
-                : item.patientUserId
-                  ? "Patient (registered)"
-                  : "Doctor's own chat";
-              const titleSource =
-                item.lastMessagePreview?.split(/\r?\n/)[0]?.trim() ?? "";
-              const title = titleSource
-                ? titleSource.length > 80
-                  ? `${titleSource.slice(0, 79)}…`
-                  : titleSource
-                : "Clinical Assistant chat";
-              const params = new URLSearchParams();
-              if (item.patientUserId) params.set("patient", item.patientUserId);
-              params.set("conversationId", item.id);
-              const href = `/dashboard/ai-doctor/personal?${params.toString()}`;
-
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => router.push(href)}
-                  className="block w-full text-left"
-                >
-                  <DashboardPanel className="rounded-[1.35rem] border-primary/20 px-6 py-5 shadow-none transition-colors hover:border-primary/30">
-                    <div className="space-y-3">
-                      <h2 className="line-clamp-2 text-lg font-semibold text-foreground sm:text-xl">
-                        {title}
-                      </h2>
-                      <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
-                        <p>
-                          Patient:{" "}
-                          <span className="font-semibold text-foreground">
-                            {subjectLabel}
-                          </span>
-                        </p>
-                        <p>
-                          Last Message:{" "}
-                          <span className="font-semibold text-foreground">
-                            {formatChatTimestamp(item.updatedAt)}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                  </DashboardPanel>
-                </button>
-              );
-            })}
-          </div>
-        )}
+          </Link>
+          <Link
+            href={buildClinicalRoute("/dashboard/ai-doctor", undefined)}
+            className="block rounded-2xl border border-primary/15 bg-white p-6 text-left transition-colors hover:border-primary/25"
+          >
+            <p className="text-sm font-medium text-foreground">Choose a patient</p>
+            <p className="mt-2 text-sm text-muted-foreground">Return to the assistant hub to pick who you&rsquo;re working with.</p>
+          </Link>
+        </div>
       </section>
     </ProfessionalDashboardShell>
   );
@@ -934,7 +799,7 @@ function AssistantOptionsMenu({
               onClose();
               item.onClick();
             }}
-            className="flex w-full min-h-12 items-center rounded-xl px-4 py-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted sm:min-h-0"
+            className="flex w-full items-center rounded-xl px-4 py-3 text-left text-[15px] font-medium text-foreground transition-colors hover:bg-muted"
           >
             {item.label}
           </button>
@@ -967,7 +832,7 @@ function PatientSelectionModal({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex size-10 min-h-10 min-w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+            className="inline-flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
             aria-label="Close patient selector"
           >
             <X className="size-4" />
@@ -975,6 +840,48 @@ function PatientSelectionModal({
         </div>
 
         <div className="space-y-4">
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
+
+          {isLoading ? (
+            <div className="flex min-h-32 items-center justify-center">
+              <Loader2 className="size-6 animate-spin text-primary" />
+            </div>
+          ) : patients.length === 0 ? (
+            <div className="rounded-2xl bg-muted/40 px-4 py-6 text-center">
+              <p className="text-base font-medium text-foreground">
+                No registered patients yet
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Patients appear here once they sign up on this server.
+              </p>
+            </div>
+          ) : (
+            <ul className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+              {patients.map((patient) => (
+                <li key={patient.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(patient)}
+                    className={cn(
+                      "block w-full rounded-2xl px-4 py-3 text-left text-xl font-medium transition-colors sm:text-2xl",
+                      selectedPatientId === patient.id
+                        ? "bg-primary/6 text-primary"
+                        : "hover:bg-muted",
+                    )}
+                  >
+                    <span className="text-foreground">{patient.name}</span>{" "}
+                    <span className="text-muted-foreground">
+                      {patient.age} y.o {patient.sex}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           {error ? (
             <p className="text-sm text-destructive" role="alert">
               {error}
@@ -1122,10 +1029,10 @@ function ResearchAssistantUpgradePage({
 
         <div className="space-y-10 px-6 py-10 text-center sm:px-8">
           <div className="space-y-3">
-            <p className="text-xl text-foreground/75 sm:text-2xl">
+            <p className="text-[1.9rem] text-foreground/75">
               Research Assistant is available in paid plans.
             </p>
-            <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+            <h1 className="text-[2.5rem] font-semibold leading-tight tracking-tight text-foreground">
               Upgrade for more patients and Research Tools
             </h1>
           </div>
@@ -1138,7 +1045,7 @@ function ResearchAssistantUpgradePage({
                   <div className="mx-auto inline-flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <Icon className="size-6" />
                   </div>
-                  <p className="text-base font-medium leading-snug text-foreground sm:text-lg sm:leading-8">
+                  <p className="text-[1.15rem] font-medium leading-8 text-foreground">
                     {item.title}
                   </p>
                 </div>
@@ -1147,7 +1054,7 @@ function ResearchAssistantUpgradePage({
           </div>
 
           <div className="space-y-6">
-            <p className="text-xl font-medium text-foreground sm:text-2xl">
+            <p className="text-[1.8rem] font-medium text-foreground">
               Make more confident clinical Decisions!
             </p>
 
@@ -1193,13 +1100,13 @@ function ResearchLabCard({
   return (
     <div
       className={cn(
-        "w-44 rounded-2xl border bg-white px-3 py-4 text-left text-foreground shadow-[0_18px_50px_-34px_rgba(0,0,0,0.55)]",
+        "w-44 rounded-2xl border bg-white px-3 py-4 text-left text-[#222] shadow-[0_18px_50px_-34px_rgba(0,0,0,0.55)]",
         accent,
         className,
       )}
     >
       <p className="text-xs font-semibold">{title}</p>
-      <div className="mt-3 space-y-1 text-[0.625rem] leading-snug text-muted-foreground sm:text-xs">
+      <div className="mt-3 space-y-1 text-[10px] text-[#666]">
         <p>Test name: {title}</p>
         <p>User value: {value}</p>
         <p>Status: {status}</p>
@@ -1232,7 +1139,7 @@ function PricingCard({
     >
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
-          <p className="text-lg font-medium sm:text-xl">{title}</p>
+          <p className="text-[1.4rem] font-medium">{title}</p>
           <p
             className={cn(
               "text-sm",
@@ -1243,7 +1150,7 @@ function PricingCard({
           </p>
         </div>
         <div className="space-y-2 text-right">
-          <p className="text-lg font-medium sm:text-xl">{price}</p>
+          <p className="text-[1.35rem] font-medium">{price}</p>
           {badge ? (
             <span className="inline-flex rounded-full bg-white px-3 py-1 text-sm font-semibold text-primary">
               {badge}
@@ -1272,8 +1179,6 @@ function SelectField({
         className="h-12 w-full appearance-none rounded-xl border border-primary/20 bg-white px-4 pr-10 text-sm outline-none transition-colors focus:border-primary"
       >
         {options.map((option, index) => (
-          // `value` is unique among real options (patient UUIDs); `index`
-          // disambiguates the placeholder rows whose value is "".
           <option key={`${option.value}-${index}`} value={option.value}>
             {option.label}
           </option>

@@ -14,9 +14,23 @@ export type AuthTokens = {
  * Returns a user-facing string from a Nest validation error (400) when possible.
  */
 export function messageFromAxiosData(data: unknown): string | null {
-  if (data == null || typeof data !== "object") return null;
+  if (data == null) return null;
+  if (typeof data === "string") {
+    const t = data.trim();
+    if (!t) return null;
+    if (t.startsWith("{")) {
+      try {
+        return messageFromAxiosData(JSON.parse(t) as unknown);
+      } catch {
+        return t;
+      }
+    }
+    return t;
+  }
+  if (typeof data !== "object") return null;
   const o = data as {
     message?: string | string[];
+    statusCode?: number;
   };
   if (typeof o.message === "string" && o.message) return o.message;
   if (Array.isArray(o.message) && o.message.length) return o.message[0] ?? null;

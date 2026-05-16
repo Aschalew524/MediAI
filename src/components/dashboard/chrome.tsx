@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Bell, CircleUserRound, MessageCircleMore, ShieldCheck } from "lucide-react";
 
 import { getProfileName } from "@/lib/dashboard-content";
+import { getMyBilling, type MyBillingResponse } from "@/lib/payments-api";
 import { useDashboardAuth } from "@/components/auth/dashboard-auth-provider";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     );
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [billing, setBilling] = useState<MyBillingResponse | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, isLoading: authLoading, logout } = useDashboardAuth();
   const profile = useDashboardProfile();
@@ -42,6 +44,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const accountId = user?.id
     ? user.id.slice(0, 8).toUpperCase()
     : "—";
+  const billingState = user?.id ? billing : null;
+  const assistantBadge = billingState?.assistantAccess.active ? "Paid" : "Free";
+  const assistantSubline = billingState?.assistantAccess.active
+    ? billingState.assistantAccess.planName ?? "Assistant access active"
+    : "General chat only";
 
   useEffect(() => {
     if (!menuOpen) {
@@ -69,6 +76,27 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     };
   }, [menuOpen]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!user?.id) return;
+
+    void getMyBilling()
+      .then((next) => {
+        if (!cancelled) {
+          setBilling(next);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBilling(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, user?.id]);
+
   if (bypassShell) {
     return <div className="min-h-screen bg-background">{children}</div>;
   }
@@ -76,7 +104,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <header className="relative z-40 border-b border-primary/10 bg-background/95 backdrop-blur">
-        <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-2 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-2 text-sm font-medium text-foreground"
@@ -107,7 +135,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               </HeaderIconButton>
               {unreadMessages > 0 ? (
                 <span
-                  className="pointer-events-none absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 text-[0.625rem] leading-none font-semibold leading-none text-destructive-foreground shadow-[0_2px_8px_-2px_rgba(220,38,38,0.6)] ring-2 ring-background"
+                  className="pointer-events-none absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-none text-destructive-foreground shadow-[0_2px_8px_-2px_rgba(220,38,38,0.6)] ring-2 ring-background"
                   aria-hidden="true"
                 >
                   {unreadMessages > 99 ? "99+" : unreadMessages}
@@ -131,8 +159,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 aria-label="Open profile menu"
                 className="inline-flex items-center gap-2 rounded-full border border-primary/10 px-2 py-1 transition-colors hover:bg-muted"
               >
-                <span className="rounded-full bg-primary px-2 py-0.5 text-[0.625rem] leading-none font-semibold uppercase tracking-wide text-primary-foreground">
-                  Free
+                <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground">
+                  {assistantBadge}
                 </span>
                 <CircleUserRound className="size-5 text-muted-foreground" />
               </button>
@@ -142,8 +170,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   <div className="flex items-center gap-3">
                     <div className="relative inline-flex size-12 items-center justify-center rounded-full bg-muted text-primary">
                       <CircleUserRound className="size-7" />
-                      <span className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2 py-0.5 text-[0.625rem] leading-none font-semibold text-primary-foreground">
-                        Free
+                      <span className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                        {assistantBadge}
                       </span>
                     </div>
                     <div className="space-y-0.5">
@@ -151,6 +179,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                       <p className="text-xs text-muted-foreground">
                         Account: {accountId}
                       </p>
+                      <p className="text-xs text-muted-foreground">{assistantSubline}</p>
                     </div>
                   </div>
 
@@ -160,7 +189,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                     {(
                       [
                         { label: "Help & Support", href: "/knowledge-base" },
-                        { label: "Health Blog", href: "/dashboard/blog" },
                         { label: "Billing", href: "/pricing" },
                         { label: "Account Settings", href: "/dashboard/account-settings" },
                       ] as const
@@ -206,7 +234,7 @@ function HeaderIconButton({
     <button
       type="button"
       className={cn(
-        "inline-flex size-11 min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full border border-primary/10 text-muted-foreground transition-colors hover:bg-muted hover:text-primary sm:size-10 sm:min-h-10 sm:min-w-10",
+        "inline-flex size-9 items-center justify-center rounded-full border border-primary/10 text-muted-foreground transition-colors hover:bg-muted hover:text-primary",
         className,
       )}
       {...props}

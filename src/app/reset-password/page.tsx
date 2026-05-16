@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 
 import {
+  AuthFormErrorAlert,
   AuthPageShell,
   AuthPrimaryButton,
   IconInput,
@@ -91,14 +92,7 @@ function ResetPasswordForm() {
 
   return (
     <form className="w-full space-y-4" onSubmit={handleSubmit}>
-      {formError ? (
-        <p
-          role="alert"
-          className="w-full rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2 text-sm text-destructive"
-        >
-          {formError}
-        </p>
-      ) : null}
+      {formError ? <AuthFormErrorAlert message={formError} /> : null}
       <IconInput
         icon={<Lock className="size-[18px]" />}
         name="password"
