@@ -228,7 +228,7 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
 
         <div className="hidden items-center gap-4 lg:flex">
           <Link
-            href="/signin"
+            href="/signin?fresh=1"
             className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
           >
             Sign In
@@ -240,7 +240,7 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
 
         <div className="flex items-center gap-3 lg:hidden">
           <Link
-            href="/signin"
+            href="/signin?fresh=1"
             className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
           >
             Sign In

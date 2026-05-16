@@ -49,12 +49,11 @@ api.interceptors.response.use(
       }
       return Promise.reject(error);
     }
-    // Current user routes (clear expired session in browser)
-    const isMe =
-      path.includes("auth/me") ||
-      path.includes("/me/") ||
-      path.includes("/onboarding/complete");
-    if (status === 401 && isMe) {
+    // Core session probes only — optional `/me/*` routes (billing, export, …)
+    // must not wipe the cookie or users get kicked out of the dashboard.
+    const isSessionProbe =
+      path.includes("auth/me") || path.endsWith("/me/profile");
+    if (status === 401 && isSessionProbe) {
       const had = getAccessToken();
       if (had) {
         clearAccessToken();

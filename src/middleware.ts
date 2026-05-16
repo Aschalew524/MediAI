@@ -5,14 +5,6 @@ import { ACCESS_TOKEN_KEY } from "@/lib/auth-constants";
 const AUTH_LANDING = "/signin";
 const SIGNED_IN_HOME = "/dashboard";
 
-const authPathPrefixes = ["/signin", "/signup"];
-
-function isAuthPath(path: string) {
-  return authPathPrefixes.some(
-    (p) => path === p || path.startsWith(`${p}/`) || path.startsWith(`${p}?`),
-  );
-}
-
 function hasAccessCookie(request: NextRequest) {
   return Boolean(request.cookies.get(ACCESS_TOKEN_KEY)?.value);
 }
@@ -22,9 +14,9 @@ export function middleware(request: NextRequest) {
   const hasSession = hasAccessCookie(request);
 
   if (pathname === "/onboarding" || !pathname.startsWith("/dashboard")) {
-    if (isAuthPath(pathname) && hasSession) {
-      return NextResponse.redirect(new URL(SIGNED_IN_HOME, request.url));
-    }
+    // Allow /signin and /signup even when a session cookie exists so users can
+    // enter credentials or switch accounts (the sign-in page handles "already
+    // signed in" in the client).
     return NextResponse.next();
   }
 

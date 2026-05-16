@@ -6,20 +6,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CalendarDays,
-  CircleHelp,
+  CalendarClock,
   ClipboardList,
   ClipboardPlus,
   FileText,
   History,
   MessageCircleMore,
-  UserRound,
   Users,
 } from "lucide-react";
 
-import {
-  type DashboardProfile,
-  getProfessionalName,
-} from "@/lib/dashboard-content";
+import { type DashboardProfile } from "@/lib/dashboard-content";
 import type { ApiPatientSummary } from "@/lib/services/professional-api";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +64,11 @@ const professionalSidebarSections: {
         icon: <MessageCircleMore className="size-4" />,
       },
       {
+        label: "Availability",
+        href: "/dashboard/availability",
+        icon: <CalendarClock className="size-4" />,
+      },
+      {
         label: "Appointments",
         href: "/dashboard/appointments",
         icon: <CalendarDays className="size-4" />,
@@ -99,25 +100,6 @@ const professionalSidebarSections: {
       },
     ],
   },
-  {
-    title: "Account",
-    items: [
-      {
-        label: "Public profile",
-        href: "/dashboard/verify-doctor?edit=1",
-        icon: <UserRound className="size-4" />,
-      },
-    ],
-  },
-  {
-    items: [
-      {
-        label: "Help and support",
-        href: "/knowledge-base",
-        icon: <CircleHelp className="size-4" />,
-      },
-    ],
-  },
 ];
 
 /** Map a backend `ApiPatientSummary` to the lighter `ProfessionalPatient` view-model. */
@@ -146,7 +128,7 @@ export function formatProfessionalPatientCompact(patient: ProfessionalPatient) {
 }
 
 export function ProfessionalDashboardShell({
-  profile,
+  profile: _profile,
   children,
   contentClassName,
 }: {
@@ -154,7 +136,6 @@ export function ProfessionalDashboardShell({
   children: ReactNode;
   contentClassName?: string;
 }) {
-  const professionalName = getProfessionalName(profile);
   const unreadMessages = useUnreadMessages();
 
   const sidebarSections = professionalSidebarSections.map((section) => ({
@@ -173,15 +154,6 @@ export function ProfessionalDashboardShell({
           <aside className="pt-8">
             <div className="sticky top-24">
               <div className="space-y-9">
-                <div className="space-y-1 px-1">
-                  <p className="text-sm font-semibold text-foreground">
-                    {professionalName}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {profile.professionalProfile?.specialty || "Health Professional"}
-                  </p>
-                </div>
-
                 {sidebarSections.map((section, index) => (
                   <ProfessionalSidebarSection
                     key={section.title ?? `section-${index}`}

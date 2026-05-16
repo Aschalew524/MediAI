@@ -31,10 +31,13 @@ import { getFriendlyAxiosMessage } from "@/lib/axios-error-messages";
 import {
   getMyBilling,
   createConsultationBooking,
-  initiateConsultationPayment,
   userFacingPaymentError,
   type BillingConsultation,
 } from "@/lib/payments-api";
+import {
+  listDoctorAvailabilitySlots,
+  type AvailabilitySlot,
+} from "@/lib/consultations-api";
 import {
   getTopDoctorById,
   getTopDoctorSpecialties,
@@ -640,16 +643,33 @@ function VideoConsultationModal({
   const [selectedType, setSelectedType] = useState<ConsultationType>(consultationType);
   const [submitting, setSubmitting] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-
-  const feeForSelectedType =
-    selectedType === "video"
-      ? doctor.consultationFees.video
-      : doctor.consultationFees.written;
-  const canPaySelected = feeForSelectedType > 0;
+  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(true);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [booked, setBooked] = useState(false);
 
   useEffect(() => {
     setPaymentError(null);
+    setSelectedSlot(null);
   }, [selectedType]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSlotsLoading(true);
+    void listDoctorAvailabilitySlots(doctor.id)
+      .then((items) => {
+        if (!cancelled) setSlots(items);
+      })
+      .catch(() => {
+        if (!cancelled) setSlots([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSlotsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [doctor.id]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm">
@@ -664,9 +684,9 @@ function VideoConsultationModal({
         </button>
 
         <div className="space-y-2 pt-4 text-center">
-          <h2 className="text-2xl font-bold tracking-tight">Choose for consultation</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Book a consultation</h2>
           <p className="text-sm text-muted-foreground">
-            Create a consultation request, then continue to Chapa checkout to confirm payment.
+            Pick an open time slot, then submit your request. The doctor will confirm from their dashboard.
           </p>
         </div>
 
@@ -675,12 +695,8 @@ function VideoConsultationModal({
           onSubmit={async (event) => {
             event.preventDefault();
             setPaymentError(null);
-            if (!canPaySelected) {
-              setPaymentError(
-                selectedType === "video"
-                  ? "This doctor has not set a video consultation fee (ETB) yet. They can add it under Dashboard → Doctor verification → Edit profile (?edit=1)."
-                  : "This doctor has not set a written consultation fee (ETB) yet. They can add it under Dashboard → Doctor verification → Edit profile (?edit=1).",
-              );
+            if (!selectedSlot) {
+              setPaymentError("Choose an available time slot.");
               return;
             }
             setSubmitting(true);
@@ -695,13 +711,13 @@ function VideoConsultationModal({
               ]
                 .filter((item) => !item.endsWith(":"))
                 .join("\n");
-              const booking = await createConsultationBooking({
+              await createConsultationBooking({
                 topDoctorId: doctor.id,
                 consultationType: selectedType,
+                startsAt: selectedSlot,
                 patientNotes: details || undefined,
               });
-              const payment = await initiateConsultationPayment(booking.id);
-              window.location.assign(payment.checkoutUrl);
+              setBooked(true);
             } catch (error: unknown) {
               setPaymentError(
                 userFacingPaymentError(
@@ -740,9 +756,50 @@ function VideoConsultationModal({
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             </ConsultationField>
 
-            {!canPaySelected ? (
-              <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950">
-                Paid checkout is unavailable for this consultation type until the doctor publishes a positive fee (whole ETB) on their public profile.
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Available time slots</p>
+              {slotsLoading ? (
+                <p className="text-sm text-muted-foreground">Loading slots…</p>
+              ) : slots.length === 0 ? (
+                <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950">
+                  This doctor has not published availability yet. Ask them to set hours under
+                  Dashboard → Availability.
+                </p>
+              ) : (
+                <div className="grid max-h-40 gap-2 overflow-y-auto sm:grid-cols-2">
+                  {slots.map((slot) => {
+                    const label = new Date(slot.startsAt).toLocaleString(undefined, {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    });
+                    const active = selectedSlot === slot.startsAt;
+                    return (
+                      <button
+                        key={slot.startsAt}
+                        type="button"
+                        onClick={() => setSelectedSlot(slot.startsAt)}
+                        className={cn(
+                          "rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors",
+                          active
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-primary/20 hover:border-primary/40",
+                        )}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {booked ? (
+              <p className="rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm text-foreground">
+                Request sent. The doctor will confirm your appointment from their booking requests
+                page.
               </p>
             ) : null}
 
@@ -801,16 +858,18 @@ function VideoConsultationModal({
 
             <button
               type="submit"
-              disabled={submitting || !canPaySelected}
+              disabled={submitting || booked || slots.length === 0}
               className="flex h-12 w-full items-center justify-center rounded-xl bg-primary px-6 text-base font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {submitting ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" />
-                  Redirecting to payment…
+                  Sending request…
                 </>
+              ) : booked ? (
+                "Request sent"
               ) : (
-                "Go to payment"
+                "Request appointment"
               )}
             </button>
           </div>
