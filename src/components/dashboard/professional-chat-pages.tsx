@@ -65,13 +65,6 @@ type ProfessionalConversationMessage = {
   timestamp: string;
 };
 
-/**
- * Pulls the registered patient list once (cached at component level via
- * `useEffect`) and exposes both the array and a helper that finds a patient by
- * id. All UUIDs come from the backend so URLs like
- * `/dashboard/ai-doctor/personal?patient=<uuid>` always resolve to a real
- * patient.
- */
 function useProfessionalPatients(): {
   patients: ProfessionalPatient[];
   isLoading: boolean;
@@ -80,8 +73,6 @@ function useProfessionalPatients(): {
   refresh: () => void;
 } {
   const [items, setItems] = useState<ApiPatientSummary[]>([]);
-  // Initialise to `true` so the first paint shows the loading spinner without
-  // the cascading `setState`-in-effect that React 19 warns about.
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -112,10 +103,7 @@ function useProfessionalPatients(): {
     };
   }, [reloadToken]);
 
-  const patients = useMemo(
-    () => items.map(toProfessionalPatient),
-    [items],
-  );
+  const patients = useMemo(() => items.map(toProfessionalPatient), [items]);
   const findPatient = useCallback(
     (id: string | null | undefined) =>
       patients.find((p) => p.id === id) ?? null,
@@ -125,8 +113,6 @@ function useProfessionalPatients(): {
 
   return { patients, isLoading, error, findPatient, refresh };
 }
-
-type HistoryFilter = "all" | ChatMode;
 
 const conversationPrompts = [
   {
@@ -797,65 +783,9 @@ export function ProfessionalChatConversationPage({
 export function ProfessionalChatHistoryPage() {
   const searchParams = useSearchParams();
   const profile = useDashboardProfile();
-  const {
-    patients,
-    isLoading: patientsLoading,
-    findPatient,
-  } = useProfessionalPatients();
-
-  const [filter, setFilter] = useState<HistoryFilter>("all");
-  const [patientId, setPatientId] = useState(searchParams.get("patient") ?? "");
-
-  const [conversations, setConversations] = useState<ApiPersonalConversation[]>(
-    [],
-  );
-  const [error, setError] = useState<string | null>(null);
-  // `resolvedKey` advances to the request key only *after* a fetch settles, so
-  // `isLoading` is a pure render-time derivation (avoids the React-19
-  // synchronous-setState-in-effect lint warning).
-  const requestKey = patientId || "__all__";
-  const [resolvedKey, setResolvedKey] = useState<string | null>(null);
-  const isLoading = resolvedKey !== requestKey;
-
-  useEffect(() => {
-    let cancelled = false;
-    listPersonalConversations({
-      pageSize: 100,
-      ...(patientId ? { patientUserId: patientId } : {}),
-    })
-      .then((res) => {
-        if (cancelled) return;
-        setConversations(res.items);
-        setError(null);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        const code = isAxiosError(err) ? err.response?.status : undefined;
-        setError(
-          code === 401
-            ? "Please sign in again to view your conversations."
-            : "Could not load conversation history. Try again.",
-        );
-        setConversations([]);
-      })
-      .finally(() => {
-        if (!cancelled) setResolvedKey(requestKey);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [patientId, requestKey]);
-
-  // The backend stores all professional clinical-assistant chats as
-  // `kind=personal`. Until the schema differentiates clinical vs. research
-  // chats, the "Research Assistant" filter intentionally returns no rows so
-  // the UI matches reality.
-  const items = useMemo(() => {
-    if (filter === "general") return [];
-    return conversations;
-  }, [filter, conversations]);
-
-  const router = useRouter();
+  const { patients, findPatient } = useProfessionalPatients();
+  const patientId = searchParams.get("patient") ?? "";
+  const patient = findPatient(patientId);
 
   return (
     <ProfessionalDashboardShell profile={profile}>
