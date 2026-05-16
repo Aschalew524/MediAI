@@ -520,6 +520,7 @@ export function ProfessionalChatConversationPage({
     if (!messageText || sending) return;
     if (!requestedPatientId) return;
     if (!requestedPatientId) return;
+    if (!requestedPatientId) return;
 
     const timestamp = formatChatTimestamp(new Date().toISOString());
     const userMessage: ProfessionalConversationMessage = {
@@ -1151,6 +1152,48 @@ function PatientSelectionModal({
               ))}
             </ul>
           )}
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
+
+          {isLoading ? (
+            <div className="flex min-h-32 items-center justify-center">
+              <Loader2 className="size-6 animate-spin text-primary" />
+            </div>
+          ) : patients.length === 0 ? (
+            <div className="rounded-2xl bg-muted/40 px-4 py-6 text-center">
+              <p className="text-base font-medium text-foreground">
+                No registered patients yet
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Patients appear here once they sign up on this server.
+              </p>
+            </div>
+          ) : (
+            <ul className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+              {patients.map((patient) => (
+                <li key={patient.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(patient)}
+                    className={cn(
+                      "block w-full rounded-2xl px-4 py-3 text-left text-xl font-medium transition-colors sm:text-2xl",
+                      selectedPatientId === patient.id
+                        ? "bg-primary/6 text-primary"
+                        : "hover:bg-muted",
+                    )}
+                  >
+                    <span className="text-foreground">{patient.name}</span>{" "}
+                    <span className="text-muted-foreground">
+                      {patient.age} y.o {patient.sex}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <div className="flex flex-col gap-5 pt-3 sm:flex-row sm:items-end sm:justify-between">
             <p className="text-base font-medium text-foreground sm:text-lg">
@@ -1412,12 +1455,6 @@ function SelectField({
         className="h-12 w-full appearance-none rounded-xl border border-primary/20 bg-white px-4 pr-10 text-sm outline-none transition-colors focus:border-primary"
       >
         {options.map((option, index) => (
-          // `value` is unique among real options (patient UUIDs); `index`
-          // disambiguates the placeholder rows whose value is "".
-          <option key={`${option.value}-${index}`} value={option.value}>
-        {options.map((option, index) => (
-          // `value` is unique among real options (patient UUIDs); `index`
-          // disambiguates the placeholder rows whose value is "".
           <option key={`${option.value}-${index}`} value={option.value}>
             {option.label}
           </option>
