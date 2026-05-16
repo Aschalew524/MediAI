@@ -12,6 +12,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { useDashboardAuth } from "@/components/auth/dashboard-auth-provider";
+import { isAxiosError } from "axios";
+
 import {
   DASHBOARD_ME_EVENT,
   getMeProfile,
@@ -75,13 +77,12 @@ export function DashboardMeProvider({ children }: { children: ReactNode }) {
       } catch {
         /* optional cache */
       }
-    } catch {
+    } catch (err: unknown) {
+      if (isAxiosError(err) && err.response?.status === 401) {
+        router.replace("/signin");
+        return;
+      }
       setMeError("We could not load your profile. Please try again.");
-      setRaw({
-        profile: null,
-        medicalHistory: null,
-        aiDoctorSetupCompleted: false,
-      });
     } finally {
       setIsMeLoading(false);
     }

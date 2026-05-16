@@ -55,6 +55,8 @@ export type MyBillingResponse = {
 export type CreateConsultationBookingPayload = {
   topDoctorId: string;
   consultationType: "video" | "written";
+  /** ISO start time of the selected availability slot */
+  startsAt: string;
   patientNotes?: string;
 };
 
