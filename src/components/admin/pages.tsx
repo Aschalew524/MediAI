@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
+import Link from "next/link";
+
 import {
   Activity,
   AlertCircle,
@@ -27,7 +29,13 @@ import {
   X,
 } from "lucide-react";
 
-import type { MonthlyGrowth } from "@/lib/admin-content";
+import {
+  InteractiveRevenueChart,
+  InteractiveUserGrowthChart,
+  mergeLiveUserGrowth,
+  resolveMonthlyRevenue,
+  TotalRevenueHeroCard,
+} from "@/components/admin/admin-dashboard-charts";
 import {
   createAdminSubscriptionPlan,
   deleteAdminSubscriptionPlan,
@@ -85,9 +93,23 @@ export function AdminDashboardPage() {
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
+  const [billing, setBilling] = useState<AdminBillingSummary | null>(null);
+  const [billingLoading, setBillingLoading] = useState(true);
+  const [billingError, setBillingError] = useState<string | null>(null);
+
   const [activity, setActivity] = useState<AdminActivityItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [activityError, setActivityError] = useState<string | null>(null);
+
+  const userGrowthData = useMemo(
+    () => mergeLiveUserGrowth(config.monthlyGrowth, summary?.userCount ?? null),
+    [config.monthlyGrowth, summary?.userCount],
+  );
+
+  const revenueChartData = useMemo(
+    () => resolveMonthlyRevenue(config.monthlyRevenue, billing),
+    [config.monthlyRevenue, billing],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -96,14 +118,15 @@ export function AdminDashboardPage() {
     async function load() {
       setSummaryLoading(true);
       setActivityLoading(true);
+      setBillingLoading(true);
       setSummaryError(null);
       setActivityError(null);
-      // Two independent calls; we don't want a slow activity feed to delay the
-      // top stat cards (and vice-versa), so fetch in parallel and surface each
-      // outcome separately.
-      const [summaryRes, activityRes] = await Promise.allSettled([
+      setBillingError(null);
+
+      const [summaryRes, activityRes, billingRes] = await Promise.allSettled([
         getAdminSummary({ signal: ac.signal }),
         getAdminRecentActivity({ limit: 12, signal: ac.signal }),
+        getAdminBillingSummary({ signal: ac.signal }),
       ]);
 
       if (cancelled) return;
@@ -133,6 +156,19 @@ export function AdminDashboardPage() {
         );
       }
       setActivityLoading(false);
+
+      if (billingRes.status === "fulfilled") {
+        setBilling(billingRes.value);
+      } else {
+        setBilling(null);
+        setBillingError(
+          getFriendlyAxiosMessage(
+            billingRes.reason,
+            "Could not load revenue data.",
+          ),
+        );
+      }
+      setBillingLoading(false);
     }
 
     void load();
@@ -165,6 +201,12 @@ export function AdminDashboardPage() {
           </DashboardPanel>
         ) : null}
 
+        <TotalRevenueHeroCard
+          billing={billing}
+          loading={billingLoading}
+          error={billingError}
+        />
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {LIVE_SUMMARY_STATS.map((stat) => (
             <LiveSummaryStatCard
@@ -180,13 +222,117 @@ export function AdminDashboardPage() {
           ))}
         </div>
 
-        <div className="grid gap-4 sm:gap-5 xl:grid-cols-[1fr_380px]">
-          <GrowthChart data={config.monthlyGrowth} />
-          <RecentActivityPanel
-            activities={activity}
-            loading={activityLoading}
-            error={activityError}
+        <div className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+          <InteractiveUserGrowthChart data={userGrowthData} />
+          <aside className="space-y-4">
+            <InteractiveRevenueChart
+              data={revenueChartData}
+              currency={billing?.currency ?? "USD"}
+            />
+          </aside>
+        </div>
+
+        <RecentActivityPanel
+          activities={activity}
+          loading={activityLoading}
+          error={activityError}
+        />
+      </DashboardContainer>
+    </DashboardPage>
+  );
+}
+
+export function AdminRevenuePage() {
+  const { data: config } = useAdminConfig();
+  const [billing, setBilling] = useState<AdminBillingSummary | null>(null);
+  const [billingLoading, setBillingLoading] = useState(true);
+  const [billingError, setBillingError] = useState<string | null>(null);
+
+  const revenueChartData = useMemo(
+    () => resolveMonthlyRevenue(config.monthlyRevenue, billing),
+    [config.monthlyRevenue, billing],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const ac = new AbortController();
+    setBillingLoading(true);
+    setBillingError(null);
+    void getAdminBillingSummary({ signal: ac.signal })
+      .then((summary) => {
+        if (!cancelled) setBilling(summary);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setBilling(null);
+          setBillingError(
+            getFriendlyAxiosMessage(e, "Could not load revenue data."),
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setBillingLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, []);
+
+  return (
+    <DashboardPage>
+      <DashboardContainer className="space-y-8">
+        <DashboardBackLink href="/admin" ariaLabel="Back to admin home" />
+        <DashboardSectionHeader
+          title="Revenue"
+          description="Track total revenue, recurring income, and monthly performance."
+        />
+
+        <TotalRevenueHeroCard
+          billing={billing}
+          loading={billingLoading}
+          error={billingError}
+        />
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <InteractiveRevenueChart
+            data={revenueChartData}
+            currency={billing?.currency ?? "USD"}
           />
+          <DashboardPanel className="space-y-4 px-6 py-5">
+            <div className="flex items-center gap-2">
+              <DollarSign className="size-5 text-primary" />
+              <h2 className="text-lg font-semibold tracking-tight">
+                Revenue insights
+              </h2>
+            </div>
+            <ul className="space-y-3 text-sm text-muted-foreground">
+              <li>
+                Monthly recurring revenue:{" "}
+                <span className="font-semibold text-foreground">
+                  {billing?.monthlyRecurringRevenueDisplay ?? "—"}
+                </span>
+              </li>
+              <li>
+                Active accounts on platform:{" "}
+                <span className="font-semibold text-foreground">
+                  {billing?.activeSubscriptions.toLocaleString("en-US") ?? "—"}
+                </span>
+              </li>
+              <li>
+                Payment provider:{" "}
+                <span className="font-semibold text-foreground">
+                  {billing?.paymentProviderConnected ? "Connected" : "Not connected"}
+                </span>
+              </li>
+            </ul>
+            <Link
+              href="/admin/subscriptions"
+              className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Open subscriptions & billing
+            </Link>
+          </DashboardPanel>
         </div>
       </DashboardContainer>
     </DashboardPage>
@@ -220,41 +366,6 @@ function LiveSummaryStatCard({
       {!loading && value !== null ? (
         <p className="text-xs font-medium text-muted-foreground">Live</p>
       ) : null}
-    </DashboardPanel>
-  );
-}
-
-function GrowthChart({ data }: { data: MonthlyGrowth[] }) {
-  const maxUsers = Math.max(...data.map((d) => d.users));
-
-  return (
-    <DashboardPanel className="space-y-5 px-6 py-5">
-      <div className="flex items-center gap-2">
-        <TrendingUp className="size-5 text-primary" />
-        <h2 className="text-lg font-semibold tracking-tight">User Growth</h2>
-      </div>
-
-      <div className="flex items-end gap-3 pt-2">
-        {data.map((item) => {
-          const heightPercent = (item.users / maxUsers) * 100;
-          return (
-            <div key={item.month} className="flex flex-1 flex-col items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">
-                {(item.users / 1000).toFixed(1)}k
-              </span>
-              <div className="w-full overflow-hidden rounded-t-lg bg-primary/8">
-                <div
-                  className="w-full rounded-t-lg bg-primary transition-all"
-                  style={{ height: `${Math.max(heightPercent * 1.6, 12)}px` }}
-                />
-              </div>
-              <span className="text-xs font-medium text-foreground/80">
-                {item.month}
-              </span>
-            </div>
-          );
-        })}
-      </div>
     </DashboardPanel>
   );
 }

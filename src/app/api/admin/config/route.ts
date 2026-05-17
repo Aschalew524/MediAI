@@ -5,6 +5,7 @@ import {
   adminTransactions,
   adminUsers,
   monthlyGrowth,
+  monthlyRevenue,
   recentActivity,
   revenueSummary,
   subscriptionPlans,
@@ -18,6 +19,7 @@ export async function GET() {
     transactions: adminTransactions,
     recentActivity,
     monthlyGrowth,
+    monthlyRevenue,
     revenueSummary,
   });
 }

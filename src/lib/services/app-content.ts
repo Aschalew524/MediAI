@@ -25,14 +25,17 @@ import type {
 import type {
   MedicalHistoryStep,
 } from "@/lib/ai-doctor-content";
-import type {
-  AdminActivity,
-  AdminStatCard,
-  AdminTransaction,
-  AdminUser,
-  MonthlyGrowth,
-  RevenueSummary,
-  SubscriptionPlan,
+import {
+  monthlyGrowth as fallbackMonthlyGrowth,
+  monthlyRevenue as fallbackMonthlyRevenue,
+  type AdminActivity,
+  type AdminStatCard,
+  type AdminTransaction,
+  type AdminUser,
+  type MonthlyGrowth,
+  type MonthlyRevenue,
+  type RevenueSummary,
+  type SubscriptionPlan,
 } from "@/lib/admin-content";
 
 export type LandingResponse = {
@@ -107,6 +110,7 @@ export type AdminConfigResponse = {
   transactions: AdminTransaction[];
   recentActivity: AdminActivity[];
   monthlyGrowth: MonthlyGrowth[];
+  monthlyRevenue: MonthlyRevenue[];
   revenueSummary: RevenueSummary;
 };
 
@@ -152,11 +156,23 @@ export async function getAIDoctorConfig() {
   return data;
 }
 
+function normalizeAdminConfig(data: AdminConfigResponse): AdminConfigResponse {
+  return {
+    ...data,
+    monthlyGrowth: data.monthlyGrowth?.length
+      ? data.monthlyGrowth
+      : [...fallbackMonthlyGrowth],
+    monthlyRevenue: data.monthlyRevenue?.length
+      ? data.monthlyRevenue
+      : [...fallbackMonthlyRevenue],
+  };
+}
+
 export async function getAdminConfig() {
-  if (adminCache) return adminCache;
+  if (adminCache) return normalizeAdminConfig(adminCache);
   const { data } = await api.get<AdminConfigResponse>("/admin/config");
-  adminCache = data;
-  return data;
+  adminCache = normalizeAdminConfig(data);
+  return adminCache;
 }
 
 export type ChatCitation = {
