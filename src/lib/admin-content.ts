@@ -51,6 +51,11 @@ export type MonthlyGrowth = {
   users: number;
 };
 
+export type MonthlyRevenue = {
+  month: string;
+  revenueCents: number;
+};
+
 export type RevenueSummary = {
   totalRevenue: string;
   activeSubscriptions: number;
@@ -280,6 +285,15 @@ export const monthlyGrowth: MonthlyGrowth[] = [
   { month: "Jan", users: 10400 },
   { month: "Feb", users: 11200 },
   { month: "Mar", users: 12458 },
+];
+
+export const monthlyRevenue: MonthlyRevenue[] = [
+  { month: "Oct", revenueCents: 18_420_00 },
+  { month: "Nov", revenueCents: 19_850_00 },
+  { month: "Dec", revenueCents: 21_100_00 },
+  { month: "Jan", revenueCents: 22_640_00 },
+  { month: "Feb", revenueCents: 23_280_00 },
+  { month: "Mar", revenueCents: 24_580_00 },
 ];
 
 export const revenueSummary: RevenueSummary = {
