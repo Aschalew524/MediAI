@@ -36,10 +36,7 @@ import {
   userFacingPaymentError,
   type BillingConsultation,
 } from "@/lib/payments-api";
-import {
-  listDoctorAvailabilitySlots,
-  type AvailabilitySlot,
-} from "@/lib/consultations-api";
+import { rememberPendingChapaTxRef } from "@/lib/chapa-pending-tx";
 import {
   getTopDoctorById,
   getTopDoctorMatchOptions,
@@ -921,19 +918,9 @@ function VideoConsultationModal({
                 startsAt: selectedSlot,
                 patientNotes: details || undefined,
               });
-              setBooked(true);
-              // Step 2 — hand off to Chapa. Until the patient pays, the
-              // backend keeps the booking at `pending_payment` and the
-              // doctor's inbox stays empty (Phase 3 anti-spam rule). Only
-              // after the Chapa webhook flips the row to
-              // `pending_doctor_approval` will the doctor see this request.
               const payment = await initiateConsultationPayment(booking.id);
-              // Consultations always return a Chapa checkoutUrl; the type
-              // marks it optional only because Phase 7's free-plan
-              // subscriptions share the same response shape.
-              if (typeof window !== "undefined" && payment.checkoutUrl) {
-                window.location.href = payment.checkoutUrl;
-              }
+              rememberPendingChapaTxRef(payment.txRef);
+              window.location.assign(payment.checkoutUrl);
             } catch (error: unknown) {
               setPaymentError(
                 userFacingPaymentError(

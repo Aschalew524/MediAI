@@ -21,6 +21,8 @@ import {
   getAssistantPrompt,
   type ChatMode,
 } from "@/lib/chat-content";
+import type { ChatCitation } from "@/lib/services/app-content";
+import { ChatCitations } from "./chat-citations";
 import { getProfileName } from "@/lib/dashboard-content";
 import { useChatConfig } from "@/lib/hooks/use-app-config";
 import { getMyBilling, type MyBillingResponse } from "@/lib/payments-api";
@@ -45,6 +47,7 @@ type ConversationMessage = {
   role: "user" | "assistant";
   author: string;
   content: string;
+  citations?: ChatCitation[];
 };
 
 export function ChatOptionsPage() {
@@ -313,6 +316,7 @@ export function ChatConversationPage({
           role: "assistant",
           author: response.author,
           content: response.reply,
+          citations: response.citations,
         },
       ]);
       // Decrement the trial counter via a fresh billing fetch — cheap,
@@ -408,6 +412,7 @@ export function ChatConversationPage({
               </div>
             </DashboardPanel>
           ) : null}
+          <ChatDisclaimer mode={mode} ragEnabled={config.ragEnabled} />
           <section
             className={cn(
               "space-y-8 py-8",
@@ -517,6 +522,9 @@ export function ChatConversationPage({
                       <p className="mt-3 text-base leading-7 text-foreground/90">
                         {message.content}
                       </p>
+                      {message.citations?.length ? (
+                        <ChatCitations citations={message.citations} />
+                      ) : null}
                     </div>
                   ),
                 )}
@@ -565,6 +573,25 @@ export function ChatConversationPage({
         />
       ) : null}
     </>
+  );
+}
+
+function ChatDisclaimer({
+  mode,
+  ragEnabled,
+}: {
+  mode: ChatMode;
+  ragEnabled?: boolean;
+}) {
+  return (
+    <p className="mb-2 text-xs leading-relaxed text-muted-foreground">
+      Educational information only — not medical advice, diagnosis, or treatment. For emergencies,
+      go to a hospital or emergency unit.{" "}
+      {mode === "general"
+        ? "General chat does not use your saved health profile."
+        : "Personalized chat uses information you entered in the app; it may be incomplete."}
+      {ragEnabled ? " Guideline sources may appear under replies when available." : null}
+    </p>
   );
 }
 

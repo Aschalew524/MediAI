@@ -32,7 +32,10 @@ import {
   listProfessionalPatients,
   type ApiPatientSummary,
 } from "@/lib/services/professional-api";
+import type { ChatCitation } from "@/lib/services/app-content";
 import { cn } from "@/lib/utils";
+
+import { ChatCitations } from "./chat-citations";
 
 import {
   formatProfessionalPatient,
@@ -49,6 +52,7 @@ type ProfessionalConversationMessage = {
   author: string;
   content: string;
   timestamp: string;
+  citations?: ChatCitation[];
 };
 
 function useProfessionalPatients(): {
@@ -503,6 +507,7 @@ export function ProfessionalChatConversationPage({
           author: "AI Doctor",
           content: response.reply,
           timestamp,
+          citations: response.citations,
         },
       ]);
     } catch (err: unknown) {
@@ -674,6 +679,9 @@ export function ProfessionalChatConversationPage({
                   <p className="mt-3 whitespace-pre-line text-sm leading-6 text-foreground/90">
                     {message.content}
                   </p>
+                  {message.citations?.length ? (
+                    <ChatCitations citations={message.citations} />
+                  ) : null}
                 </div>
               ))}
             </div>

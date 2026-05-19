@@ -175,11 +175,10 @@ export async function getAdminConfig() {
   return adminCache;
 }
 
+/** Matches Nest `ChatCitationDto` from RAG retrieval (`source` + `excerpt`). */
 export type ChatCitation = {
-  id: string;
-  title?: string;
-  source?: string;
-  snippet?: string;
+  source: string;
+  excerpt: string;
 };
 
 export type ChatSendResult = {

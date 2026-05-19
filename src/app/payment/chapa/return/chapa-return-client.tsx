@@ -4,11 +4,8 @@ import Link from "next/link";
 import { isAxiosError } from "axios";
 import { useEffect, useState } from "react";
 
-import {
-  chapaReturnBookingId,
-  chapaReturnHasRefQuery,
-  chapaReturnSubscriptionId,
-} from "@/lib/chapa-return-query";
+import { chapaReturnHasRefQuery } from "@/lib/chapa-return-query";
+import { consumePendingChapaTxRef } from "@/lib/chapa-pending-tx";
 import { getApiBaseUrl } from "@/lib/api-origin";
 import {
   finalizeConsultationPayment,
@@ -22,23 +19,28 @@ type SyncState =
   | { phase: "noop" }
   | { phase: "error"; message: string };
 
+function resolveReturnQueryString(initial: string): string {
+  if (chapaReturnHasRefQuery(initial)) {
+    return initial;
+  }
+  const pending = consumePendingChapaTxRef();
+  if (!pending) {
+    return initial;
+  }
+  const u = new URLSearchParams(initial);
+  u.set("tx_ref", pending);
+  return u.toString();
+}
+
 export function ChapaReturnClient({
   kind,
-  queryString,
+  queryString: initialQueryString,
 }: {
   kind: string;
   queryString: string;
 }) {
-  const hasTxRef = chapaReturnHasRefQuery(queryString);
-  const bookingId = chapaReturnBookingId(queryString);
-  const subscriptionId = chapaReturnSubscriptionId(queryString);
-  // Either path can drive verification: the public callback (when Chapa
-  // included a tx_ref on the redirect) or the authenticated finalize
-  // route (when only our own id is in the URL, which is the common
-  // dev/sandbox case). Subscriptions take precedence for the explicit
-  // id check because the Chapa `return_url` carries both `kind=` and
-  // either `subscriptionId=` or `bookingId=`.
-  const canSync = hasTxRef || Boolean(bookingId || subscriptionId);
+  const [queryString] = useState(() => resolveReturnQueryString(initialQueryString));
+  const canSync = chapaReturnHasRefQuery(queryString);
 
   const [state, setState] = useState<SyncState>(() =>
     canSync ? { phase: "syncing" } : { phase: "noop" },
