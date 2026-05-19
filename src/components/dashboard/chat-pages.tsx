@@ -33,7 +33,6 @@ import {
 } from "@/lib/payments-api";
 import { getProfileName } from "@/lib/dashboard-content";
 import { useChatConfig } from "@/lib/hooks/use-app-config";
-import { getMyBilling, type MyBillingResponse } from "@/lib/payments-api";
 import {
   getPersonalConversationMessages,
   listPersonalConversations,
