@@ -2,9 +2,13 @@
 
 import Link from "next/link";
 import { isAxiosError } from "axios";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { chapaReturnHasRefQuery } from "@/lib/chapa-return-query";
+import {
+  chapaReturnBookingId,
+  chapaReturnHasRefQuery,
+  chapaReturnSubscriptionId,
+} from "@/lib/chapa-return-query";
 import { consumePendingChapaTxRef } from "@/lib/chapa-pending-tx";
 import { getApiBaseUrl } from "@/lib/api-origin";
 import {
@@ -101,6 +105,15 @@ export function ChapaReturnClient({
           await finalizeConsultationPayment(bookingId);
           if (cancelled) return;
           setState({ phase: "ok" });
+          return;
+        }
+
+        if (!cancelled) {
+          setState({
+            phase: "error",
+            message:
+              "Payment reference was incomplete. Refresh your dashboard or billing page in a moment.",
+          });
         }
       } catch (error: unknown) {
         if (cancelled) return;

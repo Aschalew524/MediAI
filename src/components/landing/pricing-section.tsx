@@ -271,7 +271,15 @@ export function PricingSection() {
     setPurchasingPlanId(planId);
     setError(null);
     try {
-      const payment = await initiateAssistantPayment(planId);
+      const payment = await initiateSubscriptionPayment(planId, interval);
+      if (payment.freeGranted) {
+        const snapshot = await getMySubscription();
+        setSubscription(snapshot);
+        return;
+      }
+      if (!payment.checkoutUrl) {
+        throw new Error("Checkout URL missing from payment response.");
+      }
       rememberPendingChapaTxRef(payment.txRef);
       window.location.assign(payment.checkoutUrl);
     } catch (err: unknown) {
