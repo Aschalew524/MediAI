@@ -430,10 +430,15 @@ export function ChatConversationPage({
           citations: response.citations,
         },
       ]);
+<<<<<<< HEAD
       // Decrement the trial counter via a fresh billing fetch — cheap,
       // and avoids drift if the user has another tab open.
       if (shouldTrackTrial) {
         void refreshBilling.current();
+=======
+      if (mode === "personal") {
+        void refreshBilling();
+>>>>>>> 8c32f9c (fix:chat with RAG)
       }
     } catch (err: unknown) {
       const code = isAxiosError(err) ? err.response?.status : undefined;
@@ -441,8 +446,13 @@ export function ChatConversationPage({
       const fallbackAuthor = mode === "personal" ? "AI Doctor" : "General Chat";
       if (mode === "personal" && code === 403) {
         setAssistantAccessRequired(true);
+<<<<<<< HEAD
         if (shouldTrackTrial) {
           void refreshBilling.current();
+=======
+        if (trialError === "assistant_trial_exhausted") {
+          void refreshBilling();
+>>>>>>> 8c32f9c (fix:chat with RAG)
         }
       }
       const content =
@@ -470,6 +480,7 @@ export function ChatConversationPage({
     }
   }
 
+<<<<<<< HEAD
   // Decide what — if anything — to show around the composer based on the
   // user's current entitlements. Three relevant states:
   //
@@ -501,6 +512,16 @@ export function ChatConversationPage({
       remaining={trial!.remaining}
     />
   ) : null;
+=======
+  const trialRemaining = billing?.personalTrial.remaining ?? 0;
+  const trialLimit = billing?.personalTrial.limit ?? config.assistantTrial?.limit ?? 3;
+  const showTrialChip =
+    isPersonalPatient &&
+    billing &&
+    !billing.assistantAccess.active &&
+    billing.personalTrial.enabled &&
+    trialRemaining > 0;
+>>>>>>> 8c32f9c (fix:chat with RAG)
 
   return (
     <>
@@ -515,7 +536,21 @@ export function ChatConversationPage({
       ) : null}
       <DashboardPage>
         <DashboardContainer>
+<<<<<<< HEAD
           {assistantAccessRequired && !trialExhaustedBlocked ? (
+=======
+          {checkingAccess ? (
+            <DashboardPanel className="mb-6 flex min-h-[12rem] items-center justify-center">
+              <Loader2 className="size-8 animate-spin text-primary" aria-label="Checking access" />
+            </DashboardPanel>
+          ) : showFullPaywall ? (
+            <AssistantPaywallPanel
+              variant="compact"
+              className="mb-6"
+              onAccessActive={() => void refreshBilling()}
+            />
+          ) : assistantAccessRequired ? (
+>>>>>>> 8c32f9c (fix:chat with RAG)
             <DashboardPanel className="mb-4 border-primary/20 bg-primary/5 px-5 py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -669,6 +704,7 @@ export function ChatConversationPage({
               </div>
             ) : null}
 
+<<<<<<< HEAD
             {trialExhaustedBlocked ? (
               <TrialExhaustedPanel
                 limit={billing?.personalTrial.limit ?? 3}
@@ -687,6 +723,40 @@ export function ChatConversationPage({
                 />
               </>
             )}
+=======
+            {!checkingAccess && canSend ? (
+              <ChatComposer
+                value={draft}
+                onChange={setDraft}
+                onSend={submitMessage}
+                sending={sending}
+              />
+            ) : null}
+            {showComposerLock && !checkingAccess ? (
+              <div className="relative mt-4">
+                <div className="pointer-events-none rounded-2xl border border-primary/15 bg-background/80 p-4 opacity-60 blur-[1px]">
+                  <div className="h-12 rounded-xl bg-muted" />
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center p-4">
+                  <DashboardPanel className="w-full max-w-lg px-5 py-5 text-center shadow-lg">
+                    <p className="text-sm font-semibold text-foreground">
+                      You&apos;ve used your {trialLimit} free personalized chats
+                    </p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Unlock unlimited access to keep chatting with your health profile.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setAccessSheetOpen(true)}
+                      className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground"
+                    >
+                      View plans
+                    </button>
+                  </DashboardPanel>
+                </div>
+              </div>
+            ) : null}
+>>>>>>> 8c32f9c (fix:chat with RAG)
           </section>
         </DashboardContainer>
       </DashboardPage>
