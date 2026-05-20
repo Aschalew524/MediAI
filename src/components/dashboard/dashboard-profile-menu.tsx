@@ -6,7 +6,12 @@ import Link from "next/link";
 import { CircleUserRound } from "lucide-react";
 
 import { useDashboardAuth } from "@/components/auth/dashboard-auth-provider";
-import { getMyBilling, type MyBillingResponse } from "@/lib/payments-api";
+import {
+  getMyBilling,
+  getMySubscription,
+  type MyBillingResponse,
+  type MySubscription,
+} from "@/lib/payments-api";
 import {
   getProfileName,
   getProfessionalName,
@@ -24,6 +29,7 @@ const MENU_LINKS = [
 export function DashboardProfileMenu({ className }: { className?: string }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [billing, setBilling] = useState<MyBillingResponse | null>(null);
+  const [subscription, setSubscription] = useState<MySubscription | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, isLoading: authLoading, logout } = useDashboardAuth();
   const profile = useDashboardProfile();
@@ -37,13 +43,26 @@ export function DashboardProfileMenu({ className }: { className?: string }) {
       ? "…"
       : `${displayName.toLowerCase().replace(/\s+/g, "")}@gmail.com`;
   const accountId = user?.id ? user.id.slice(0, 8).toUpperCase() : "—";
-  const billingState = user?.id ? billing : null;
-  const assistantBadge = billingState?.assistantAccess.active ? "Paid" : "Free";
-  const assistantSubline = billingState?.assistantAccess.active
-    ? billingState.assistantAccess.planName ?? "Assistant access active"
-    : isProfessional
-      ? profile.professionalProfile?.specialty || "Health professional"
-      : "General chat only";
+
+  // Three-way precedence: a paid `SubscriptionPlan` row beats the legacy
+  // assistant-access pass beats Free. Pros aren't billed at all in V1, so
+  // they get a specialty-derived label and no plan badge.
+  const activeSubscription =
+    user?.id && subscription?.active ? subscription : null;
+  const activeAssistant =
+    user?.id && billing?.assistantAccess.active ? billing.assistantAccess : null;
+  const planBadge = activeSubscription?.planName
+    ? activeSubscription.planName.toUpperCase()
+    : activeAssistant
+      ? "PAID"
+      : "FREE";
+  const planSubline = activeSubscription
+    ? `${activeSubscription.planName ?? "Plan"} · ${activeSubscription.interval ?? ""}`.trim()
+    : activeAssistant
+      ? activeAssistant.planName ?? "Assistant access active"
+      : isProfessional
+        ? profile.professionalProfile?.specialty || "Health professional"
+        : "General chat only";
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -78,6 +97,14 @@ export function DashboardProfileMenu({ className }: { className?: string }) {
         if (!cancelled) setBilling(null);
       });
 
+    void getMySubscription()
+      .then((next) => {
+        if (!cancelled) setSubscription(next);
+      })
+      .catch(() => {
+        if (!cancelled) setSubscription(null);
+      });
+
     return () => {
       cancelled = true;
     };
@@ -101,12 +128,12 @@ export function DashboardProfileMenu({ className }: { className?: string }) {
             {displayName}
           </span>
           <span className="truncate text-[11px] leading-tight text-muted-foreground">
-            {assistantSubline}
+            {planSubline}
           </span>
         </span>
         {!isProfessional ? (
           <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground sm:ml-0.5">
-            {assistantBadge}
+            {planBadge}
           </span>
         ) : null}
       </button>
@@ -121,7 +148,7 @@ export function DashboardProfileMenu({ className }: { className?: string }) {
               <CircleUserRound className="size-7" />
               {!isProfessional ? (
                 <span className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                  {assistantBadge}
+                  {planBadge}
                 </span>
               ) : null}
             </div>

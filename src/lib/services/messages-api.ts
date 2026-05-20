@@ -20,6 +20,13 @@ export type ApiThreadDetail = {
   doctorName: string;
   doctorSpecialty: string | null;
   messages: ApiThreadMessage[];
+  /**
+   * Phase 4 — ISO timestamp when the consultation chat window closes.
+   * `null` when no booking is currently active and the chat is read-only.
+   * The composer is disabled while this is null or in the past; otherwise
+   * it shows a "Chat closes in Xh Ym" hint.
+   */
+  chatWindowEndsAt: string | null;
 };
 
 /**

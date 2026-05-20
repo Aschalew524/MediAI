@@ -11,7 +11,6 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Bell,
   BookOpen,
   ChevronDown,
   ClipboardPlus,
@@ -66,6 +65,8 @@ import { cn } from "@/lib/utils";
 
 import { useDashboardAuth } from "@/components/auth/dashboard-auth-provider";
 import { useDashboardMe } from "./dashboard-me-provider";
+import { HealthConcernsPanel } from "./health-concerns-panel";
+import { NotificationsInbox } from "./notifications-inbox";
 
 import {
   CompletionRing,
@@ -378,7 +379,9 @@ function ProfessionalDashboardCard({
     </DashboardPanel>
   );
 
-  if (href === "#") {
+  // Same rule as `DashboardShortcutCard` below — hash-only placeholders are
+  // never wrapped in a `<Link>`.
+  if (href === "#" || href.startsWith("#")) {
     return content;
   }
 
@@ -512,7 +515,10 @@ function DashboardShortcutCard({
     </DashboardPanel>
   );
 
-  if (href === "#") return cardContent;
+  // Treat any hash-only placeholder (e.g. `#check-up-plan`) as non-clickable
+  // — the dashboard config keeps "Coming Soon" tiles with unique hash anchors
+  // so the merger can't collapse them, but they shouldn't actually navigate.
+  if (href === "#" || href.startsWith("#")) return cardContent;
 
   return (
     <Link href={href} className="block transition-transform hover:-translate-y-px">
@@ -1138,6 +1144,8 @@ export function MedicalHistoryPage() {
           description="Record your chronic conditions, allergies, medications, and daily habits so your AI Doctor can give tailored guidance."
         />
 
+        <HealthConcernsPanel />
+
         {/* Chronic Diseases */}
         <DashboardPanel className="space-y-5 px-6 py-5">
           <SectionHeading title="Chronic Diseases" icon={<HeartPulse className="size-5" />} />
@@ -1398,25 +1406,17 @@ function ChoiceGroup({
 export function NotificationsPage() {
   return (
     <DashboardPage>
-      <DashboardContainer className="space-y-12">
+      <DashboardContainer className="space-y-8">
         <div className="flex items-center gap-3">
           <DashboardBackLink href="/dashboard" ariaLabel="Back to dashboard" />
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Notifications</h1>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            Notifications
+          </h1>
         </div>
-
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="mb-6 rounded-full bg-primary/5 p-6">
-            <Bell className="size-10 text-muted-foreground/40" />
-          </div>
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">You don&rsquo;t have any notification yet</h2>
-          <p className="mt-2 text-sm text-muted-foreground">There are currently no notifications to display.</p>
-          <Link
-            href="/dashboard"
-            className="mt-8 inline-flex h-12 min-h-12 items-center justify-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-95 sm:px-8 sm:text-base"
-          >
-            Go to My Dashboard
-          </Link>
-        </div>
+        {/* Phase 6 — live inbox backed by `/me/notifications`. The component
+        owns its own data fetching + pagination so this page stays a thin
+        layout wrapper. */}
+        <NotificationsInbox />
       </DashboardContainer>
     </DashboardPage>
   );

@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentType,
@@ -31,6 +32,7 @@ import { getFriendlyAxiosMessage } from "@/lib/axios-error-messages";
 import {
   getMyBilling,
   createConsultationBooking,
+  initiateConsultationPayment,
   userFacingPaymentError,
   type BillingConsultation,
 } from "@/lib/payments-api";
@@ -40,11 +42,14 @@ import {
 } from "@/lib/consultations-api";
 import {
   getTopDoctorById,
+  getTopDoctorMatchOptions,
   getTopDoctorSpecialties,
   isBadRequestError,
   isNotFoundError,
   isValidTopDoctorId,
   listTopDoctors,
+  type ConditionCategory,
+  type EnumOption,
 } from "@/lib/top-doctors-api";
 import { type ConsultationType, type TopDoctor } from "@/lib/top-doctors-content";
 import { startConversationWithDoctor } from "@/lib/services/messages-api";
@@ -61,13 +66,55 @@ import {
 
 const LIST_PAGE_SIZE = 20;
 
+/**
+ * Phase 4 — render a friendly label for any `ConsultationType`. The legacy
+ * `video`/`written` strings keep their classic single-word labels while the
+ * Phase 4 additions get descriptive copy.
+ */
+function consultationKindLabel(value: string): string {
+  switch (value) {
+    case "video":
+      return "Video";
+    case "written":
+      return "Written";
+    case "in_person":
+      return "In-person";
+    case "hybrid":
+      return "Hybrid";
+    default:
+      return value;
+  }
+}
+
 export function TopDoctorsPage() {
+  const dashboardProfile = useDashboardProfile();
+  const savedConditions = useMemo(
+    () => (dashboardProfile.primaryConditions ?? []) as ConditionCategory[],
+    [dashboardProfile.primaryConditions],
+  );
+
   const [searchInput, setSearchInput] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
 
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>("all");
   const [specialties, setSpecialties] = useState<string[] | null>(null);
   const [specialtiesErrorMessage, setSpecialtiesErrorMessage] = useState<string | null>(null);
+
+  // Phase 5 — condition chips. Default to whatever the patient saved in
+  // their profile (so the page is "smart" the first time they open it),
+  // but always show the chip row so they can refine for the current
+  // session without touching their profile.
+  const [conditionOptions, setConditionOptions] = useState<
+    EnumOption<ConditionCategory>[] | null
+  >(null);
+  const [selectedConditions, setSelectedConditions] = useState<ConditionCategory[]>(
+    savedConditions,
+  );
+  // Reset to the saved set whenever the saved set changes (e.g. patient
+  // updates concerns on the medical-history page).
+  useEffect(() => {
+    setSelectedConditions(savedConditions);
+  }, [savedConditions]);
 
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<TopDoctor[]>([]);
@@ -100,6 +147,30 @@ export function TopDoctorsPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    getTopDoctorMatchOptions()
+      .then((res) => {
+        if (cancelled) return;
+        setConditionOptions(res.conditionCategories);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Soft-fail — the chip row just stays hidden.
+        setConditionOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Stable key for the conditions array so effect deps don't fire on every
+  // render (arrays are referentially unstable).
+  const conditionsKey = useMemo(
+    () => [...selectedConditions].sort().join(","),
+    [selectedConditions],
+  );
+
+  useEffect(() => {
     const id = ++listReq.current;
     setListLoading(true);
     setListError(null);
@@ -109,6 +180,7 @@ export function TopDoctorsPage() {
       pageSize: LIST_PAGE_SIZE,
       specialty: selectedSpecialty,
       q: debouncedQ || undefined,
+      conditions: selectedConditions.length > 0 ? selectedConditions : undefined,
     })
       .then((res) => {
         if (id !== listReq.current) return;
@@ -128,7 +200,9 @@ export function TopDoctorsPage() {
         if (id !== listReq.current) return;
         setListLoading(false);
       });
-  }, [debouncedQ, selectedSpecialty]);
+    // `selectedConditions` ref changes on every render — use the stable key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQ, selectedSpecialty, conditionsKey]);
 
   const loadMore = useCallback(async () => {
     if (listLoading || moreLoading || items.length >= total) return;
@@ -142,6 +216,8 @@ export function TopDoctorsPage() {
         pageSize: LIST_PAGE_SIZE,
         specialty: selectedSpecialty,
         q: debouncedQ || undefined,
+        conditions:
+          selectedConditions.length > 0 ? selectedConditions : undefined,
       });
       if (snapshot !== listReq.current) return;
       setPage(next);
@@ -153,7 +229,38 @@ export function TopDoctorsPage() {
     } finally {
       if (snapshot === listReq.current) setMoreLoading(false);
     }
-  }, [debouncedQ, items.length, listLoading, moreLoading, page, selectedSpecialty, total]);
+  }, [
+    debouncedQ,
+    items.length,
+    listLoading,
+    moreLoading,
+    page,
+    selectedSpecialty,
+    selectedConditions,
+    total,
+  ]);
+
+  const toggleCondition = useCallback((value: ConditionCategory) => {
+    setSelectedConditions((current) =>
+      current.includes(value)
+        ? current.filter((v) => v !== value)
+        : [...current, value],
+    );
+  }, []);
+
+  const clearConditions = useCallback(() => {
+    setSelectedConditions([]);
+  }, []);
+
+  const isUsingSavedConditions = useMemo(() => {
+    if (savedConditions.length === 0 || selectedConditions.length === 0) {
+      return false;
+    }
+    if (savedConditions.length !== selectedConditions.length) return false;
+    const a = [...savedConditions].sort();
+    const b = [...selectedConditions].sort();
+    return a.every((v, i) => v === b[i]);
+  }, [savedConditions, selectedConditions]);
 
   const hasMore = items.length < total;
   const showEmpty = !listLoading && !listError && items.length === 0;
@@ -199,6 +306,60 @@ export function TopDoctorsPage() {
               {specialtiesErrorMessage} You can still search and browse all specialties.
             </p>
           ) : null}
+
+          {/* Phase 5 — patient-facing condition chips. Hidden until the
+              backend's match-options call returns so the row doesn't flash
+              a tall layout shift on first render. */}
+          {conditionOptions && conditionOptions.length > 0 ? (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-medium text-foreground/80">
+                  Filter by your concerns
+                </p>
+                <div className="flex items-center gap-3 text-xs">
+                  {savedConditions.length > 0 && !isUsingSavedConditions ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedConditions(savedConditions)}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      Use my saved concerns
+                    </button>
+                  ) : null}
+                  {selectedConditions.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={clearConditions}
+                      className="font-medium text-muted-foreground hover:underline"
+                    >
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {conditionOptions.map((opt) => {
+                  const selected = selectedConditions.includes(opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => toggleCondition(opt.value)}
+                      className={cn(
+                        "inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                        selected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-primary/15 bg-background text-foreground/80 hover:border-primary",
+                      )}
+                      aria-pressed={selected}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {listError ? (
@@ -220,11 +381,21 @@ export function TopDoctorsPage() {
         </div>
 
         {showEmpty ? (
-          <DashboardPanel className="px-6 py-8">
+          <DashboardPanel className="space-y-3 px-6 py-8">
             <p className="text-sm text-muted-foreground">
-              No doctors match your filters. Try a different search or clear the search box to see
-              everyone.
+              {selectedConditions.length > 0
+                ? "No verified doctors match your selected concerns yet. Try broadening or clearing the chips below."
+                : "No doctors match your filters. Try a different search or clear the search box to see everyone."}
             </p>
+            {selectedConditions.length > 0 ? (
+              <button
+                type="button"
+                onClick={clearConditions}
+                className="self-start text-sm font-medium text-primary hover:underline"
+              >
+                Show all doctors
+              </button>
+            ) : null}
           </DashboardPanel>
         ) : null}
 
@@ -246,20 +417,41 @@ export function TopDoctorsPage() {
 }
 
 function TopDoctorCard({ doctor }: { doctor: TopDoctor }) {
+  const showMatchBadge = doctor.matchesConditions === true;
+  const showRegionBadge = doctor.inRegion === true;
   return (
     <Link
       href={`/dashboard/top-doctors/${doctor.id}`}
       className="block rounded-[1.75rem] border border-primary/20 bg-white p-3 shadow-[0_16px_40px_-34px_rgba(76,104,220,0.6)] transition-all hover:-translate-y-px"
     >
-      <DoctorImage
-        src={doctor.heroImageUrl}
-        alt={`${doctor.name} portrait`}
-        className="aspect-[4/3] w-full rounded-2xl"
-      />
+      <div className="relative">
+        <DoctorImage
+          src={doctor.heroImageUrl}
+          alt={`${doctor.name} portrait`}
+          className="aspect-[4/3] w-full rounded-2xl"
+        />
+        {showMatchBadge || showRegionBadge ? (
+          <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+            {showMatchBadge ? (
+              <span className="inline-flex items-center rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground shadow-sm">
+                Matches you
+              </span>
+            ) : null}
+            {showRegionBadge ? (
+              <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">
+                In your region
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
 
       <div className="space-y-1 px-3 pb-3 pt-3">
         <h3 className="text-lg font-semibold tracking-tight">{doctor.name}</h3>
         <p className="text-sm text-muted-foreground">{doctor.specialty}</p>
+        {doctor.region ? (
+          <p className="text-xs text-muted-foreground">{doctor.region}</p>
+        ) : null}
       </div>
     </Link>
   );
@@ -484,9 +676,19 @@ export function TopDoctorBiographyPage({ doctorId }: { doctorId: string }) {
                       Latest booking status: {recentConsultation.status.replace(/_/g, " ")}
                     </p>
                     <p className="mt-1 text-muted-foreground">
-                      {recentConsultation.consultationType === "video" ? "Video" : "Written"} consultation
+                      {consultationKindLabel(recentConsultation.consultationType)} consultation
                       at {recentConsultation.consultationFeeDisplay}
                     </p>
+                    {recentConsultation.meetingLink ? (
+                      <a
+                        href={recentConsultation.meetingLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                      >
+                        Open meeting link
+                      </a>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
@@ -711,13 +913,27 @@ function VideoConsultationModal({
               ]
                 .filter((item) => !item.endsWith(":"))
                 .join("\n");
-              await createConsultationBooking({
+              // Step 1 — create the pending booking row. This locks in the
+              // slot and stamps `status: "pending_payment"` server-side.
+              const booking = await createConsultationBooking({
                 topDoctorId: doctor.id,
                 consultationType: selectedType,
                 startsAt: selectedSlot,
                 patientNotes: details || undefined,
               });
               setBooked(true);
+              // Step 2 — hand off to Chapa. Until the patient pays, the
+              // backend keeps the booking at `pending_payment` and the
+              // doctor's inbox stays empty (Phase 3 anti-spam rule). Only
+              // after the Chapa webhook flips the row to
+              // `pending_doctor_approval` will the doctor see this request.
+              const payment = await initiateConsultationPayment(booking.id);
+              // Consultations always return a Chapa checkoutUrl; the type
+              // marks it optional only because Phase 7's free-plan
+              // subscriptions share the same response shape.
+              if (typeof window !== "undefined" && payment.checkoutUrl) {
+                window.location.href = payment.checkoutUrl;
+              }
             } catch (error: unknown) {
               setPaymentError(
                 userFacingPaymentError(
@@ -752,6 +968,8 @@ function VideoConsultationModal({
               >
                 <option value="video">Video consultation</option>
                 <option value="written">Written consultation</option>
+                <option value="in_person">In-person visit</option>
+                <option value="hybrid">Hybrid (video + in-person follow-up)</option>
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             </ConsultationField>
@@ -798,8 +1016,9 @@ function VideoConsultationModal({
 
             {booked ? (
               <p className="rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm text-foreground">
-                Request sent. The doctor will confirm your appointment from their booking requests
-                page.
+                Slot reserved. Redirecting you to secure payment — once payment
+                clears, your request will appear on the doctor&apos;s booking
+                requests page for approval.
               </p>
             ) : null}
 
@@ -864,12 +1083,15 @@ function VideoConsultationModal({
               {submitting ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" />
-                  Sending request…
+                  Reserving slot…
                 </>
               ) : booked ? (
-                "Request sent"
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Redirecting to payment…
+                </>
               ) : (
-                "Request appointment"
+                "Continue to payment"
               )}
             </button>
           </div>

@@ -7,12 +7,13 @@ import { ArrowLeft, Check, Loader2, ShieldCheck, Sparkles, Tag } from "lucide-re
 
 import { getAccessToken } from "@/lib/auth-storage";
 import {
-  getAssistantAccessPlans,
-  getMyBilling,
-  initiateAssistantPayment,
+  getMySubscription,
+  getSubscriptionPlansPublic,
+  initiateSubscriptionPayment,
   userFacingPaymentError,
-  type AssistantAccessPlan,
-  type MyBillingResponse,
+  type MySubscription,
+  type SubscriptionInterval,
+  type SubscriptionPlan,
 } from "@/lib/payments-api";
 import { cn } from "@/lib/utils";
 
@@ -30,24 +31,13 @@ function MediAiWordmark({ className }: { className?: string }) {
   );
 }
 
-type PlanFeature = { label: string };
-
-function FeatureRow({ label }: PlanFeature) {
+function FeatureRow({ label }: { label: string }) {
   return (
     <li className="flex gap-3 text-sm leading-snug text-foreground/90">
       <Check className="mt-0.5 size-4 shrink-0 text-primary" strokeWidth={2.5} aria-hidden />
       <span>{label}</span>
     </li>
   );
-}
-
-function staticFeatures(plan: AssistantAccessPlan): PlanFeature[] {
-  return [
-    { label: "General AI chat remains free for everyone" },
-    { label: "Personalized assistant uses your saved health context" },
-    { label: `${plan.durationDays}-day access starts after verified payment` },
-    { label: "Secure server-side payment verification with Chapa" },
-  ];
 }
 
 function formatEndsAt(value: string | null): string | null {
@@ -61,41 +51,107 @@ function formatEndsAt(value: string | null): string | null {
   });
 }
 
+/**
+ * Phase 7 — segmented control to toggle the displayed price between monthly
+ * and yearly. The choice only changes which price each card shows; the
+ * "Subscribe" handler reads it at click time so the user can flip back and
+ * forth without losing their selection.
+ */
+function IntervalToggle({
+  value,
+  onChange,
+}: {
+  value: SubscriptionInterval;
+  onChange: (next: SubscriptionInterval) => void;
+}) {
+  return (
+    <div className="inline-flex items-center rounded-2xl border border-primary/20 bg-white p-1 text-sm shadow-sm">
+      {(
+        [
+          { id: "monthly" as const, label: "Monthly" },
+          { id: "yearly" as const, label: "Yearly" },
+        ] satisfies { id: SubscriptionInterval; label: string }[]
+      ).map((opt) => {
+        const active = value === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => onChange(opt.id)}
+            className={cn(
+              "rounded-xl px-4 py-1.5 text-sm font-medium transition-colors",
+              active
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+            aria-pressed={active}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function PricingCard({
   plan,
-  billing,
+  interval,
+  subscription,
   loading,
   purchasingPlanId,
-  onPurchase,
+  onSubscribe,
 }: {
-  plan: AssistantAccessPlan;
-  billing: MyBillingResponse | null;
+  plan: SubscriptionPlan;
+  interval: SubscriptionInterval;
+  subscription: MySubscription | null;
   loading: boolean;
   purchasingPlanId: string | null;
-  onPurchase: (planId: string) => void;
+  onSubscribe: (planId: string) => void;
 }) {
-  const activePlan = billing?.assistantAccess.active ? billing.assistantAccess.planName : null;
-  const endsAt = formatEndsAt(billing?.assistantAccess.endsAt ?? null);
-  const isCurrent = Boolean(activePlan && activePlan === plan.name);
-  const badge = isCurrent ? "current" : plan.sortOrder === 0 ? "popular" : null;
-  const features = staticFeatures(plan);
+  const priceDisplay =
+    interval === "yearly" ? plan.yearlyPriceDisplay : plan.monthlyPriceDisplay;
+  const priceCents =
+    interval === "yearly" ? plan.yearlyPriceCents : plan.monthlyPriceCents;
+  const isCurrent = Boolean(
+    subscription?.active &&
+      subscription.planId === plan.id &&
+      subscription.interval === interval,
+  );
+  const isCurrentPlanOtherInterval = Boolean(
+    subscription?.active &&
+      subscription.planId === plan.id &&
+      subscription.interval !== interval,
+  );
+  const endsAt = formatEndsAt(subscription?.endsAt ?? null);
+  const popular = plan.sortOrder === 1; // middle tier
+  const ctaLabel = plan.isFree
+    ? "Use Free plan"
+    : isCurrent
+      ? endsAt
+        ? `Active until ${endsAt}`
+        : "Current plan"
+      : isCurrentPlanOtherInterval
+        ? `Switch to ${interval}`
+        : "Subscribe with Chapa";
 
   return (
     <article
       className={cn(
         "flex h-full flex-col rounded-2xl border border-primary/20 bg-[linear-gradient(180deg,rgba(246,248,255,0.92),rgba(250,251,255,0.98))] p-6 shadow-sm",
-        badge === "popular" && "ring-2 ring-primary/20",
+        popular && "ring-2 ring-primary/20",
       )}
     >
       <div className="flex flex-wrap items-center gap-2">
-        {badge === "popular" ? <Sparkles className="size-4 shrink-0 text-primary" aria-hidden /> : null}
+        {popular ? (
+          <Sparkles className="size-4 shrink-0 text-primary" aria-hidden />
+        ) : null}
         <h2 className="text-lg font-semibold text-foreground">{plan.name}</h2>
-        {badge === "current" ? (
+        {isCurrent ? (
           <span className="rounded-full border border-primary/35 bg-primary/8 px-2.5 py-0.5 text-xs font-medium text-primary">
             Active
           </span>
-        ) : null}
-        {badge === "popular" ? (
+        ) : popular ? (
           <span className="rounded-full border border-primary/35 bg-primary/8 px-2.5 py-0.5 text-xs font-medium text-primary">
             Popular
           </span>
@@ -103,58 +159,69 @@ function PricingCard({
       </div>
 
       <p className="mt-5 text-2xl font-semibold tracking-tight text-foreground">
-        {plan.priceDisplay}
+        {plan.isFree ? `${plan.currency} 0.00` : priceDisplay}
       </p>
-      <p className="mt-1 min-h-[2.5rem] text-sm text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
+        {plan.isFree
+          ? "Always free"
+          : interval === "yearly"
+            ? "Billed once for 12 months"
+            : "Billed once for 30 days"}
+      </p>
+      <p className="mt-3 min-h-10 text-sm text-muted-foreground">
         {plan.description ?? "Personalized AI health support with secure checkout."}
       </p>
 
       <div className="mt-6">
-        {isCurrent ? (
-          <button
-            type="button"
-            disabled
-            className="flex h-12 w-full cursor-not-allowed items-center justify-center rounded-xl border border-border bg-muted text-sm font-medium text-muted-foreground"
-          >
-            {endsAt ? `Active until ${endsAt}` : "Current access"}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onPurchase(plan.id)}
-            disabled={loading || purchasingPlanId === plan.id}
-            className="flex h-12 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {purchasingPlanId === plan.id ? (
-              <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
-                Redirecting…
-              </>
-            ) : (
-              "Pay with Chapa"
-            )}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => onSubscribe(plan.id)}
+          disabled={
+            loading ||
+            isCurrent ||
+            purchasingPlanId === plan.id ||
+            (!plan.isFree && priceCents <= 0)
+          }
+          className={cn(
+            "flex h-12 w-full items-center justify-center rounded-xl px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+            plan.isFree
+              ? "border border-primary/20 bg-muted text-foreground hover:bg-muted/80"
+              : "bg-primary text-primary-foreground hover:bg-primary/90",
+            isCurrent && "border border-border bg-muted text-muted-foreground hover:bg-muted",
+          )}
+        >
+          {purchasingPlanId === plan.id ? (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              {plan.isFree ? "Activating…" : "Redirecting…"}
+            </>
+          ) : (
+            ctaLabel
+          )}
+        </button>
       </div>
 
-      <p className="mt-8 text-sm font-semibold text-foreground">
-        Personalized assistant for {plan.durationDays} days
-      </p>
-      <ul className="mt-4 space-y-3">
-        {features.map((f) => (
-          <FeatureRow key={f.label} {...f} />
-        ))}
-      </ul>
+      {plan.features.length > 0 ? (
+        <>
+          <p className="mt-8 text-sm font-semibold text-foreground">What&apos;s included</p>
+          <ul className="mt-4 space-y-3">
+            {plan.features.map((feature) => (
+              <FeatureRow key={feature} label={feature} />
+            ))}
+          </ul>
+        </>
+      ) : null}
     </article>
   );
 }
 
 export function PricingSection() {
-  const [plans, setPlans] = useState<AssistantAccessPlan[]>([]);
-  const [billing, setBilling] = useState<MyBillingResponse | null>(null);
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [subscription, setSubscription] = useState<MySubscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [purchasingPlanId, setPurchasingPlanId] = useState<string | null>(null);
+  const [interval, setInterval] = useState<SubscriptionInterval>("monthly");
 
   const isAuthenticated = useMemo(() => Boolean(getAccessToken()), []);
 
@@ -165,16 +232,25 @@ export function PricingSection() {
       setLoading(true);
       setError(null);
       try {
-        const [planItems, billingSnapshot] = await Promise.all([
-          getAssistantAccessPlans(),
-          isAuthenticated ? getMyBilling().catch(() => null) : Promise.resolve(null),
+        const [planItems, subscriptionSnapshot] = await Promise.all([
+          getSubscriptionPlansPublic(),
+          isAuthenticated
+            ? getMySubscription().catch(() => null)
+            : Promise.resolve(null),
         ]);
         if (cancelled) return;
         setPlans(planItems);
-        setBilling(billingSnapshot);
+        setSubscription(subscriptionSnapshot);
+        // If the user already has a yearly subscription, default the toggle
+        // to yearly so the "Active" badge ends up on the right card.
+        if (subscriptionSnapshot?.interval) {
+          setInterval(subscriptionSnapshot.interval);
+        }
       } catch (err: unknown) {
         if (cancelled) return;
-        setError(userFacingPaymentError(err, "Could not load live pricing right now."));
+        setError(
+          userFacingPaymentError(err, "Could not load live pricing right now."),
+        );
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -186,7 +262,7 @@ export function PricingSection() {
     };
   }, [isAuthenticated]);
 
-  async function handlePurchase(planId: string) {
+  async function handleSubscribe(planId: string) {
     if (!isAuthenticated) {
       window.location.assign("/signin");
       return;
@@ -194,13 +270,25 @@ export function PricingSection() {
     setPurchasingPlanId(planId);
     setError(null);
     try {
-      const payment = await initiateAssistantPayment(planId);
-      window.location.assign(payment.checkoutUrl);
+      const payment = await initiateSubscriptionPayment(planId, interval);
+      if (payment.freeGranted) {
+        // No Chapa redirect — the free row is already active. Send the user
+        // to their dashboard instead of leaving them on a marketing page.
+        window.location.assign("/dashboard/ai-doctor");
+        return;
+      }
+      if (payment.checkoutUrl) {
+        window.location.assign(payment.checkoutUrl);
+        return;
+      }
+      setError(
+        "The subscription was started but we didn't get a checkout link from the gateway. Please try again.",
+      );
     } catch (err: unknown) {
       setError(
         userFacingPaymentError(
           err,
-          "We could not start the payment. Please try again.",
+          "We could not start the subscription. Please try again.",
         ),
       );
     } finally {
@@ -233,20 +321,26 @@ export function PricingSection() {
 
         <p className="flex items-center justify-center gap-2 text-center text-sm font-medium text-primary/90">
           <Tag className="size-4 shrink-0" aria-hidden />
-          General AI chat is free. Personalized AI guidance unlocks after payment.
+          General AI chat is free. Personalized AI guidance unlocks with Lite or Pro.
         </p>
 
-        {billing?.assistantAccess.active ? (
+        <div className="flex justify-center">
+          <IntervalToggle value={interval} onChange={setInterval} />
+        </div>
+
+        {subscription?.active ? (
           <div className="rounded-2xl border border-primary/20 bg-primary/5 px-5 py-4 text-sm text-foreground">
             <div className="flex items-center gap-2 font-medium text-primary">
               <ShieldCheck className="size-4" />
-              Personalized assistant access is active
+              {subscription.planName ?? "Current plan"} is active
             </div>
             <p className="mt-1 text-muted-foreground">
-              {billing.assistantAccess.planName ?? "Current pass"}
-              {billing.assistantAccess.endsAt
-                ? ` expires on ${formatEndsAt(billing.assistantAccess.endsAt)}.`
-                : "."}
+              {subscription.interval
+                ? `Billed ${subscription.interval}. `
+                : ""}
+              {subscription.endsAt
+                ? `Renews / ends on ${formatEndsAt(subscription.endsAt)}.`
+                : ""}
             </p>
           </div>
         ) : null}
@@ -258,47 +352,21 @@ export function PricingSection() {
         ) : null}
 
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          <article className="flex h-full flex-col rounded-2xl border border-primary/20 bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-foreground">Free General Chat</h2>
-              <span className="rounded-full border border-primary/35 bg-primary/8 px-2.5 py-0.5 text-xs font-medium text-primary">
-                Included
-              </span>
-            </div>
-            <p className="mt-5 text-2xl font-semibold tracking-tight text-foreground">ETB 0.00</p>
-            <p className="mt-1 min-h-[2.5rem] text-sm text-muted-foreground">
-              Ask general health questions without linking your personal medical history.
-            </p>
-            <div className="mt-6">
-              <Link
-                href="/dashboard/ai-doctor/general"
-                className="flex h-12 w-full items-center justify-center rounded-xl border border-primary/20 bg-muted text-sm font-medium text-foreground transition-colors hover:bg-muted/80"
-              >
-                Open general chat
-              </Link>
-            </div>
-            <p className="mt-8 text-sm font-semibold text-foreground">Best for quick health questions</p>
-            <ul className="mt-4 space-y-3">
-              <FeatureRow label="No payment required" />
-              <FeatureRow label="No saved health-context personalization" />
-              <FeatureRow label="Great for discovery before upgrading" />
-            </ul>
-          </article>
-
           {loading && plans.length === 0 ? (
             <div className="col-span-full rounded-2xl border border-primary/15 bg-white p-8 text-center text-sm text-muted-foreground">
               <Loader2 className="mx-auto mb-3 size-5 animate-spin text-primary" />
-              Loading assistant plans…
+              Loading plans…
             </div>
           ) : (
             plans.map((plan) => (
               <PricingCard
                 key={plan.id}
                 plan={plan}
-                billing={billing}
+                interval={interval}
+                subscription={subscription}
                 loading={loading}
                 purchasingPlanId={purchasingPlanId}
-                onPurchase={handlePurchase}
+                onSubscribe={handleSubscribe}
               />
             ))
           )}

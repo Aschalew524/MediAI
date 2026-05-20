@@ -84,9 +84,20 @@ export default function DashboardBillingPage() {
                     >
                       <p className="font-medium">{c.topDoctorName}</p>
                       <p className="text-muted-foreground">
-                        {c.consultationType} · {c.status.replace(/_/g, " ")} ·{" "}
+                        {c.consultationType.replace(/_/g, " ")} ·{" "}
+                        {c.status.replace(/_/g, " ")} ·{" "}
                         {c.consultationFeeDisplay}
                       </p>
+                      {c.meetingLink ? (
+                        <a
+                          href={c.meetingLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-block text-xs font-medium text-primary hover:underline"
+                        >
+                          Open meeting link
+                        </a>
+                      ) : null}
                     </li>
                   ))}
                 </ul>

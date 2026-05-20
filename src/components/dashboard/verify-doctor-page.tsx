@@ -27,6 +27,11 @@ import {
   dispatchMeRefresh,
 } from "@/lib/me-api";
 import type { ProfessionalProfile } from "@/lib/dashboard-content";
+import {
+  getTopDoctorMatchOptions,
+  type EnumOption,
+  type MedicalSpecialty,
+} from "@/lib/top-doctors-api";
 import { cn } from "@/lib/utils";
 
 /* -------------------------------------------------------------------------- */
@@ -189,6 +194,36 @@ export function VerifyDoctorPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Phase 5 — canonical specialty (separate from the free-text one above).
+  // We track this independently so existing form-state plumbing stays
+  // simple, and pre-fill from the server's `profile.medicalSpecialty`.
+  const [medicalSpecialty, setMedicalSpecialtyLocal] = useState<string>(
+    profile?.medicalSpecialty ?? "",
+  );
+  const [specialtyOptions, setSpecialtyOptions] = useState<
+    EnumOption<MedicalSpecialty>[] | null
+  >(null);
+  useEffect(() => {
+    let cancelled = false;
+    getTopDoctorMatchOptions()
+      .then((res) => {
+        if (cancelled) return;
+        setSpecialtyOptions(res.medicalSpecialties);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Non-fatal — the dropdown just hides.
+        setSpecialtyOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  useEffect(() => {
+    // Re-sync when the parent profile refreshes (e.g. after a save).
+    setMedicalSpecialtyLocal(profile?.medicalSpecialty ?? "");
+  }, [profile?.medicalSpecialty]);
+
   // Auto-poll while awaiting review so the page flips to verified the moment
   // the admin approves (without requiring a manual refresh).
   useEffect(() => {
@@ -257,6 +292,10 @@ export function VerifyDoctorPage() {
     try {
       await patchMeProfile({
         professionalProfile: formStateToProfessionalProfilePatch(form),
+        // Phase 5 — only send when the doctor actually picked something;
+        // null/empty leaves the server column as-is (backend ignores
+        // empty strings via its enum validation).
+        medicalSpecialty: medicalSpecialty || undefined,
       });
       dispatchMeRefresh();
       setSuccess("Saved.");
@@ -283,6 +322,7 @@ export function VerifyDoctorPage() {
       // up-to-date before we flip the status flag.
       await patchMeProfile({
         professionalProfile: formStateToProfessionalProfilePatch(form),
+        medicalSpecialty: medicalSpecialty || undefined,
       });
       await submitProfessionalVerification();
       dispatchMeRefresh();
@@ -381,6 +421,26 @@ export function VerifyDoctorPage() {
                 placeholder="e.g. Cardiology"
                 required
               />
+            </Field>
+            <Field
+              label="Match category"
+              htmlFor="medicalSpecialty"
+              hint="We use this to surface you to patients who selected related concerns. Pick the closest match — if you leave it blank we'll guess from your specialty above."
+            >
+              <select
+                id="medicalSpecialty"
+                value={medicalSpecialty}
+                onChange={(e) => setMedicalSpecialtyLocal(e.target.value)}
+                className={inputClass}
+                disabled={specialtyOptions === null}
+              >
+                <option value="">— Auto-detect from specialty —</option>
+                {(specialtyOptions ?? []).map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Years of experience *" htmlFor="yearsOfExperience">
               <input
