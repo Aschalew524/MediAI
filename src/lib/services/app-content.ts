@@ -85,6 +85,11 @@ export type DashboardConfigResponse = {
   mainHealthInfoSections: string[];
 };
 
+export type AssistantTrialConfig = {
+  enabled: boolean;
+  limit: number;
+};
+
 export type ChatConfigResponse = {
   doctorTypeOptions: DoctorTypeOption[];
   chatHistoryItems: HistoryItem[];
@@ -95,6 +100,7 @@ export type ChatConfigResponse = {
   }[];
   /** From Nest: `RAG_ENABLED` — when true, responses may include guideline (RAG) sources */
   ragEnabled?: boolean;
+  assistantTrial?: AssistantTrialConfig;
 };
 
 export type AIDoctorConfigResponse = {

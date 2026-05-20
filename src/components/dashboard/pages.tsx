@@ -384,9 +384,7 @@ function ProfessionalDashboardCard({
     </DashboardPanel>
   );
 
-  // Same rule as `DashboardShortcutCard` below — hash-only placeholders are
-  // never wrapped in a `<Link>`.
-  if (href === "#" || href.startsWith("#")) {
+  if (href.startsWith("#")) {
     return content;
   }
 
@@ -520,10 +518,7 @@ function DashboardShortcutCard({
     </DashboardPanel>
   );
 
-  // Treat any hash-only placeholder (e.g. `#check-up-plan`) as non-clickable
-  // — the dashboard config keeps "Coming Soon" tiles with unique hash anchors
-  // so the merger can't collapse them, but they shouldn't actually navigate.
-  if (href === "#" || href.startsWith("#")) return cardContent;
+  if (href.startsWith("#")) return cardContent;
 
   return (
     <Link href={href} className="block transition-transform hover:-translate-y-px">
