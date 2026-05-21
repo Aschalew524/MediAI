@@ -4,14 +4,15 @@ import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { useDashboardAuth } from "@/components/auth/dashboard-auth-provider";
-import { setAccessToken } from "@/lib/auth-storage";
+import { setAccessToken, setRefreshToken } from "@/lib/auth-storage";
 
 const MAX_TOKEN_CHARS = 12_000;
 
 /**
- * Nest `GET /api/auth/google/callback` redirects to `/dashboard?accessToken=<jwt>`.
- * Persists the session (localStorage + cookie) like email login, strips the token from the URL,
- * then refreshes auth so `/auth/me` runs with the new JWT.
+ * Nest `GET /api/auth/google/callback` redirects to
+ * `/dashboard?accessToken=<jwt>&refreshToken=<opaque>`.
+ * Persists both tokens (localStorage + cookie for access token),
+ * strips both from the URL, then refreshes auth so `/auth/me` runs.
  */
 export function GoogleOAuthDashboardBootstrap() {
   const router = useRouter();
@@ -21,21 +22,32 @@ export function GoogleOAuthDashboardBootstrap() {
 
   useEffect(() => {
     if (appliedRef.current) return;
-    const raw = searchParams.get("accessToken");
-    if (!raw) return;
+    const rawAccess = searchParams.get("accessToken");
+    if (!rawAccess) return;
 
-    const token = raw.trim();
-    if (!token || token.length > MAX_TOKEN_CHARS) {
+    const accessToken = rawAccess.trim();
+    if (!accessToken || accessToken.length > MAX_TOKEN_CHARS) {
       router.replace("/signin?error=invalid_token");
       return;
     }
 
     appliedRef.current = true;
-    setAccessToken(token);
+    setAccessToken(accessToken);
 
+    // Persist refresh token if the backend included one
+    const rawRefresh = searchParams.get("refreshToken");
+    if (rawRefresh) {
+      const refreshToken = rawRefresh.trim();
+      if (refreshToken && refreshToken.length <= MAX_TOKEN_CHARS) {
+        setRefreshToken(refreshToken);
+      }
+    }
+
+    // Strip both tokens from the URL
     const path = window.location.pathname;
     const params = new URLSearchParams(window.location.search);
     params.delete("accessToken");
+    params.delete("refreshToken");
     const qs = params.toString();
     const nextPath = qs ? `${path}?${qs}` : path;
     router.replace(nextPath);
