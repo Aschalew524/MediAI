@@ -60,11 +60,23 @@ export function userFacingAxiosError(
         "An account with this email already exists"
     );
   }
+  if (status === 500 && path.includes("auth/register")) {
+    return (
+      messageFromAxiosData(err.response?.data) ??
+        "The API server failed during signup. Ensure Vercel has DATABASE_URL and JWT_SECRET, run prisma migrate deploy on Neon, then redeploy the backend."
+    );
+  }
   if (status === 400) {
     return messageFromAxiosData(err.response?.data) ?? "Please check your input";
   }
   if (status === 429) {
     return "Too many attempts. Please wait a moment and try again.";
+  }
+  if (status === 404) {
+    return (
+      messageFromAxiosData(data) ??
+        "API route not found. Redeploy the backend (api/index.ts + vercel.json rewrites)."
+    );
   }
   if (status === 503) {
     const serverMsg = messageFromAxiosData(err.response?.data);
@@ -82,8 +94,8 @@ export function userFacingAxiosError(
       );
     }
     return (
-      "Database is unavailable on the API server. For the deployed backend, set DATABASE_URL in Vercel " +
-      "(Neon pooled URL) and run `npx prisma migrate deploy` against that database."
+      messageFromAxiosData(err.response?.data) ??
+        "Database is unavailable on the API server. Check DATABASE_URL in Vercel (use your Neon pooled URL, not localhost)."
     );
   }
   if (status === 422) {

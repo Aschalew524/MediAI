@@ -82,6 +82,31 @@ function SignInForm() {
   }, [searchParams]);
 
   useEffect(() => {
+<<<<<<< HEAD
+=======
+    let cancelled = false;
+    (async () => {
+      try {
+        await api.get("/health/database");
+        if (!cancelled) setDbPreflightError(null);
+      } catch (err) {
+        if (!cancelled) {
+          setDbPreflightError(
+            userFacingAxiosError(
+              err,
+              "The API is not responding. If using Vercel, redeploy the backend after setting DATABASE_URL and JWT_SECRET.",
+            ),
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+>>>>>>> 7be53f2 (fix concultaion card scrollable)
     const err = searchParams.get("error");
     if (!err) return;
     setFormError(oauthCallbackErrorMessage(err));
@@ -149,8 +174,13 @@ function SignInForm() {
           Sign in to continue to the app.
         </p>
       ) : null}
+<<<<<<< HEAD
       {formError ? (
         <AuthFormErrorAlert message={formError} />
+=======
+      {formError || dbPreflightError ? (
+        <AuthFormErrorAlert message={formError ?? dbPreflightError ?? ""} />
+>>>>>>> 7be53f2 (fix concultaion card scrollable)
       ) : null}
 
       {checkingSession ? (

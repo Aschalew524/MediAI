@@ -44,7 +44,19 @@ export function ChapaReturnClient({
   queryString: string;
 }) {
   const [queryString] = useState(() => resolveReturnQueryString(initialQueryString));
-  const canSync = chapaReturnHasRefQuery(queryString);
+  const hasTxRef = useMemo(
+    () => chapaReturnHasRefQuery(queryString),
+    [queryString],
+  );
+  const bookingId = useMemo(
+    () => chapaReturnBookingId(queryString),
+    [queryString],
+  );
+  const subscriptionId = useMemo(
+    () => chapaReturnSubscriptionId(queryString),
+    [queryString],
+  );
+  const canSync = hasTxRef || Boolean(bookingId || subscriptionId);
 
   const [state, setState] = useState<SyncState>(() =>
     canSync ? { phase: "syncing" } : { phase: "noop" },
