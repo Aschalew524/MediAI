@@ -210,12 +210,13 @@ export function ChatConversationPage({
 
   const requestedConversationId = searchParams.get("conversationId");
   const isPersonalPatient = mode === "personal" && !isProfessional;
-  const [billing, setBilling] = useState<MyBillingResponse | null>(
-    isPersonalPatient ? null : null,
-  );
+  const shouldTrackTrial = isPersonalPatient;
+  const [billing, setBilling] = useState<MyBillingResponse | null>(null);
+  const [billingLoading, setBillingLoading] = useState(shouldTrackTrial);
+  const [billingErrored, setBillingErrored] = useState(false);
   const [accessSheetOpen, setAccessSheetOpen] = useState(false);
 
-  const checkingAccess = isPersonalPatient && billing === null;
+  const checkingAccess = shouldTrackTrial && billingLoading;
   const canSend =
     !isPersonalPatient || (billing !== null && canSendPersonalChat(billing));
   const showComposerLock =
@@ -243,23 +244,27 @@ export function ChatConversationPage({
   const [sending, setSending] = useState(false);
   const [submittingIssue, setSubmittingIssue] = useState(false);
 
-  // Billing snapshot drives the proactive trial UI ("X of 3 free chats
-  // left" badge and the post-trial upgrade panel). Only fetched for
-  // patient-side personal chat — professional clinical assistant flows
-  // are not billed, and general chat is intentionally free.
-  const shouldTrackTrial = mode === "personal" && !isProfessional;
-  const [billing, setBilling] = useState<MyBillingResponse | null>(null);
-  const [billingLoading, setBillingLoading] = useState<boolean>(shouldTrackTrial);
-  const [billingErrored, setBillingErrored] = useState(false);
+  const refreshBilling = useCallback(async () => {
+    if (!shouldTrackTrial) return;
+    try {
+      const data = await getMyBilling();
+      setBilling(data);
+      setBillingErrored(false);
+    } catch {
+      setBillingErrored(true);
+    } finally {
+      setBillingLoading(false);
+    }
+  }, [shouldTrackTrial]);
 
-  const refreshBilling = useRef<() => Promise<void>>(async () => {});
   useEffect(() => {
     if (!shouldTrackTrial) {
-      refreshBilling.current = async () => {};
+      setBillingLoading(false);
       return;
     }
     let cancelled = false;
-    const load = async () => {
+    void (async () => {
+      setBillingLoading(true);
       try {
         const data = await getMyBilling();
         if (cancelled) return;
@@ -267,16 +272,11 @@ export function ChatConversationPage({
         setBillingErrored(false);
       } catch {
         if (cancelled) return;
-        // A billing-fetch failure shouldn't block the chat — degrade to
-        // the legacy "reactive 403 banner" flow. We just don't show the
-        // proactive counter / upgrade panel in that case.
         setBillingErrored(true);
       } finally {
         if (!cancelled) setBillingLoading(false);
       }
-    };
-    refreshBilling.current = load;
-    void load();
+    })();
     return () => {
       cancelled = true;
     };
@@ -288,27 +288,6 @@ export function ChatConversationPage({
   // generated client-side for `/chat/general/messages`.
   const conversationIdRef = useRef<string | undefined>(undefined);
   const sessionIdRef = useRef<string | undefined>(undefined);
-
-  const refreshBilling = useCallback(async () => {
-    if (!isPersonalPatient) return;
-    const b = await getMyBilling();
-    setBilling(b);
-  }, [isPersonalPatient]);
-
-  useEffect(() => {
-    if (!isPersonalPatient) return;
-    let cancelled = false;
-    void getMyBilling()
-      .then((b) => {
-        if (!cancelled) setBilling(b);
-      })
-      .catch(() => {
-        if (!cancelled) setBilling(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isPersonalPatient]);
 
   // Hydrate from the backend when the route asked for a specific or the most
   // recent personal conversation. Runs once per `(requestedConversationId,
@@ -430,15 +409,8 @@ export function ChatConversationPage({
           citations: response.citations,
         },
       ]);
-<<<<<<< HEAD
-      // Decrement the trial counter via a fresh billing fetch — cheap,
-      // and avoids drift if the user has another tab open.
       if (shouldTrackTrial) {
-        void refreshBilling.current();
-=======
-      if (mode === "personal") {
         void refreshBilling();
->>>>>>> 8c32f9c (fix:chat with RAG)
       }
     } catch (err: unknown) {
       const code = isAxiosError(err) ? err.response?.status : undefined;
@@ -446,13 +418,8 @@ export function ChatConversationPage({
       const fallbackAuthor = mode === "personal" ? "AI Doctor" : "General Chat";
       if (mode === "personal" && code === 403) {
         setAssistantAccessRequired(true);
-<<<<<<< HEAD
         if (shouldTrackTrial) {
-          void refreshBilling.current();
-=======
-        if (trialError === "assistant_trial_exhausted") {
           void refreshBilling();
->>>>>>> 8c32f9c (fix:chat with RAG)
         }
       }
       const content =
@@ -480,17 +447,6 @@ export function ChatConversationPage({
     }
   }
 
-<<<<<<< HEAD
-  // Decide what — if anything — to show around the composer based on the
-  // user's current entitlements. Three relevant states:
-  //
-  //  1. Paid plan active: show no trial UI at all — they paid, get out of
-  //     the way.
-  //  2. On the free trial with credits remaining: show a small
-  //     "Free trial: X of N personalized chats left · See plans" badge.
-  //  3. No credits left and no paid plan: swap the composer out for a
-  //     full upgrade panel. This covers both the read-only-history case
-  //     and the env-disabled trial case (`ASSISTANT_TRIAL_ENABLED=false`).
   const trial = billing?.personalTrial;
   const isOnPaidPlan = billing?.personalChatPaidActive === true;
   const trialExhaustedBlocked =
@@ -512,16 +468,14 @@ export function ChatConversationPage({
       remaining={trial!.remaining}
     />
   ) : null;
-=======
-  const trialRemaining = billing?.personalTrial.remaining ?? 0;
-  const trialLimit = billing?.personalTrial.limit ?? config.assistantTrial?.limit ?? 3;
+  const trialRemaining = trial?.remaining ?? 0;
+  const trialLimit = trial?.limit ?? config.assistantTrial?.limit ?? 3;
   const showTrialChip =
     isPersonalPatient &&
     billing &&
     !billing.assistantAccess.active &&
     billing.personalTrial.enabled &&
     trialRemaining > 0;
->>>>>>> 8c32f9c (fix:chat with RAG)
 
   return (
     <>
@@ -536,9 +490,6 @@ export function ChatConversationPage({
       ) : null}
       <DashboardPage>
         <DashboardContainer>
-<<<<<<< HEAD
-          {assistantAccessRequired && !trialExhaustedBlocked ? (
-=======
           {checkingAccess ? (
             <DashboardPanel className="mb-6 flex min-h-[12rem] items-center justify-center">
               <Loader2 className="size-8 animate-spin text-primary" aria-label="Checking access" />
@@ -549,8 +500,7 @@ export function ChatConversationPage({
               className="mb-6"
               onAccessActive={() => void refreshBilling()}
             />
-          ) : assistantAccessRequired ? (
->>>>>>> 8c32f9c (fix:chat with RAG)
+          ) : assistantAccessRequired && !trialExhaustedBlocked ? (
             <DashboardPanel className="mb-4 border-primary/20 bg-primary/5 px-5 py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -704,7 +654,6 @@ export function ChatConversationPage({
               </div>
             ) : null}
 
-<<<<<<< HEAD
             {trialExhaustedBlocked ? (
               <TrialExhaustedPanel
                 limit={billing?.personalTrial.limit ?? 3}
@@ -715,48 +664,40 @@ export function ChatConversationPage({
                 {trialBadge ? (
                   <div className="flex justify-end">{trialBadge}</div>
                 ) : null}
-                <ChatComposer
-                  value={draft}
-                  onChange={setDraft}
-                  onSend={submitMessage}
-                  sending={sending}
-                />
+                {!checkingAccess && canSend ? (
+                  <ChatComposer
+                    value={draft}
+                    onChange={setDraft}
+                    onSend={submitMessage}
+                    sending={sending}
+                  />
+                ) : null}
+                {showComposerLock && !checkingAccess ? (
+                  <div className="relative mt-4">
+                    <div className="pointer-events-none rounded-2xl border border-primary/15 bg-background/80 p-4 opacity-60 blur-[1px]">
+                      <div className="h-12 rounded-xl bg-muted" />
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center p-4">
+                      <DashboardPanel className="w-full max-w-lg px-5 py-5 text-center shadow-lg">
+                        <p className="text-sm font-semibold text-foreground">
+                          You&apos;ve used your {trialLimit} free personalized chats
+                        </p>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Unlock unlimited access to keep chatting with your health profile.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setAccessSheetOpen(true)}
+                          className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground"
+                        >
+                          View plans
+                        </button>
+                      </DashboardPanel>
+                    </div>
+                  </div>
+                ) : null}
               </>
             )}
-=======
-            {!checkingAccess && canSend ? (
-              <ChatComposer
-                value={draft}
-                onChange={setDraft}
-                onSend={submitMessage}
-                sending={sending}
-              />
-            ) : null}
-            {showComposerLock && !checkingAccess ? (
-              <div className="relative mt-4">
-                <div className="pointer-events-none rounded-2xl border border-primary/15 bg-background/80 p-4 opacity-60 blur-[1px]">
-                  <div className="h-12 rounded-xl bg-muted" />
-                </div>
-                <div className="absolute inset-0 flex items-center justify-center p-4">
-                  <DashboardPanel className="w-full max-w-lg px-5 py-5 text-center shadow-lg">
-                    <p className="text-sm font-semibold text-foreground">
-                      You&apos;ve used your {trialLimit} free personalized chats
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Unlock unlimited access to keep chatting with your health profile.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setAccessSheetOpen(true)}
-                      className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground"
-                    >
-                      View plans
-                    </button>
-                  </DashboardPanel>
-                </div>
-              </div>
-            ) : null}
->>>>>>> 8c32f9c (fix:chat with RAG)
           </section>
         </DashboardContainer>
       </DashboardPage>

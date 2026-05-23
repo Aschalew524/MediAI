@@ -94,8 +94,8 @@ export function userFacingAxiosError(
       );
     }
     return (
-      "Database is unavailable on the API server. For the deployed backend, set DATABASE_URL in Vercel " +
-      "(Neon pooled URL) and run `npx prisma migrate deploy` against that database."
+      messageFromAxiosData(err.response?.data) ??
+        "Database is unavailable on the API server. Check DATABASE_URL in Vercel (use your Neon pooled URL, not localhost)."
     );
   }
   if (status === 422) {
