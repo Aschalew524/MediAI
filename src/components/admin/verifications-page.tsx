@@ -18,11 +18,13 @@ import {
   ADMIN_BLOCK_NOTE,
   approveProfessionalVerification,
   deleteProfessionalVerification,
+  fetchAdminVerificationDocumentBlob,
   getAdminProfessionalVerifications,
   isBlockedVerificationItem,
   rejectProfessionalVerification,
   unblockProfessionalVerification,
   type AdminProfessionalVerificationItem,
+  type AdminVerificationDocumentSummary,
   type AdminVerificationFilter,
 } from "@/lib/admin-ops-api";
 import { messageFromAxiosData } from "@/lib/auth.types";
@@ -332,6 +334,7 @@ function VerificationRow({
   const showBlock = isVerified;
   const showUnblock = isBlocked;
   const prof = item.professionalProfile ?? {};
+  const documents = item.documents ?? [];
   const fullName = stringFrom(prof, "fullName") ?? item.email;
   const specialty = stringFrom(prof, "specialty") ?? "—";
   const license = stringFrom(prof, "licenseNumber") ?? "—";
@@ -521,6 +524,22 @@ function VerificationRow({
         </form>
       ) : null}
 
+      {documents.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {documents.map((doc) => (
+            <DocumentViewButton
+              key={doc.id}
+              userId={item.userId}
+              doc={doc}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-amber-800">
+          No verification documents uploaded yet.
+        </p>
+      )}
+
       {open ? (
         <div className="mt-4 grid gap-3 rounded-xl border border-primary/10 bg-primary/3 p-3 text-sm">
           {bio ? (
@@ -670,6 +689,44 @@ function ExperienceListView({
         ))}
       </ul>
     </div>
+  );
+}
+
+function DocumentViewButton({
+  userId,
+  doc,
+}: {
+  userId: string;
+  doc: AdminVerificationDocumentSummary;
+}) {
+  const [busy, setBusy] = useState(false);
+  const label =
+    doc.kind === "medical_license" ? "View license" : "View degree";
+
+  async function open() {
+    setBusy(true);
+    try {
+      const blob = await fetchAdminVerificationDocumentBlob(userId, doc.id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      window.alert("Could not open document. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void open()}
+      disabled={busy}
+      className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-white px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/5 disabled:opacity-50"
+    >
+      {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+      {label}
+    </button>
   );
 }
 

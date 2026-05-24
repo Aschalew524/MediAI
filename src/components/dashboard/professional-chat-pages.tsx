@@ -365,6 +365,7 @@ export function ProfessionalChatConversationPage({
               author: m.role === "user" ? doctorName : "AI Doctor",
               content: m.content,
               timestamp: formatChatTimestamp(m.createdAt),
+              ...(m.citations?.length ? { citations: m.citations } : {}),
             })),
         );
       } catch (err: unknown) {

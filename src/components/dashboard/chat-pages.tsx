@@ -345,6 +345,7 @@ export function ChatConversationPage({
               role: m.role === "user" ? "user" : "assistant",
               author: m.role === "user" ? name : "AI Doctor",
               content: m.content,
+              ...(m.citations?.length ? { citations: m.citations } : {}),
             })),
         );
       } catch (err: unknown) {

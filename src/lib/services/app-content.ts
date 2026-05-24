@@ -296,6 +296,7 @@ export type ApiPersonalConversationMessage = {
   role: "user" | "assistant" | "system";
   content: string;
   createdAt: string;
+  citations?: ChatCitation[];
 };
 
 export type ApiPersonalConversationMessages = {

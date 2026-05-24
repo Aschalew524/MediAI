@@ -37,6 +37,7 @@ function SignInForm() {
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
   const [formError, setFormError] = useState<string | null>(null);
+  const [dbPreflightError, setDbPreflightError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingSession, setExistingSession] = useState<AuthUser | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -82,8 +83,6 @@ function SignInForm() {
   }, [searchParams]);
 
   useEffect(() => {
-<<<<<<< HEAD
-=======
     let cancelled = false;
     (async () => {
       try {
@@ -106,7 +105,6 @@ function SignInForm() {
   }, []);
 
   useEffect(() => {
->>>>>>> 7be53f2 (fix concultaion card scrollable)
     const err = searchParams.get("error");
     if (!err) return;
     setFormError(oauthCallbackErrorMessage(err));
@@ -174,13 +172,8 @@ function SignInForm() {
           Sign in to continue to the app.
         </p>
       ) : null}
-<<<<<<< HEAD
-      {formError ? (
-        <AuthFormErrorAlert message={formError} />
-=======
       {formError || dbPreflightError ? (
         <AuthFormErrorAlert message={formError ?? dbPreflightError ?? ""} />
->>>>>>> 7be53f2 (fix concultaion card scrollable)
       ) : null}
 
       {checkingSession ? (
