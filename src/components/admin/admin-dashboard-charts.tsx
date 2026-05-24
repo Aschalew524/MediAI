@@ -11,6 +11,10 @@ import {
   Users,
 } from "lucide-react";
 
+import {
+  lastMonthLabels,
+  revenueSeriesFromBilling,
+} from "@/lib/admin-analytics-fallback";
 import type {
   AdminMonthlyGrowthPoint,
   AdminMonthlyRevenuePoint,
@@ -24,28 +28,13 @@ import { DashboardPanel } from "../dashboard/primitives";
 /*  Data helpers                                                              */
 /* -------------------------------------------------------------------------- */
 
-/** Prefer live `/admin/analytics` series; fall back to txn aggregation when needed. */
+/** Prefer live `/admin/analytics` series; fall back to billing txns; always return month buckets. */
 export function resolveMonthlyRevenue(
   analyticsSeries: AdminMonthlyRevenuePoint[] | undefined | null,
   billing: AdminBillingSummary | null,
 ): AdminMonthlyRevenuePoint[] {
   if (analyticsSeries?.length) return analyticsSeries;
-
-  const completed = (billing?.transactions ?? []).filter(
-    (t) => t.status === "completed",
-  );
-  if (completed.length === 0) return [];
-
-  const byMonth = new Map<string, number>();
-  for (const txn of completed) {
-    const d = new Date(txn.createdAt);
-    const key = d.toLocaleString("en-US", { month: "short" });
-    byMonth.set(key, (byMonth.get(key) ?? 0) + txn.amountCents);
-  }
-  return [...byMonth.entries()].map(([month, revenueCents]) => ({
-    month,
-    revenueCents,
-  }));
+  return revenueSeriesFromBilling(billing, lastMonthLabels());
 }
 
 function formatCents(cents: number, currency = "USD") {
@@ -121,8 +110,8 @@ export function TotalRevenueHeroCard({
               </p>
               <p className="max-w-md text-sm text-muted-foreground">
                 {billing?.paymentProviderConnected
-                  ? "Lifetime collected revenue across all completed payments."
-                  : "Connect a payment provider to track live revenue. Figures below reflect your platform snapshot until billing is wired."}
+                  ? "Lifetime revenue from assistant plans and paid consultations. Amounts may be low or zero in early months."
+                  : "Revenue from Chapa and consultation fees when configured. Totals can be zero until the first payment completes."}
               </p>
             </>
           )}
@@ -347,33 +336,18 @@ export function InteractiveUserGrowthChart({
 
 export function InteractiveRevenueChart({
   data,
-  currency = "USD",
+  currency = "ETB",
   loading = false,
-  paymentProviderConnected = false,
-  emptyMessage = "Revenue will appear here once payments are connected.",
 }: {
   data: AdminMonthlyRevenuePoint[] | undefined | null;
   currency?: string;
   loading?: boolean;
-  paymentProviderConnected?: boolean;
-  emptyMessage?: string;
 }) {
-  const chartData = data ?? [];
-  const allZero =
-    chartData.length > 0 && chartData.every((p) => p.revenueCents === 0);
+  const chartData =
+    data?.length ? data : lastMonthLabels().map((month) => ({ month, revenueCents: 0 }));
 
   if (loading) {
     return <ChartPanelSkeleton title="Revenue" compact />;
-  }
-
-  if (chartData.length === 0) {
-    return (
-      <ChartEmptyPanel
-        title="Revenue"
-        message={emptyMessage}
-        compact
-      />
-    );
   }
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const values = useMemo(() => chartData.map((d) => d.revenueCents), [chartData]);
@@ -401,7 +375,10 @@ export function InteractiveRevenueChart({
       >
         {chartData.map((item, i) => {
           const heightPercent = (item.revenueCents / max) * 100;
-          const barHeight = Math.max(Math.round((heightPercent / 100) * 128), 10);
+          const barHeight =
+            item.revenueCents === 0
+              ? 6
+              : Math.max(Math.round((heightPercent / 100) * 128), 10);
           const isActive = activeIndex === i;
           return (
             <button
@@ -449,13 +426,11 @@ export function InteractiveRevenueChart({
             {formatCents(hover.revenueCents, currency)}
           </p>
         </div>
-      ) : allZero && !paymentProviderConnected ? (
-        <p className="text-center text-xs text-muted-foreground">
-          No completed payments yet. Connect a provider to track live revenue.
-        </p>
       ) : (
         <p className="text-center text-xs text-muted-foreground">
-          Hover a bar to inspect monthly revenue
+          {chartData.every((p) => p.revenueCents === 0)
+            ? "No paid revenue in this window yet — bars show zero until payments complete."
+            : "Hover a bar to inspect monthly revenue"}
         </p>
       )}
     </DashboardPanel>

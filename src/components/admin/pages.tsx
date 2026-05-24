@@ -59,7 +59,9 @@ import {
   type AdminSummaryResponse,
   type AdminUserListItem,
 } from "@/lib/admin-ops-api";
+import { buildFallbackAnalytics } from "@/lib/admin-analytics-fallback";
 import { getFriendlyAxiosMessage } from "@/lib/axios-error-messages";
+import { isAxiosError } from "axios";
 import { cn } from "@/lib/utils";
 
 import {
@@ -178,12 +180,21 @@ export function AdminDashboardPage() {
       if (analyticsRes.status === "fulfilled") {
         setAnalytics(analyticsRes.value);
       } else {
-        setAnalytics(null);
+        const summaryData =
+          summaryRes.status === "fulfilled" ? summaryRes.value : null;
+        const billingData =
+          billingRes.status === "fulfilled" ? billingRes.value : null;
+        setAnalytics(buildFallbackAnalytics(summaryData, billingData));
+        const isMissingRoute =
+          isAxiosError(analyticsRes.reason) &&
+          analyticsRes.reason.response?.status === 404;
         setAnalyticsError(
-          getFriendlyAxiosMessage(
-            analyticsRes.reason,
-            "Could not load chart data.",
-          ),
+          isMissingRoute
+            ? "Chart API not deployed yet — showing estimates from summary and billing. Redeploy MediAI_backend to enable /admin/analytics."
+            : getFriendlyAxiosMessage(
+                analyticsRes.reason,
+                "Could not load chart data.",
+              ),
         );
       }
       setAnalyticsLoading(false);
@@ -256,11 +267,8 @@ export function AdminDashboardPage() {
           <aside className="space-y-4">
             <InteractiveRevenueChart
               data={revenueChartData}
-              currency={billing?.currency ?? "USD"}
+              currency={billing?.currency ?? "ETB"}
               loading={analyticsLoading || billingLoading}
-              paymentProviderConnected={
-                billing?.paymentProviderConnected ?? false
-              }
             />
           </aside>
         </div>
@@ -320,13 +328,21 @@ export function AdminRevenuePage() {
 
       if (analyticsRes.status === "fulfilled") {
         setAnalytics(analyticsRes.value);
+        setAnalyticsError(null);
       } else {
-        setAnalytics(null);
+        const billingData =
+          billingRes.status === "fulfilled" ? billingRes.value : null;
+        setAnalytics(buildFallbackAnalytics(null, billingData));
+        const isMissingRoute =
+          isAxiosError(analyticsRes.reason) &&
+          analyticsRes.reason.response?.status === 404;
         setAnalyticsError(
-          getFriendlyAxiosMessage(
-            analyticsRes.reason,
-            "Could not load chart data.",
-          ),
+          isMissingRoute
+            ? "Chart API not deployed yet — showing billing data only. Redeploy MediAI_backend for full analytics."
+            : getFriendlyAxiosMessage(
+                analyticsRes.reason,
+                "Could not load chart data.",
+              ),
         );
       }
       setAnalyticsLoading(false);
@@ -364,11 +380,8 @@ export function AdminRevenuePage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <InteractiveRevenueChart
             data={revenueChartData}
-            currency={billing?.currency ?? "USD"}
+            currency={billing?.currency ?? "ETB"}
             loading={analyticsLoading || billingLoading}
-            paymentProviderConnected={
-              billing?.paymentProviderConnected ?? false
-            }
           />
           <DashboardPanel className="space-y-4 px-6 py-5">
             <div className="flex items-center gap-2">
