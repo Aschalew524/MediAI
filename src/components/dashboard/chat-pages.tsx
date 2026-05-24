@@ -13,6 +13,7 @@ import {
   Paperclip,
   Plus,
   SendHorizonal,
+  Sparkles,
   X,
 } from "lucide-react";
 
@@ -22,6 +23,7 @@ import {
 } from "@/lib/chat-content";
 import { getProfileName } from "@/lib/dashboard-content";
 import { useChatConfig } from "@/lib/hooks/use-app-config";
+import { getMyBilling, type MyBillingResponse } from "@/lib/payments-api";
 import {
   getPersonalConversationMessages,
   listPersonalConversations,
@@ -153,6 +155,45 @@ export function ChatConversationPage({
   const [sending, setSending] = useState(false);
   const [submittingIssue, setSubmittingIssue] = useState(false);
 
+  // Billing snapshot drives the proactive trial UI ("X of 3 free chats
+  // left" badge and the post-trial upgrade panel). Only fetched for
+  // patient-side personal chat — professional clinical assistant flows
+  // are not billed, and general chat is intentionally free.
+  const shouldTrackTrial = mode === "personal" && !isProfessional;
+  const [billing, setBilling] = useState<MyBillingResponse | null>(null);
+  const [billingLoading, setBillingLoading] = useState<boolean>(shouldTrackTrial);
+  const [billingErrored, setBillingErrored] = useState(false);
+
+  const refreshBilling = useRef<() => Promise<void>>(async () => {});
+  useEffect(() => {
+    if (!shouldTrackTrial) {
+      refreshBilling.current = async () => {};
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const data = await getMyBilling();
+        if (cancelled) return;
+        setBilling(data);
+        setBillingErrored(false);
+      } catch {
+        if (cancelled) return;
+        // A billing-fetch failure shouldn't block the chat — degrade to
+        // the legacy "reactive 403 banner" flow. We just don't show the
+        // proactive counter / upgrade panel in that case.
+        setBillingErrored(true);
+      } finally {
+        if (!cancelled) setBillingLoading(false);
+      }
+    };
+    refreshBilling.current = load;
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldTrackTrial]);
+
   // Carry the backend ids across turns so the LLM keeps multi-turn memory.
   // `conversationId` is set by `/chat/personal/messages` on the first reply
   // (or hydrated below from the URL / "last chat" flow); `sessionId` is
@@ -274,11 +315,19 @@ export function ChatConversationPage({
           content: response.reply,
         },
       ]);
+      // Decrement the trial counter via a fresh billing fetch — cheap,
+      // and avoids drift if the user has another tab open.
+      if (shouldTrackTrial) {
+        void refreshBilling.current();
+      }
     } catch (err: unknown) {
       const code = isAxiosError(err) ? err.response?.status : undefined;
       const fallbackAuthor = mode === "personal" ? "AI Doctor" : "General Chat";
       if (mode === "personal" && code === 403) {
         setAssistantAccessRequired(true);
+        if (shouldTrackTrial) {
+          void refreshBilling.current();
+        }
       }
       const content =
         code === 401
@@ -303,11 +352,43 @@ export function ChatConversationPage({
     }
   }
 
+  // Decide what — if anything — to show around the composer based on the
+  // user's current entitlements. Three relevant states:
+  //
+  //  1. Paid plan active: show no trial UI at all — they paid, get out of
+  //     the way.
+  //  2. On the free trial with credits remaining: show a small
+  //     "Free trial: X of N personalized chats left · See plans" badge.
+  //  3. No credits left and no paid plan: swap the composer out for a
+  //     full upgrade panel. This covers both the read-only-history case
+  //     and the env-disabled trial case (`ASSISTANT_TRIAL_ENABLED=false`).
+  const trial = billing?.personalTrial;
+  const isOnPaidPlan = billing?.personalChatPaidActive === true;
+  const trialExhaustedBlocked =
+    shouldTrackTrial &&
+    !billingErrored &&
+    Boolean(billing) &&
+    billing!.personalChatAllowed === false;
+  const showTrialBadge =
+    shouldTrackTrial &&
+    !billingErrored &&
+    !billingLoading &&
+    !isOnPaidPlan &&
+    Boolean(trial?.enabled) &&
+    (trial?.remaining ?? 0) > 0;
+  const trialBadge = showTrialBadge ? (
+    <TrialCounterBadge
+      used={trial!.used}
+      limit={trial!.limit}
+      remaining={trial!.remaining}
+    />
+  ) : null;
+
   return (
     <>
       <DashboardPage>
         <DashboardContainer>
-          {assistantAccessRequired ? (
+          {assistantAccessRequired && !trialExhaustedBlocked ? (
             <DashboardPanel className="mb-4 border-primary/20 bg-primary/5 px-5 py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -442,12 +523,24 @@ export function ChatConversationPage({
               </div>
             )}
 
-            <ChatComposer
-              value={draft}
-              onChange={setDraft}
-              onSend={submitMessage}
-              sending={sending}
-            />
+            {trialExhaustedBlocked ? (
+              <TrialExhaustedPanel
+                limit={billing?.personalTrial.limit ?? 3}
+                readOnly={billing?.personalChatReadOnly ?? true}
+              />
+            ) : (
+              <>
+                {trialBadge ? (
+                  <div className="flex justify-end">{trialBadge}</div>
+                ) : null}
+                <ChatComposer
+                  value={draft}
+                  onChange={setDraft}
+                  onSend={submitMessage}
+                  sending={sending}
+                />
+              </>
+            )}
           </section>
         </DashboardContainer>
       </DashboardPage>
@@ -525,6 +618,87 @@ function ChatComposer({
         >
           <SendHorizonal className="size-4" />
         </button>
+      </div>
+    </div>
+  );
+}
+
+function TrialCounterBadge({
+  used,
+  limit,
+  remaining,
+}: {
+  used: number;
+  limit: number;
+  remaining: number;
+}) {
+  // Soft amber tone on the last credit so users get a heads-up before
+  // they're cut off; muted indigo for the earlier turns so it reads as
+  // informational, not alarming.
+  const isLast = remaining === 1;
+  return (
+    <Link
+      href="/pricing"
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+        isLast
+          ? "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+          : "border-primary/20 bg-primary/5 text-primary hover:bg-primary/10",
+      )}
+      aria-label={`Free trial: ${used} of ${limit} personalized chats used, ${remaining} left. View plans to upgrade.`}
+    >
+      <Sparkles className="size-3.5" aria-hidden />
+      <span>
+        Free trial:{" "}
+        <strong className="font-semibold">
+          {remaining} of {limit}
+        </strong>{" "}
+        {remaining === 1 ? "chat" : "chats"} left
+      </span>
+      <span className="text-foreground/40">·</span>
+      <span className="underline-offset-2 hover:underline">See plans</span>
+    </Link>
+  );
+}
+
+function TrialExhaustedPanel({
+  limit,
+  readOnly,
+}: {
+  limit: number;
+  /** True for the normal post-trial state (history visible, sends blocked).
+   * False when the trial itself is disabled — show a slightly different
+   * heading so the copy reads correctly. */
+  readOnly: boolean;
+}) {
+  return (
+    <div className="rounded-[1.5rem] border border-primary/20 bg-linear-to-br from-primary/5 via-white to-primary/5 p-6 shadow-sm sm:p-8">
+      <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Sparkles className="size-6" aria-hidden />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+              {readOnly
+                ? `You've used all ${limit} free personalized chats`
+                : "Personalized chat is a paid feature"}
+            </h3>
+            <p className="max-w-xl text-sm leading-6 text-muted-foreground">
+              Upgrade to <strong className="text-foreground">Lite</strong> or{" "}
+              <strong className="text-foreground">Pro</strong> to keep chatting
+              with your AI Doctor — it remembers your conditions, medications,
+              and prior conversations.
+              {readOnly ? " Your existing conversations stay visible either way." : ""}
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/pricing"
+          className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-95 hover:shadow"
+        >
+          View plans
+        </Link>
       </div>
     </div>
   );
