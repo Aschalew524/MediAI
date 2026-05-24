@@ -122,7 +122,19 @@ export type BillingConsultation = {
   meetingLinkSetAt?: string | null;
 };
 
-export type PersonalTrialBilling = {
+/**
+ * Snapshot of the free-trial counter for personalized AI chat.
+ *
+ * - `enabled`: false when the trial system is turned off entirely
+ *   (`ASSISTANT_TRIAL_ENABLED=false` on the backend) — in that case the
+ *   only way to use personal chat is via a paid plan.
+ * - `limit`: total number of free personal chats the user gets
+ *   (typically 3, controlled by `ASSISTANT_TRIAL_LIMIT`).
+ * - `used`: trial chats consumed so far (capped at `limit`).
+ * - `remaining`: `limit - used` while the trial is active, else 0.
+ * - `exhausted`: true once `used >= limit` (or when trial is disabled).
+ */
+export type BillingPersonalTrial = {
   enabled: boolean;
   limit: number;
   used: number;
@@ -132,9 +144,25 @@ export type PersonalTrialBilling = {
 
 export type MyBillingResponse = {
   assistantAccess: BillingAssistantAccess;
-  personalTrial: PersonalTrialBilling;
+  /** Free-trial counter — present whether or not the user is on a paid plan. */
+  personalTrial: BillingPersonalTrial;
+  /**
+   * True when the user may send a personal message right now — either
+   * because trial credits remain OR because they hold an active paid
+   * subscription / legacy assistant pass.
+   */
   personalChatAllowed: boolean;
+  /**
+   * True when the trial is exhausted and there's no paid pass — the user
+   * can still read their conversation history but cannot send.
+   */
   personalChatReadOnly: boolean;
+  /**
+   * True when the user holds an active paid subscription (Lite / Pro) or
+   * legacy assistant pass. Lets the UI hide the "X free chats left"
+   * badge for users who already pay, regardless of trial state.
+   */
+  personalChatPaidActive: boolean;
   recentConsultations: BillingConsultation[];
 };
 
