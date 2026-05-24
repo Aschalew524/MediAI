@@ -4,19 +4,12 @@ import type { ReactNode } from "react";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Bell,
-  LayoutDashboard,
-  MessageCircleMore,
-  ShieldCheck,
-  Sparkles,
-  Stethoscope,
-  Users,
-} from "lucide-react";
+import { MessageCircleMore, ShieldCheck } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 import { DashboardProfileMenu } from "./dashboard-profile-menu";
+import { NotificationsBell } from "./notifications-bell";
 import { useUnreadMessages } from "./use-unread-messages";
 import { useDashboardProfile } from "./use-dashboard-profile";
 
@@ -103,7 +96,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const unreadMessages = useUnreadMessages();
 
   if (bypassShell) {
-    return <div className="min-h-screen bg-background">{children}</motionless>;
+    return <div className="min-h-screen bg-background">{children}</div>;
   }
 
   return (
@@ -128,36 +121,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               </span>
             </Link>
 
-            <nav
-              className="hidden min-w-0 flex-1 items-center justify-center gap-1 md:flex"
-              aria-label="Dashboard sections"
-            >
-              {navLinks.map((item) => {
-                const active =
-                  pathname !== null &&
-                  (item.match?.(pathname) ??
-                    (pathname === item.href ||
-                      pathname.startsWith(`${item.href}/`)));
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
-                      active
-                        ? "bg-primary/12 text-primary shadow-[inset_0_0_0_1px_rgba(76,104,220,0.18)]"
-                        : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-                    )}
-                    aria-current={active ? "page" : undefined}
-                  >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </motionless>
+          <Link
+            href="/dashboard"
+            className="text-xl font-bold tracking-tight text-primary"
+          >
+            MediAI
+          </Link>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
             <Link
@@ -176,25 +145,14 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 <UnreadBadge count={unreadMessages} />
               ) : null}
             </Link>
-
-            <Link href="/dashboard/notifications">
-              <HeaderIconButton aria-label="Notifications">
-                <Bell className="size-[1.125rem]" />
-              </HeaderIconButton>
-            </Link>
-
-            <span
-              className="mx-0.5 hidden h-8 w-px bg-primary/12 sm:block"
-              aria-hidden
-            />
-
+            <NotificationsBell />
             <DashboardProfileMenu />
           </div>
         </div>
       </header>
 
       {children}
-    </motionless>
+    </div>
   );
 }
 
@@ -233,6 +191,6 @@ export function TrustBadge() {
     <div className="inline-flex items-center gap-2 rounded-full bg-primary/6 px-3 py-1.5 text-xs font-medium text-primary">
       <ShieldCheck className="size-4" />
       <span>Privacy-first health profile</span>
-    </motionless>
+    </div>
   );
 }

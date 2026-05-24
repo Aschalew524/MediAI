@@ -312,7 +312,7 @@ export function ChatConversationPage({
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    Personalized AI Doctor is locked until payment is confirmed.
+                    Personalized AI Doctor is locked until you subscribe to Lite or Pro.
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     General chat is still free, but personalized conversations use your saved medical context.
@@ -322,7 +322,7 @@ export function ChatConversationPage({
                   href="/pricing"
                   className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                 >
-                  View assistant plans
+                  View plans
                 </Link>
               </div>
             </DashboardPanel>
@@ -657,7 +657,7 @@ export function ChatHistoryPage() {
                 href="/pricing"
                 className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
-                View assistant plans
+                View plans
               </Link>
             ) : null}
           </DashboardPanel>

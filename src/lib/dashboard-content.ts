@@ -88,6 +88,18 @@ export type DashboardProfile = {
   professionalProfile?: ProfessionalProfile;
   /** Only set when the account is `role=professional`. */
   verification?: DoctorVerificationSnapshot;
+  /**
+   * Phase 5 — patient's primary health concerns (used to power smart
+   * matching on /top-doctors). Empty array when the patient hasn't filled
+   * in the picker yet. Backend ignores writes from professional accounts.
+   */
+  primaryConditions?: string[];
+  /**
+   * Phase 5 — canonical specialty code for a verified doctor (string form
+   * of the backend `MedicalSpecialty` enum). Null until set; mostly written
+   * by the doctor's profile form when they pick from the dropdown.
+   */
+  medicalSpecialty?: string | null;
 };
 
 export const dashboardProfileStorageKey = "mediai-onboarding-profile";
@@ -228,6 +240,13 @@ export const dashboardCards = [
     accent: "bot" as const,
   },
   {
+    title: "My Consultations",
+    description:
+      "Track booking status, see meeting links, and review past consultations.",
+    href: "/dashboard/consultations",
+    accent: "doctors" as const,
+  },
+  {
     title: "Messages With Doctors",
     description: "Chat directly with doctors who reach out to you.",
     href: "/dashboard/messages",
@@ -246,16 +265,22 @@ export const dashboardCards = [
     accent: "facilities" as const,
   },
   {
+    // Phase 6 follow-up — placeholder cards must keep *unique* `href` values
+    // even though they all link nowhere. The dashboard config merger
+    // (`mergeDashboardConfigWithFallback`) keys cards by `href`, so two
+    // placeholders sharing `#` previously collapsed into the same slot and
+    // rendered the second card twice on the page (the cause of the
+    // duplicated "Health Reports" tile).
     title: "Check Up Plan",
     description: "Coming Soon",
-    href: "#",
+    href: "#check-up-plan",
     accent: "bot" as const,
     muted: true,
   },
   {
     title: "Health Reports",
     description: "Coming Soon",
-    href: "#",
+    href: "#health-reports",
     accent: "facilities" as const,
     muted: true,
   },

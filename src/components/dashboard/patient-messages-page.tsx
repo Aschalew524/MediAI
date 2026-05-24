@@ -13,6 +13,7 @@ import { isAxiosError } from "axios";
 import {
   ArrowLeft,
   CircleUserRound,
+  Lock,
   Loader2,
   MessageCircleMore,
   RefreshCcw,
@@ -194,6 +195,8 @@ export function PatientMessagesPage({ patientId }: { patientId: string }) {
             onSubmit={handleSend}
             isSending={isSending}
             error={sendError}
+            chatWindowEndsAt={thread?.chatWindowEndsAt ?? null}
+            patientName={patientName}
           />
         </div>
       </div>
@@ -338,15 +341,52 @@ function Composer({
   onSubmit,
   isSending,
   error,
+  chatWindowEndsAt,
+  patientName,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
   isSending: boolean;
   error: string | null;
+  /** Phase 4 — see frontend mirror in patient-doctor-messages.tsx. */
+  chatWindowEndsAt: string | null;
+  patientName: string;
 }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!chatWindowEndsAt) return;
+    const id = window.setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, [chatWindowEndsAt]);
+
   const trimmed = value.trim();
-  const canSend = trimmed.length > 0 && !isSending;
+  const windowEndsAt = chatWindowEndsAt
+    ? new Date(chatWindowEndsAt).getTime()
+    : null;
+  const isLocked =
+    windowEndsAt === null || Number.isNaN(windowEndsAt) || windowEndsAt <= Date.now();
+  const canSend = !isLocked && trimmed.length > 0 && !isSending;
+
+  if (isLocked) {
+    return (
+      <div className="space-y-2 border-t border-primary/10 bg-muted/40 px-4 py-4 text-sm">
+        <div className="flex items-start gap-2 text-muted-foreground">
+          <Lock className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <div>
+            <p className="font-medium text-foreground">
+              No active consultation with {patientName}.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Your last consultation window has closed. {patientName} needs
+              to book a follow-up consultation before either of you can
+              continue messaging.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form
@@ -358,6 +398,7 @@ function Composer({
           {error}
         </p>
       ) : null}
+      <ChatWindowHint windowEndsAt={windowEndsAt} />
       <div className="flex items-end gap-2">
         <textarea
           value={value}
@@ -392,6 +433,22 @@ function Composer({
         Enter to send · Shift + Enter for newline
       </p>
     </form>
+  );
+}
+
+/** Tiny "Chat closes in Xh Ym" badge — shows when <6h left. */
+function ChatWindowHint({ windowEndsAt }: { windowEndsAt: number | null }) {
+  if (windowEndsAt === null) return null;
+  const remainingMs = windowEndsAt - Date.now();
+  if (remainingMs <= 0 || remainingMs > 6 * 60 * 60 * 1000) return null;
+  const hours = Math.floor(remainingMs / (60 * 60 * 1000));
+  const minutes = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
+  const label = hours > 0 ? `${hours}h ${minutes}m` : `${Math.max(minutes, 1)}m`;
+  return (
+    <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-800">
+      <Lock className="size-3" />
+      Chat closes in {label}
+    </p>
   );
 }
 

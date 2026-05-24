@@ -68,6 +68,13 @@ export type ApiPatientMessageThread = {
   patientId: string;
   patientName: string;
   messages: ApiPatientMessage[];
+  /**
+   * Phase 4 — ISO timestamp at which the chat window closes for this
+   * doctor↔patient pair. Null when no booking is currently active; the
+   * doctor's composer is disabled in that case until the patient books a
+   * follow-up.
+   */
+  chatWindowEndsAt: string | null;
 };
 
 export type ListPatientsParams = {

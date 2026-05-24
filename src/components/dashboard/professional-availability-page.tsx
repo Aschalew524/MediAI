@@ -30,6 +30,30 @@ const WEEK_DAYS: { dow: number; label: string; short: string }[] = [
 
 const DEFAULT_SLOT_MINUTES = 45;
 
+/**
+ * Resolve the IANA tz the doctor is in right now (e.g. "Africa/Addis_Ababa").
+ * Falls back to "UTC" only in environments where `Intl.DateTimeFormat` isn't
+ * available, which is essentially never in a modern browser.
+ *
+ * Why we care: the time-input on this page is a `<input type="time">` that
+ * captures *wall-clock minutes since midnight* — purely local to whoever
+ * types them in. The backend stores `(startTimeMinutes, endTimeMinutes,
+ * timezone)` and reinterprets the minutes inside `timezone` to compute UTC
+ * slot timestamps for patients. So if a doctor types "09:00 – 17:00" while
+ * sitting in Addis Ababa but we save `timezone: "UTC"`, the backend treats
+ * 09:00 as 09:00 UTC = 12:00 PM Addis, and patients (also in Addis) see
+ * 12:00 PM – 8:00 PM. Defaulting to the doctor's actual tz makes the
+ * "9 to 5" they typed actually be 9-to-5 for nearby patients.
+ */
+function defaultTimezone(): string {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return tz && tz.length > 0 ? tz : "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
 type DraftWindow = Omit<WeeklyAvailabilityItem, "id"> & { key: string };
 
 type DaySchedule = Record<number, DraftWindow[]>;
@@ -45,21 +69,31 @@ function newWindow(dayOfWeek: number): DraftWindow {
     startTimeMinutes: 9 * 60,
     endTimeMinutes: 17 * 60,
     slotDurationMinutes: DEFAULT_SLOT_MINUTES,
-    timezone: "UTC",
+    timezone: defaultTimezone(),
   };
 }
 
 function groupByDay(items: WeeklyAvailabilityItem[]): DaySchedule {
+  const localTz = defaultTimezone();
   const schedule = emptySchedule();
   for (const item of items) {
     schedule[item.dayOfWeek] = schedule[item.dayOfWeek] ?? [];
+    // Self-healing migration: if a previously-saved rule has the legacy
+    // `"UTC"` default but the current browser tz is something else, silently
+    // promote it to the doctor's local tz in the draft. The change isn't
+    // persisted until the doctor hits "Save changes" — at which point the
+    // backend rewrites the rule to the corrected timezone and the patient-
+    // facing slot feed snaps to the wall-clock hours the doctor intended.
+    const savedTz = item.timezone || "UTC";
+    const effectiveTz =
+      savedTz === "UTC" && localTz !== "UTC" ? localTz : savedTz;
     schedule[item.dayOfWeek].push({
       key: item.id ?? crypto.randomUUID(),
       dayOfWeek: item.dayOfWeek,
       startTimeMinutes: item.startTimeMinutes,
       endTimeMinutes: item.endTimeMinutes,
       slotDurationMinutes: item.slotDurationMinutes || DEFAULT_SLOT_MINUTES,
-      timezone: item.timezone || "UTC",
+      timezone: effectiveTz,
     });
   }
   for (const { dow } of WEEK_DAYS) {
@@ -93,12 +127,22 @@ export function ProfessionalAvailabilityPage() {
     [schedule],
   );
 
+  const localTz = useMemo(() => defaultTimezone(), []);
+  const [needsTimezoneMigration, setNeedsTimezoneMigration] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const items = await getProfessionalAvailability();
+      const tz = defaultTimezone();
+      // Detect legacy UTC-saved rules so we can surface a "click Save to fix"
+      // banner instead of silently changing the doctor's intended hours.
+      const hasLegacyUtc = items.some(
+        (it) => (it.timezone || "UTC") === "UTC" && tz !== "UTC",
+      );
       setSchedule(groupByDay(items));
+      setNeedsTimezoneMigration(hasLegacyUtc);
     } catch (e: unknown) {
       setError(getFriendlyAxiosMessage(e, "Could not load availability."));
     } finally {
@@ -155,6 +199,7 @@ export function ProfessionalAvailabilityPage() {
       }
       await saveProfessionalAvailability(items);
       setSaved(true);
+      setNeedsTimezoneMigration(false);
       await load();
     } catch (e: unknown) {
       setError(getFriendlyAxiosMessage(e, "Could not save availability."));
@@ -211,6 +256,17 @@ export function ProfessionalAvailabilityPage() {
                 {totalWindows === 0
                   ? "No hours set yet — use + on a day to add your first block."
                   : `${totalWindows} time block${totalWindows === 1 ? "" : "s"} across the week`}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Times are interpreted in your timezone:{" "}
+                <span className="font-medium text-foreground">{localTz}</span>
+                {needsTimezoneMigration ? (
+                  <span className="ml-1 text-amber-700">
+                    — Existing blocks were saved as UTC. Click Save changes to
+                    move them to your local timezone so patients see your real
+                    hours.
+                  </span>
+                ) : null}
               </p>
             </div>
 

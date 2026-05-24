@@ -123,6 +123,17 @@ export function mapMeProfileToDashboard(
   p: MeProfileApi,
 ): DashboardProfile {
   const pf = parsePreferredFeatureFromApi(p.preferredFeature);
+  const primaryConditions = Array.isArray(
+    (p as MeProfileApi & { primaryConditions?: unknown }).primaryConditions,
+  )
+    ? ((p as MeProfileApi & { primaryConditions: unknown[] }).primaryConditions
+        .filter((v): v is string => typeof v === "string"))
+    : [];
+  const medicalSpecialty =
+    typeof (p as MeProfileApi & { medicalSpecialty?: unknown })
+      .medicalSpecialty === "string"
+      ? ((p as MeProfileApi & { medicalSpecialty: string }).medicalSpecialty)
+      : null;
   return {
     preferredName: p.preferredName,
     age: p.age,
@@ -136,6 +147,8 @@ export function mapMeProfileToDashboard(
     preferredFeature: pf,
     professionalProfile: toProfessional(p.professionalProfile),
     verification: toVerification(p.verification),
+    primaryConditions,
+    medicalSpecialty,
   };
 }
 
@@ -230,6 +243,10 @@ export async function postOnboardingComplete(
 
 export type PatchMeProfileBody = {
   professionalProfile?: Record<string, unknown>;
+  /** Phase 5 — patient's primary health concerns (replaces the full array). */
+  primaryConditions?: string[];
+  /** Phase 5 — doctor's canonical specialty enum value. */
+  medicalSpecialty?: string;
 } & Partial<
   Pick<
     DashboardProfile,
@@ -266,6 +283,8 @@ export function profileToPatchBody(
     professionalProfile: p.professionalProfile
       ? ({ ...p.professionalProfile } as Record<string, unknown>)
       : undefined,
+    primaryConditions: p.primaryConditions,
+    medicalSpecialty: p.medicalSpecialty ?? undefined,
   };
 }
 

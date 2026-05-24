@@ -14,15 +14,51 @@ export type WeeklyAvailabilityItem = {
   timezone: string;
 };
 
+/**
+ * Mirrors `ConsultationType` in the backend Prisma enum. Phase 4 added
+ * `in_person` and `hybrid`; the existing two values stay as-is so older
+ * patient records and admin queries don't break.
+ */
+export type ConsultationType = "video" | "written" | "in_person" | "hybrid";
+
+export const CONSULTATION_TYPE_OPTIONS: {
+  value: ConsultationType;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "video",
+    label: "Video call",
+    description: "Live appointment over Google Meet / Zoom / WhereBy.",
+  },
+  {
+    value: "written",
+    label: "Written / async",
+    description: "Doctor replies in writing within the booked slot.",
+  },
+  {
+    value: "in_person",
+    label: "In-person visit",
+    description: "Patient travels to the doctor's clinic.",
+  },
+  {
+    value: "hybrid",
+    label: "Hybrid",
+    description: "Video first, with an optional in-person follow-up.",
+  },
+];
+
 export type DoctorAppointment = {
   id: string;
   patientUserId: string;
   patientName: string;
-  consultationType: "video" | "written";
+  consultationType: ConsultationType;
   status: string;
   startsAt: string;
   endsAt: string;
   patientNotes: string | null;
+  meetingLink: string | null;
+  meetingLinkSetAt: string | null;
 };
 
 export type DoctorBookingRequest = DoctorAppointment & {
@@ -73,8 +109,47 @@ export async function listProfessionalBookingRequests(): Promise<DoctorBookingRe
   return data.items;
 }
 
-export async function confirmProfessionalBooking(bookingId: string): Promise<void> {
-  await api.post(`/professional/booking-requests/${encodeURIComponent(bookingId)}/confirm`);
+export async function confirmProfessionalBooking(
+  bookingId: string,
+  options: { meetingLink?: string } = {},
+): Promise<void> {
+  // Phase 4 — the doctor can optionally include a meeting link with the
+  // approval; the backend persists it and surfaces it to the patient.
+  const body = options.meetingLink
+    ? { meetingLink: options.meetingLink }
+    : {};
+  await api.post(
+    `/professional/booking-requests/${encodeURIComponent(bookingId)}/confirm`,
+    body,
+  );
+}
+
+export async function setBookingMeetingLink(
+  bookingId: string,
+  meetingLink: string,
+): Promise<void> {
+  await api.patch(
+    `/professional/bookings/${encodeURIComponent(bookingId)}/meeting-link`,
+    { meetingLink },
+  );
+}
+
+/**
+ * Doctor presses "Mark complete" on an approved booking — formally closes
+ * the consultation. After this, the chat enters its 24-hour post-completion
+ * grace window (see backend `POST_COMPLETION_GRACE_MS`); after the grace
+ * expires both sides are locked out of `sendMessage` until the patient
+ * books a follow-up.
+ */
+export async function markBookingComplete(bookingId: string): Promise<void> {
+  await api.post(
+    `/professional/bookings/${encodeURIComponent(bookingId)}/complete`,
+  );
+}
+
+export function consultationTypeLabel(value: ConsultationType): string {
+  const match = CONSULTATION_TYPE_OPTIONS.find((o) => o.value === value);
+  return match?.label ?? value;
 }
 
 export function formatMinutesLabel(minutes: number): string {

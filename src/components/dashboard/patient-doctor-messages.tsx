@@ -13,6 +13,7 @@ import { isAxiosError } from "axios";
 import {
   ArrowLeft,
   CircleUserRound,
+  Lock,
   Loader2,
   MessageCircleMore,
   RefreshCcw,
@@ -596,6 +597,7 @@ export function PatientDoctorThreadPage({ threadId }: { threadId: string }) {
             onSubmit={handleSend}
             isSending={isSending}
             error={sendError}
+            chatWindowEndsAt={thread?.chatWindowEndsAt ?? null}
           />
         </div>
       </DashboardContainer>
@@ -724,15 +726,72 @@ function Composer({
   onSubmit,
   isSending,
   error,
+  chatWindowEndsAt,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
   isSending: boolean;
   error: string | null;
+  /**
+   * Phase 4 — ISO timestamp at which the consultation chat window closes
+   * server-side. Null means no booking is currently active and the
+   * composer is fully locked. The composer also re-evaluates every minute
+   * so it locks itself the moment the window expires without waiting for
+   * the user to refresh.
+   */
+  chatWindowEndsAt: string | null;
 }) {
+  // Re-render once a minute so the countdown / "now closed" transition is
+  // visible without forcing the user to refresh. Using a counter is enough
+  // — `Date.now()` is read inside the render below.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!chatWindowEndsAt) return;
+    const id = window.setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, [chatWindowEndsAt]);
+
   const trimmed = value.trim();
-  const canSend = trimmed.length > 0 && !isSending;
+  const windowEndsAt = chatWindowEndsAt
+    ? new Date(chatWindowEndsAt).getTime()
+    : null;
+  const isLocked =
+    windowEndsAt === null || Number.isNaN(windowEndsAt) || windowEndsAt <= Date.now();
+  const canSend = !isLocked && trimmed.length > 0 && !isSending;
+
+  if (isLocked) {
+    return (
+      <div className="space-y-3 border-t border-primary/10 bg-muted/40 px-4 py-4 text-sm">
+        <div className="flex items-start gap-2 text-muted-foreground">
+          <Lock className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <div>
+            <p className="font-medium text-foreground">
+              This chat is read-only.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Your consultation window has ended. Book a follow-up
+              consultation with this doctor to keep messaging.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/dashboard/consultations"
+            className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-95"
+          >
+            Book a follow-up
+          </Link>
+          <Link
+            href="/dashboard/top-doctors"
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted"
+          >
+            Browse doctors
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form
@@ -744,6 +803,7 @@ function Composer({
           {error}
         </p>
       ) : null}
+      <ChatWindowHint windowEndsAt={windowEndsAt} />
       <div className="flex items-end gap-2">
         <textarea
           value={value}
@@ -778,6 +838,26 @@ function Composer({
         Enter to send · Shift + Enter for newline
       </p>
     </form>
+  );
+}
+
+/**
+ * Renders a small "Chat closes in Xh Ym" hint when the consultation window
+ * is within 6 hours of expiring. Above 6h we hide it — long countdowns are
+ * just visual noise.
+ */
+function ChatWindowHint({ windowEndsAt }: { windowEndsAt: number | null }) {
+  if (windowEndsAt === null) return null;
+  const remainingMs = windowEndsAt - Date.now();
+  if (remainingMs <= 0 || remainingMs > 6 * 60 * 60 * 1000) return null;
+  const hours = Math.floor(remainingMs / (60 * 60 * 1000));
+  const minutes = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
+  const label = hours > 0 ? `${hours}h ${minutes}m` : `${Math.max(minutes, 1)}m`;
+  return (
+    <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-800">
+      <Lock className="size-3" />
+      Chat closes in {label}
+    </p>
   );
 }
 

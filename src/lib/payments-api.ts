@@ -19,9 +19,57 @@ export type AssistantAccessPlan = {
 
 export type InitiatePaymentResponse = {
   txRef: string;
-  checkoutUrl: string;
+  /**
+   * Hosted Chapa checkout URL to redirect to. Optional because the Free-plan
+   * subscription path (Phase 7) returns no URL — the access is granted
+   * server-side and the client just routes back home.
+   */
+  checkoutUrl?: string;
   accessId?: string;
   bookingId?: string;
+  subscriptionId?: string;
+  /** Phase 7 — true when the Free plan was selected and no Chapa redirect happens. */
+  freeGranted?: boolean;
+};
+
+/**
+ * Phase 7 — admin-managed subscription tier surfaced on /pricing. Both
+ * monthly and yearly prices are returned so the UI can flip between them
+ * without a second round-trip.
+ */
+export type SubscriptionPlan = {
+  id: string;
+  name: string;
+  description: string | null;
+  monthlyPriceCents: number;
+  yearlyPriceCents: number;
+  monthlyPriceDisplay: string;
+  yearlyPriceDisplay: string;
+  currency: string;
+  features: string[];
+  isFree: boolean;
+  sortOrder: number;
+};
+
+export type SubscriptionInterval = "monthly" | "yearly";
+
+export type SubscriptionStatus =
+  | "pending"
+  | "active"
+  | "expired"
+  | "cancelled"
+  | "failed";
+
+export type MySubscription = {
+  active: boolean;
+  status: SubscriptionStatus | null;
+  interval: SubscriptionInterval | null;
+  planId: string | null;
+  planName: string | null;
+  priceDisplay: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  paidAt: string | null;
 };
 
 export type BillingAssistantAccess = {
@@ -34,17 +82,44 @@ export type BillingAssistantAccess = {
   paidAt: string | null;
 };
 
+/**
+ * Mirrors the backend `ConsultationType` enum. Phase 4 added `in_person`
+ * and `hybrid`. Older billing rows may only carry video/written values; the
+ * union accommodates both.
+ */
+export type ConsultationKind = "video" | "written" | "in_person" | "hybrid";
+
 export type BillingConsultation = {
   id: string;
   topDoctorId: string;
   topDoctorName: string;
-  consultationType: "video" | "written";
-  status: "pending_payment" | "paid" | "confirmed" | "cancelled" | "failed";
+  consultationType: ConsultationKind;
+  status:
+    | "pending_payment"
+    | "paid"
+    | "pending_doctor_approval"
+    | "approved"
+    | "rejected"
+    | "completed"
+    | "missed"
+    | "confirmed"
+    | "cancelled"
+    | "failed";
   consultationFeeCents: number;
   consultationFeeDisplay: string;
   currency: string;
   paidAt: string | null;
+  /** Phase 4 — slot timing, mirrored from the consultation booking. */
+  startsAt?: string | null;
+  endsAt?: string | null;
   createdAt: string;
+  /**
+   * Phase 4 — meeting link the doctor attached (only after approval; the
+   * backend nulls it for pending bookings even if a value exists on the
+   * row). May be absent on older API responses.
+   */
+  meetingLink?: string | null;
+  meetingLinkSetAt?: string | null;
 };
 
 export type MyBillingResponse = {
@@ -54,7 +129,7 @@ export type MyBillingResponse = {
 
 export type CreateConsultationBookingPayload = {
   topDoctorId: string;
-  consultationType: "video" | "written";
+  consultationType: ConsultationKind;
   /** ISO start time of the selected availability slot */
   startsAt: string;
   patientNotes?: string;
@@ -64,14 +139,21 @@ export type ConsultationBooking = {
   id: string;
   topDoctorId: string;
   topDoctorName: string;
-  consultationType: "video" | "written";
-  status: "pending_payment" | "paid" | "confirmed" | "cancelled" | "failed";
+  consultationType: ConsultationKind;
+  status: BillingConsultation["status"];
   consultationFeeCents: number;
   consultationFeeDisplay: string;
   currency: string;
   patientNotes: string | null;
   paidAt: string | null;
   chapaTxRef?: string | null;
+  /** Phase 3 — scheduled appointment window. Null for legacy/unscheduled rows. */
+  startsAt?: string | null;
+  endsAt?: string | null;
+  durationMinutes?: number;
+  /** Phase 4 — visible to the patient only once the booking is approved. */
+  meetingLink?: string | null;
+  meetingLinkSetAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -109,8 +191,88 @@ export async function initiateConsultationPayment(
   return data;
 }
 
+export type FinalizeConsultationResponse = {
+  ok: true;
+  status: string;
+  paid: boolean;
+};
+
+/**
+ * Dev/sandbox fallback: ask the backend to re-verify a booking's stored
+ * Chapa tx_ref and advance the lifecycle. In production this code path is
+ * usually unnecessary because Chapa fires the server-to-server webhook —
+ * but in dev (and any environment where Chapa can't reach our API directly)
+ * the return page calls this with the patient's bookingId so the doctor's
+ * inbox lights up without waiting for a webhook that will never arrive.
+ */
+export async function finalizeConsultationPayment(
+  bookingId: string,
+): Promise<FinalizeConsultationResponse> {
+  const { data } = await api.post<FinalizeConsultationResponse>(
+    `/payments/consultations/${bookingId}/finalize`,
+  );
+  return data;
+}
+
 export async function getMyBilling(): Promise<MyBillingResponse> {
   const { data } = await api.get<MyBillingResponse>("/me/billing");
+  return data;
+}
+
+// --- Phase 7: SubscriptionPlan checkout + status ---------------------------
+
+/**
+ * Fetch the active SubscriptionPlans visible on /pricing. Returns the same
+ * shape (`{ items }`) as the assistant-pass list so existing components can
+ * stay symmetric.
+ */
+export async function getSubscriptionPlansPublic(): Promise<SubscriptionPlan[]> {
+  const { data } = await api.get<{ items: SubscriptionPlan[] }>(
+    "/payments/subscription/plans",
+  );
+  return data.items;
+}
+
+/**
+ * Start a subscription. For paid plans you get a Chapa `checkoutUrl` to
+ * redirect to; for the Free plan you get `freeGranted: true` and the row is
+ * already active — no redirect, just navigate home.
+ */
+export async function initiateSubscriptionPayment(
+  planId: string,
+  interval: SubscriptionInterval,
+): Promise<InitiatePaymentResponse> {
+  const { data } = await api.post<InitiatePaymentResponse>(
+    "/payments/subscription/initiate",
+    { planId, interval },
+  );
+  return data;
+}
+
+export async function getMySubscription(): Promise<MySubscription> {
+  const { data } = await api.get<MySubscription>("/me/subscription");
+  return data;
+}
+
+export type FinalizeSubscriptionResponse = {
+  ok: true;
+  status: SubscriptionStatus;
+  active: boolean;
+};
+
+/**
+ * Dev/sandbox fallback for the Chapa return flow. Mirrors
+ * `finalizeConsultationPayment` — call this when the return URL only
+ * carries `subscriptionId` (no `tx_ref`), and the backend will verify
+ * the stored Chapa tx_ref and flip the subscription to active.
+ * Idempotent; safe to call multiple times.
+ */
+export async function finalizeSubscriptionPayment(
+  subscriptionId: string,
+): Promise<FinalizeSubscriptionResponse> {
+  const { data } = await api.post<FinalizeSubscriptionResponse>(
+    `/payments/subscription/${subscriptionId}/finalize`,
+  );
   return data;
 }
 
