@@ -14,11 +14,7 @@ export type OnboardingDraftV1 = {
     heightInches: string;
     heightCm: string;
     sexAtBirth: "male" | "female" | "other" | null;
-    preferredFeature:
-      | "ai-doctor"
-      | "top-doctors"
-      | "lab-test-interpretation"
-      | null;
+    preferredFeature: "ai-doctor" | "top-doctors" | null;
   };
 };
 
@@ -96,13 +92,15 @@ function normalizeDraft(raw: unknown): OnboardingDraftV1 | null {
     f.sexAtBirth === null
       ? f.sexAtBirth
       : null;
+  const rawPf = f.preferredFeature;
   const pf =
-    f.preferredFeature === "ai-doctor" ||
-    f.preferredFeature === "top-doctors" ||
-    f.preferredFeature === "lab-test-interpretation" ||
-    f.preferredFeature === null
-      ? f.preferredFeature
-      : null;
+    rawPf === "ai-doctor" || rawPf === "top-doctors"
+      ? rawPf
+      : rawPf === "lab-test-interpretation" || rawPf === "lab-interpretation"
+        ? "ai-doctor"
+        : rawPf === null
+          ? null
+          : null;
 
   if (role === null) return null;
 

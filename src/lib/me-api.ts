@@ -32,10 +32,7 @@ export type CompleteOnboardingPayload = {
   heightInches?: string;
   heightCm?: string;
   sexAtBirth: "male" | "female" | "other";
-  preferredFeature:
-    | "ai-doctor"
-    | "top-doctors"
-    | "lab-test-interpretation";
+  preferredFeature: "ai-doctor" | "top-doctors";
 };
 
 export type GetMeProfileResponse = {
@@ -99,8 +96,10 @@ function parsePreferredFeatureFromApi(
   switch (raw) {
     case "ai-doctor":
     case "top-doctors":
-    case "lab-test-interpretation":
       return raw;
+    case "lab-test-interpretation":
+    case "lab-interpretation":
+      return "ai-doctor";
     default:
       return null;
   }

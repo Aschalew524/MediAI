@@ -318,9 +318,9 @@ function HeroSection({
             Your Personal AI Health Assistant
           </h1>
           <p className="max-w-3xl text-base leading-7 text-muted-foreground sm:text-lg">
-            Experience the power of AI in healthcare. Ask questions, interpret
-            test results, get reports, and receive expert insights whenever you
-            need them.
+            Experience the power of AI in healthcare. Ask questions, get
+            personalized guidance, and connect with expert care whenever you
+            need it.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3">
