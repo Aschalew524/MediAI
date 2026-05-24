@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BadgeCheck,
-  Ban,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -16,14 +15,17 @@ import {
 import { isAxiosError } from "axios";
 
 import {
+  ADMIN_BLOCK_NOTE,
   approveProfessionalVerification,
-  blockProfessionalVerification,
   deleteProfessionalVerification,
+  fetchAdminVerificationDocumentBlob,
   getAdminProfessionalVerifications,
+  isBlockedVerificationItem,
   rejectProfessionalVerification,
+  unblockProfessionalVerification,
   type AdminProfessionalVerificationItem,
+  type AdminVerificationDocumentSummary,
   type AdminVerificationFilter,
-  type AdminVerificationStatus,
 } from "@/lib/admin-ops-api";
 import { messageFromAxiosData } from "@/lib/auth.types";
 import { cn } from "@/lib/utils";
@@ -31,8 +33,7 @@ import { cn } from "@/lib/utils";
 const FILTERS: { id: AdminVerificationFilter; label: string }[] = [
   { id: "awaiting", label: "Awaiting review" },
   { id: "verified", label: "Verified" },
-  { id: "rejected", label: "Rejected" },
-  { id: "pending", label: "All pending" },
+  { id: "blocked", label: "Blocked" },
   { id: "all", label: "All doctors" },
 ];
 
@@ -55,8 +56,8 @@ export function AdminVerificationsPage() {
       setError(null);
       try {
         const data = await getAdminProfessionalVerifications({
-          page,
-          pageSize,
+          page: filter === "blocked" ? 1 : page,
+          pageSize: filter === "blocked" ? 100 : pageSize,
           status: filter,
           signal,
         });
@@ -75,6 +76,10 @@ export function AdminVerificationsPage() {
     },
     [filter, page, pageSize],
   );
+
+  useEffect(() => {
+    if (filter === "blocked") setPage(1);
+  }, [filter]);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -119,7 +124,7 @@ export function AdminVerificationsPage() {
   async function handleBlock(userId: string, email: string) {
     if (
       !window.confirm(
-        `Block ${email}? They will lose verified status and no longer appear on Top Doctors.`,
+        `Block ${email}? They will lose dashboard access and be removed from Top Doctors.`,
       )
     ) {
       return;
@@ -127,18 +132,38 @@ export function AdminVerificationsPage() {
     setBusyUserId(userId);
     setActionError(null);
     try {
-      await blockProfessionalVerification(userId);
+      await rejectProfessionalVerification(userId, ADMIN_BLOCK_NOTE);
       await load();
     } catch (err) {
       setActionError(
         messageFromAxiosData(
           isAxiosError(err) ? err.response?.data : undefined,
-        ) ?? "Could not block this doctor.",
+        ) ?? "Blocking failed. Please try again.",
       );
     } finally {
       setBusyUserId(null);
     }
   }
+
+  async function handleUnblock(userId: string, email: string) {
+    if (!window.confirm(`Unblock ${email}?`)) return;
+    setBusyUserId(userId);
+    setActionError(null);
+    try {
+      await unblockProfessionalVerification(userId);
+      await load();
+    } catch (err) {
+      setActionError(
+        messageFromAxiosData(
+          isAxiosError(err) ? err.response?.data : undefined,
+        ) ?? "Could not unblock this doctor.",
+      );
+    } finally {
+      setBusyUserId(null);
+    }
+  }
+
+  
 
   async function handleDelete(userId: string, email: string) {
     if (
@@ -172,8 +197,9 @@ export function AdminVerificationsPage() {
             <BadgeCheck className="size-6 text-primary" /> Doctor verifications
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Approve or reject professional accounts. Verified doctors can use
-            the dashboard and appear on the public Top Doctors page.
+            {filter === "blocked"
+              ? "Doctors you blocked lose dashboard access. Use Unblock to restore verified status."
+              : "Approve or reject applications awaiting review. Block or delete verified doctors. Unblock from the Blocked tab."}
           </p>
         </div>
         <button
@@ -232,7 +258,9 @@ export function AdminVerificationsPage() {
         </div>
       ) : items.length === 0 ? (
         <div className="rounded-3xl border border-primary/15 bg-white px-6 py-12 text-center text-sm text-muted-foreground">
-          No doctors match the current filter.
+          {filter === "blocked"
+            ? "No blocked doctors. Blocked accounts appear here after you block a verified doctor."
+            : "No doctors match the current filter."}
         </div>
       ) : (
         <ul className="space-y-3">
@@ -240,17 +268,19 @@ export function AdminVerificationsPage() {
             <VerificationRow
               key={item.userId}
               item={item}
+              listFilter={filter}
               busy={busyUserId === item.userId}
               onApprove={() => handleApprove(item.userId)}
               onReject={(notes) => handleReject(item.userId, notes)}
               onBlock={() => handleBlock(item.userId, item.email)}
+              onUnblock={() => handleUnblock(item.userId, item.email)}
               onDelete={() => handleDelete(item.userId, item.email)}
             />
           ))}
         </ul>
       )}
 
-      {totalPages > 1 ? (
+      {filter !== "blocked" && totalPages > 1 ? (
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
             Page {page} of {totalPages} — {total} doctor
@@ -286,23 +316,36 @@ export function AdminVerificationsPage() {
 
 function VerificationRow({
   item,
+  listFilter,
   busy,
   onApprove,
   onReject,
   onBlock,
+  onUnblock,
   onDelete,
 }: {
   item: AdminProfessionalVerificationItem;
+  listFilter: AdminVerificationFilter;
   busy: boolean;
   onApprove: () => void;
   onReject: (notes: string) => void;
   onBlock: () => void;
+  onUnblock: () => void;
   onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [rejectMode, setRejectMode] = useState(false);
-  const [notes, setNotes] = useState("");
+  const [rejectNotes, setRejectNotes] = useState("");
+  const isBlockedList = listFilter === "blocked";
+  const isAwaiting = item.status === "pending" && !!item.submittedAt;
+  const isVerified = item.status === "verified";
+  const isBlocked = isBlockedVerificationItem(item);
+  const showApprove = !isBlockedList && isAwaiting;
+  const showReject = !isBlockedList && isAwaiting;
+  const showBlock = !isBlockedList && isVerified;
+  const showUnblock = isBlockedList || isBlocked;
   const prof = item.professionalProfile ?? {};
+  const documents = item.documents ?? [];
   const fullName = stringFrom(prof, "fullName") ?? item.email;
   const specialty = stringFrom(prof, "specialty") ?? "—";
   const license = stringFrom(prof, "licenseNumber") ?? "—";
@@ -316,10 +359,7 @@ function VerificationRow({
           <p className="truncate text-base font-semibold text-foreground">
             {fullName}
           </p>
-          <StatusBadge
-            status={item.status}
-            hasSubmitted={!!item.submittedAt}
-          />
+          <StatusBadge item={item} hasSubmitted={!!item.submittedAt} />
         </div>
         <p className="text-sm text-muted-foreground">{item.email}</p>
         <dl className="mt-2 grid gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2 md:grid-cols-3">
@@ -360,7 +400,13 @@ function VerificationRow({
           </dl>
           {item.notes ? (
             <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-900">
-              <strong className="font-semibold">Previous rejection note:</strong>{" "}
+              <strong className="font-semibold">
+                {isBlocked || isBlockedList
+                  ? "Block note:"
+                  : item.status === "rejected"
+                    ? "Rejection reason:"
+                    : "Admin note:"}
+              </strong>{" "}
               {item.notes}
             </p>
           ) : null}
@@ -371,6 +417,21 @@ function VerificationRow({
           Actions
         </p>
         <div className="flex flex-wrap items-center gap-2">
+          {showUnblock ? (
+            <button
+              type="button"
+              onClick={onUnblock}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {busy ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="size-3.5" />
+              )}
+              Unblock
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -383,7 +444,7 @@ function VerificationRow({
             )}
             {open ? "Hide details" : "View details"}
           </button>
-          {item.status !== "verified" ? (
+          {showApprove ? (
             <button
               type="button"
               onClick={onApprove}
@@ -398,28 +459,28 @@ function VerificationRow({
               Approve
             </button>
           ) : null}
-          {item.status !== "rejected" ? (
+          {showReject ? (
             <button
               type="button"
               onClick={() => setRejectMode((v) => !v)}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-full border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 transition hover:bg-amber-100 disabled:opacity-50"
             >
               <XCircle className="size-3.5" />
               {rejectMode ? "Cancel" : "Reject"}
             </button>
           ) : null}
-          {item.status === "verified" ? (
+          {showBlock ? (
             <button
               type="button"
               onClick={onBlock}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-full border border-amber-400 bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-950 transition hover:bg-amber-200 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
             >
               {busy ? (
                 <Loader2 className="size-3.5 animate-spin" />
               ) : (
-                <Ban className="size-3.5" />
+                <XCircle className="size-3.5" />
               )}
               Block
             </button>
@@ -445,20 +506,20 @@ function VerificationRow({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!notes.trim()) return;
-            onReject(notes.trim());
+            if (!rejectNotes.trim()) return;
+            onReject(rejectNotes.trim());
             setRejectMode(false);
-            setNotes("");
+            setRejectNotes("");
           }}
-          className="mt-3 space-y-2 rounded-xl border border-rose-200 bg-rose-50/50 p-3"
+          className="mt-3 space-y-2 rounded-xl border border-amber-200 bg-amber-50/50 p-3"
         >
-          <label className="block text-xs font-semibold text-rose-900">
-            Reason (the doctor will see this)
+          <label className="block text-xs font-semibold text-amber-950">
+            Rejection reason (the doctor will see this and can resubmit)
           </label>
           <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="block w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm focus:border-rose-400 focus:ring-2 focus:ring-rose-200 focus:outline-none"
+            value={rejectNotes}
+            onChange={(e) => setRejectNotes(e.target.value)}
+            className="block w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm focus:border-amber-400 focus:ring-2 focus:ring-amber-200 focus:outline-none"
             placeholder="e.g. Please attach a clearer license document and update your bio."
             rows={3}
             required
@@ -466,8 +527,8 @@ function VerificationRow({
           <div className="flex justify-end gap-2">
             <button
               type="submit"
-              disabled={busy || !notes.trim()}
-              className="inline-flex items-center gap-1.5 rounded-full bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:opacity-50"
+              disabled={busy || !rejectNotes.trim()}
+              className="inline-flex items-center gap-1.5 rounded-full bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-800 disabled:opacity-50"
             >
               {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
               Send rejection
@@ -475,6 +536,22 @@ function VerificationRow({
           </div>
         </form>
       ) : null}
+
+      {documents.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {documents.map((doc) => (
+            <DocumentViewButton
+              key={doc.id}
+              userId={item.userId}
+              doc={doc}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-amber-800">
+          No verification documents uploaded yet.
+        </p>
+      )}
 
       {open ? (
         <div className="mt-4 grid gap-3 rounded-xl border border-primary/10 bg-primary/3 p-3 text-sm">
@@ -526,21 +603,28 @@ function VerificationRow({
 }
 
 function StatusBadge({
-  status,
+  item,
   hasSubmitted,
 }: {
-  status: AdminVerificationStatus;
+  item: AdminProfessionalVerificationItem;
   hasSubmitted: boolean;
 }) {
+  const status = item.status;
   if (status === "verified")
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-800">
         Verified
       </span>
     );
-  if (status === "rejected")
+  if (isBlockedVerificationItem(item))
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800">
+        Blocked
+      </span>
+    );
+  if (status === "rejected")
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-900">
         Rejected
       </span>
     );
@@ -618,6 +702,44 @@ function ExperienceListView({
         ))}
       </ul>
     </div>
+  );
+}
+
+function DocumentViewButton({
+  userId,
+  doc,
+}: {
+  userId: string;
+  doc: AdminVerificationDocumentSummary;
+}) {
+  const [busy, setBusy] = useState(false);
+  const label =
+    doc.kind === "medical_license" ? "View license" : "View degree";
+
+  async function open() {
+    setBusy(true);
+    try {
+      const blob = await fetchAdminVerificationDocumentBlob(userId, doc.id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      window.alert("Could not open document. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void open()}
+      disabled={busy}
+      className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-white px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/5 disabled:opacity-50"
+    >
+      {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+      {label}
+    </button>
   );
 }
 

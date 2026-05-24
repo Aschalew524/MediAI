@@ -85,6 +85,11 @@ export type DashboardConfigResponse = {
   mainHealthInfoSections: string[];
 };
 
+export type AssistantTrialConfig = {
+  enabled: boolean;
+  limit: number;
+};
+
 export type ChatConfigResponse = {
   doctorTypeOptions: DoctorTypeOption[];
   chatHistoryItems: HistoryItem[];
@@ -95,6 +100,7 @@ export type ChatConfigResponse = {
   }[];
   /** From Nest: `RAG_ENABLED` — when true, responses may include guideline (RAG) sources */
   ragEnabled?: boolean;
+  assistantTrial?: AssistantTrialConfig;
 };
 
 export type AIDoctorConfigResponse = {
@@ -175,11 +181,10 @@ export async function getAdminConfig() {
   return adminCache;
 }
 
+/** Matches Nest `ChatCitationDto` from RAG retrieval (`source` + `excerpt`). */
 export type ChatCitation = {
-  id: string;
-  title?: string;
-  source?: string;
-  snippet?: string;
+  source: string;
+  excerpt: string;
 };
 
 export type ChatSendResult = {
@@ -291,6 +296,7 @@ export type ApiPersonalConversationMessage = {
   role: "user" | "assistant" | "system";
   content: string;
   createdAt: string;
+  citations?: ChatCitation[];
 };
 
 export type ApiPersonalConversationMessages = {

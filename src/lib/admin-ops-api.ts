@@ -2,6 +2,8 @@
  * Nest admin ops API (`/admin/summary`, `/admin/users`, `/admin/recent-activity`,
  * …). All endpoints require a JWT whose `appRole === "admin"`.
  */
+import { isAxiosError } from "axios";
+
 import api from "@/lib/axios";
 
 /** Mirrors `AdminSummaryResponseDto` from MediAI_backend. */
@@ -148,14 +150,28 @@ export async function getAdminUsers(options: {
 /*  Doctor verification queue                                                  */
 /* -------------------------------------------------------------------------- */
 
-export type AdminVerificationStatus = "pending" | "verified" | "rejected";
+export type AdminVerificationStatus =
+  | "pending"
+  | "verified"
+  | "rejected"
+  | "blocked";
 
 export type AdminVerificationFilter =
   | "pending"
   | "verified"
   | "rejected"
+  | "blocked"
   | "awaiting"
   | "all";
+
+export type AdminVerificationDocumentSummary = {
+  id: string;
+  kind: "medical_license" | "degree";
+  originalName: string;
+  mimeType: string;
+  byteSize: number;
+  uploadedAt: string;
+};
 
 /** Mirrors `AdminProfessionalVerificationItemDto`. */
 export type AdminProfessionalVerificationItem = {
@@ -168,6 +184,7 @@ export type AdminProfessionalVerificationItem = {
   notes: string | null;
   createdAt: string;
   professionalProfile: Record<string, unknown>;
+  documents: AdminVerificationDocumentSummary[];
 };
 
 export type AdminProfessionalVerificationsResponse = {
@@ -177,16 +194,97 @@ export type AdminProfessionalVerificationsResponse = {
   total: number;
 };
 
+/** True when an admin blocked a previously verified doctor (not an application rejection). */
+export function isBlockedVerificationItem(
+  item: AdminProfessionalVerificationItem,
+): boolean {
+  if (item.status === "blocked") return true;
+  const notes = item.notes?.toLowerCase() ?? "";
+  return (
+    notes.includes("blocked by an administrator") ||
+    notes.includes("blocked by administrator") ||
+    notes.includes("account was blocked")
+  );
+}
+
+const BLOCKED_LIST_SCAN_PAGE_SIZE = 500;
+
+async function fetchBlockedVerificationList(options?: {
+  page?: number;
+  pageSize?: number;
+  signal?: AbortSignal;
+}): Promise<AdminProfessionalVerificationsResponse> {
+  const page = options?.page ?? 1;
+  const pageSize = options?.pageSize ?? 100;
+
+  const get = (status: string, scanPage: number, scanSize: number) =>
+    api.get<AdminProfessionalVerificationsResponse>(
+      "/admin/professional-verifications",
+      {
+        params: { status, page: scanPage, pageSize: scanSize },
+        signal: options?.signal,
+      },
+    );
+
+  // 1) Native `blocked` filter (new backend with OR query).
+  try {
+    const { data } = await get("blocked", page, pageSize);
+    const items = data.items.filter(isBlockedVerificationItem);
+    if (items.length > 0) {
+      return { ...data, items, total: items.length, page, pageSize };
+    }
+  } catch (err) {
+    if (!isBlockedStatusQueryError(err)) throw err;
+  }
+
+  // 2) Doctors blocked via reject + admin note (`rejected` in DB).
+  const { data: rejectedData } = await get("rejected", 1, BLOCKED_LIST_SCAN_PAGE_SIZE);
+  let items = rejectedData.items.filter(isBlockedVerificationItem);
+
+  // 3) Last resort — scan all professionals (older data / odd statuses).
+  if (items.length === 0) {
+    const { data: allData } = await get("all", 1, BLOCKED_LIST_SCAN_PAGE_SIZE);
+    items = allData.items.filter(isBlockedVerificationItem);
+  }
+
+  return {
+    items,
+    total: items.length,
+    page: 1,
+    pageSize: Math.max(items.length, 1),
+  };
+}
+
+function isBlockedStatusQueryError(err: unknown): boolean {
+  if (!isAxiosError(err) || err.response?.status !== 400) return false;
+  const body = err.response?.data;
+  const text =
+    typeof body === "string"
+      ? body
+      : JSON.stringify(body ?? "").toLowerCase();
+  return (
+    text.includes("status must be") ||
+    text.includes('"blocked"') ||
+    text.includes("blocked")
+  );
+}
+
 export async function getAdminProfessionalVerifications(options?: {
   page?: number;
   pageSize?: number;
   status?: AdminVerificationFilter;
   signal?: AbortSignal;
 }): Promise<AdminProfessionalVerificationsResponse> {
+  const requested = options?.status;
   const params: Record<string, string | number> = {};
   if (options?.page) params.page = options.page;
   if (options?.pageSize) params.pageSize = options.pageSize;
-  if (options?.status) params.status = options.status;
+
+  if (requested === "blocked") {
+    return fetchBlockedVerificationList(options);
+  }
+
+  if (requested) params.status = requested;
   const { data } = await api.get<AdminProfessionalVerificationsResponse>(
     "/admin/professional-verifications",
     { params, signal: options?.signal },
@@ -209,10 +307,53 @@ export async function rejectProfessionalVerification(
   });
 }
 
+/** Shown to the doctor when an admin blocks a verified account. */
+export const ADMIN_BLOCK_NOTE =
+  "This account was blocked by an administrator. Contact support if you believe this is a mistake.";
+
+export async function fetchAdminVerificationDocumentBlob(
+  userId: string,
+  documentId: string,
+): Promise<Blob> {
+  const { data } = await api.get<Blob>(
+    `/admin/professional-verifications/${userId}/documents/${documentId}/download`,
+    { responseType: "blob" },
+  );
+  return data;
+}
+
+export async function unblockProfessionalVerification(
+  userId: string,
+): Promise<void> {
+  try {
+    await api.post(`/admin/professional-verifications/${userId}/unblock`);
+  } catch (err) {
+    if (!isAxiosError(err)) throw err;
+    const status = err.response?.status;
+    // Older APIs: no /unblock — approve restores verified access.
+    if (status === 404 || status === 405) {
+      await approveProfessionalVerification(userId);
+      return;
+    }
+    if (status === 400) {
+      const msg = JSON.stringify(err.response?.data ?? "").toLowerCase();
+      if (msg.includes("blocked") || msg.includes("unblock")) {
+        await approveProfessionalVerification(userId);
+        return;
+      }
+    }
+    throw err;
+  }
+}
+
+/**
+ * Block a verified doctor via POST /reject (works on all deployed backends).
+ * Never calls POST /block so older frontends and APIs stay compatible.
+ */
 export async function blockProfessionalVerification(
   userId: string,
 ): Promise<void> {
-  await api.post(`/admin/professional-verifications/${userId}/block`);
+  await rejectProfessionalVerification(userId, ADMIN_BLOCK_NOTE);
 }
 
 export async function deleteProfessionalVerification(
