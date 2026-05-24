@@ -73,6 +73,9 @@ export function AssistantPaywallPanel({
     setError(null);
     try {
       const payment = await initiateAssistantPayment(planId);
+      if (!payment.checkoutUrl) {
+        throw new Error("Checkout URL missing from payment response.");
+      }
       rememberPendingChapaTxRef(payment.txRef);
       window.location.assign(payment.checkoutUrl);
     } catch (err: unknown) {

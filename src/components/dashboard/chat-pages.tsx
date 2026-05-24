@@ -448,7 +448,7 @@ export function ChatConversationPage({
   }
 
   const trial = billing?.personalTrial;
-  const isOnPaidPlan = billing?.personalChatPaidActive === true;
+  const isOnPaidPlan = billing?.assistantAccess.active === true;
   const trialExhaustedBlocked =
     shouldTrackTrial &&
     !billingErrored &&

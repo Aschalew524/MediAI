@@ -933,6 +933,9 @@ function VideoConsultationModal({
                 patientNotes: details || undefined,
               });
               const payment = await initiateConsultationPayment(booking.id);
+              if (!payment.checkoutUrl) {
+                throw new Error("Checkout URL missing from payment response.");
+              }
               rememberPendingChapaTxRef(payment.txRef);
               window.location.assign(payment.checkoutUrl);
             } catch (error: unknown) {

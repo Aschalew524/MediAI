@@ -74,7 +74,7 @@ export function userFacingAxiosError(
   }
   if (status === 404) {
     return (
-      messageFromAxiosData(data) ??
+      messageFromAxiosData(err.response?.data) ??
         "API route not found. Redeploy the backend (api/index.ts + vercel.json rewrites)."
     );
   }
