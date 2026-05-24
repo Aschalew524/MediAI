@@ -1,10 +1,17 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageCircleMore, ShieldCheck } from "lucide-react";
+import {
+  LayoutDashboard,
+  MessageCircleMore,
+  ShieldCheck,
+  Sparkles,
+  Stethoscope,
+  Users,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -121,17 +128,41 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               </span>
             </Link>
 
-          <Link
-            href="/dashboard"
-            className="text-xl font-bold tracking-tight text-primary"
-          >
-            MediAI
-          </Link>
+            <nav
+              className="hidden min-w-0 flex-1 items-center justify-center gap-1 md:flex"
+              aria-label="Dashboard sections"
+            >
+              {navLinks.map((item) => {
+                const active =
+                  pathname !== null &&
+                  (item.match?.(pathname) ??
+                    (pathname === item.href ||
+                      pathname.startsWith(`${item.href}/`)));
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-primary/12 text-primary shadow-[inset_0_0_0_1px_rgba(76,104,220,0.18)]"
+                        : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+                    )}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
             <Link
               href="/dashboard/messages"
-              className="relative inline-flex"
+              className="relative inline-flex md:hidden"
               aria-label={
                 unreadMessages > 0
                   ? `Messages (${unreadMessages} unread)`
@@ -145,7 +176,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 <UnreadBadge count={unreadMessages} />
               ) : null}
             </Link>
+
             <NotificationsBell />
+            <span
+              className="mx-0.5 hidden h-8 w-px bg-primary/12 sm:block"
+              aria-hidden
+            />
             <DashboardProfileMenu />
           </div>
         </div>
@@ -171,7 +207,7 @@ function HeaderIconButton({
   children,
   className,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+}: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"
