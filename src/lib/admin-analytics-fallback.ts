@@ -45,18 +45,30 @@ export function buildFallbackAnalytics(
 ): AdminAnalyticsResponse {
   const months = lastMonthLabels();
   const totalUsers = summary?.userCount ?? 0;
+  const revenueMonths = revenueSeriesFromBilling(billing, months);
+  const signupsFromRevenue = revenueMonths.map((_, index) => {
+    if (index === months.length - 1) {
+      return summary?.last24hRegistrations ?? 0;
+    }
+    return 0;
+  });
+  const signupsTotal = signupsFromRevenue.reduce((s, n) => s + n, 0);
+  const baselineUsers = Math.max(0, totalUsers - signupsTotal);
+
   const monthlyUserGrowth = months.map((month, index) => {
-    const isLast = index === months.length - 1;
+    const signupsThroughMonth = signupsFromRevenue
+      .slice(0, index + 1)
+      .reduce((s, n) => s + n, 0);
     return {
       month,
-      users: isLast ? totalUsers : 0,
-      signups: isLast ? summary?.last24hRegistrations ?? 0 : 0,
+      users: baselineUsers + signupsThroughMonth,
+      signups: signupsFromRevenue[index] ?? 0,
     };
   });
 
   return {
     monthlyUserGrowth,
-    monthlyRevenue: revenueSeriesFromBilling(billing, months),
+    monthlyRevenue: revenueMonths,
     generatedAt: new Date().toISOString(),
   };
 }

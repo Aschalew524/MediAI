@@ -175,6 +175,8 @@ export function InteractiveUserGrowthChart({
   emptyMessage?: string;
 }) {
   const chartData = data ?? [];
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const values = useMemo(() => chartData.map((d) => d.users), [chartData]);
 
   if (loading) {
     return <ChartPanelSkeleton title="User growth" />;
@@ -185,8 +187,6 @@ export function InteractiveUserGrowthChart({
       <ChartEmptyPanel title="User growth" message={emptyMessage} />
     );
   }
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const values = useMemo(() => chartData.map((d) => d.users), [chartData]);
   const change = periodChangePercent(values);
   const max = Math.max(...values, 1);
   const width = 560;
@@ -214,7 +214,7 @@ export function InteractiveUserGrowthChart({
         change={change}
         activeLabel={
           hover
-            ? `${hover.month}: ${hover.users.toLocaleString("en-US")} users`
+            ? `${hover.month}: ${hover.users.toLocaleString("en-US")} total · ${hover.signups.toLocaleString("en-US")} new`
             : null
         }
       />
@@ -227,7 +227,7 @@ export function InteractiveUserGrowthChart({
           viewBox={`0 0 ${width} ${height}`}
           className="h-auto w-full touch-none"
           role="img"
-          aria-label="User growth over time"
+          aria-label="Cumulative user count by month"
         >
           <defs>
             <linearGradient id="userGrowthFill" x1="0" y1="0" x2="0" y2="1">
@@ -310,7 +310,10 @@ export function InteractiveUserGrowthChart({
           >
             <p className="text-xs font-medium text-muted-foreground">{hover.month}</p>
             <p className="text-sm font-semibold text-foreground">
-              {hover.users.toLocaleString("en-US")} users
+              {hover.users.toLocaleString("en-US")} users total
+            </p>
+            <p className="text-xs text-muted-foreground">
+              +{hover.signups.toLocaleString("en-US")} signups
             </p>
           </ChartTooltip>
         ) : null}
@@ -326,6 +329,9 @@ export function InteractiveUserGrowthChart({
           </span>
         ))}
       </div>
+      <p className="text-center text-xs text-muted-foreground">
+        Cumulative users at month-end · hover for monthly signups
+      </p>
     </DashboardPanel>
   );
 }
@@ -345,12 +351,12 @@ export function InteractiveRevenueChart({
 }) {
   const chartData =
     data?.length ? data : lastMonthLabels().map((month) => ({ month, revenueCents: 0 }));
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const values = useMemo(() => chartData.map((d) => d.revenueCents), [chartData]);
 
   if (loading) {
     return <ChartPanelSkeleton title="Revenue" compact />;
   }
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const values = useMemo(() => chartData.map((d) => d.revenueCents), [chartData]);
   const change = periodChangePercent(values);
   const max = Math.max(...values, 1);
   const hover = activeIndex != null ? chartData[activeIndex] : null;

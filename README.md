@@ -29,13 +29,23 @@ Other useful commands:
 
 ## Environment
 
-Copy `.env.example` to `.env.local` and set your backend base URL:
+Default (committed `.env`) points at the **deployed** API:
 
-```bash
-cp .env.example .env.local
+```text
+NEXT_PUBLIC_API_URL=https://medi-ai-backend.vercel.app/api
 ```
 
-`src/lib/axios.ts` reads `NEXT_PUBLIC_API_URL` and uses it as the Axios base URL.
+### Optional: local backend before deploy
+
+To test your own `MediAI_backend` changes on `http://localhost:4000`:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Set `NEXT_PUBLIC_USE_LOCAL_API=true` in `.env.local`, start Postgres + `npm run start` in `MediAI_backend`, then `npm run dev` here. See [docs/LOCAL_BACKEND.md](docs/LOCAL_BACKEND.md).
+
+`src/lib/axios.ts` uses `getApiBaseUrl()` — local dev hits the API directly; production uses the `/nest` proxy.
 
 **Vercel (frontend — [medi-ai-theta.vercel.app](https://medi-ai-theta.vercel.app/)):** set **only**:
 
