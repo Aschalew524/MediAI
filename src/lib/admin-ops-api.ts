@@ -148,12 +148,17 @@ export async function getAdminUsers(options: {
 /*  Doctor verification queue                                                  */
 /* -------------------------------------------------------------------------- */
 
-export type AdminVerificationStatus = "pending" | "verified" | "rejected";
+export type AdminVerificationStatus =
+  | "pending"
+  | "verified"
+  | "rejected"
+  | "blocked";
 
 export type AdminVerificationFilter =
   | "pending"
   | "verified"
   | "rejected"
+  | "blocked"
   | "awaiting"
   | "all";
 

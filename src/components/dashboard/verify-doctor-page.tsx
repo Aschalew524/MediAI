@@ -26,7 +26,10 @@ import {
   userFacingMeError,
   dispatchMeRefresh,
 } from "@/lib/me-api";
-import type { ProfessionalProfile } from "@/lib/dashboard-content";
+import type {
+  DoctorVerificationStatus,
+  ProfessionalProfile,
+} from "@/lib/dashboard-content";
 import {
   getTopDoctorMatchOptions,
   type EnumOption,
@@ -237,6 +240,8 @@ export function VerifyDoctorPage() {
 
   const isAwaitingReview = status === "pending" && !!submittedAt;
   const isRejected = status === "rejected";
+  const isBlocked = status === "blocked";
+  const formLocked = isBlocked;
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -353,6 +358,8 @@ export function VerifyDoctorPage() {
 
         {isAwaitingReview ? (
           <AwaitingReviewBanner submittedAt={submittedAt} />
+        ) : isBlocked ? (
+          <BlockedBanner notes={notes} reviewedAt={reviewedAt} />
         ) : isRejected ? (
           <RejectedBanner notes={notes} reviewedAt={reviewedAt} />
         ) : (
@@ -378,7 +385,10 @@ export function VerifyDoctorPage() {
 
         <form
           onSubmit={submitForReview}
-          className="space-y-6 rounded-3xl border border-primary/15 bg-white p-6 shadow-[0_30px_80px_-50px_rgba(76,104,220,0.4)] sm:p-8"
+          className={cn(
+            "space-y-6 rounded-3xl border border-primary/15 bg-white p-6 shadow-[0_30px_80px_-50px_rgba(76,104,220,0.4)] sm:p-8",
+            formLocked && "pointer-events-none opacity-60",
+          )}
         >
           <SectionHeader
             icon={<Stethoscope className="size-5" />}
@@ -633,6 +643,7 @@ export function VerifyDoctorPage() {
             />
           </Field>
 
+          {!formLocked ? (
           <div className="flex flex-col-reverse gap-3 border-t border-primary/10 pt-5 sm:flex-row sm:items-center sm:justify-end">
             <button
               type="button"
@@ -660,6 +671,7 @@ export function VerifyDoctorPage() {
                 : "Submit for verification"}
             </button>
           </div>
+          ) : null}
         </form>
       </div>
     </div>
@@ -679,7 +691,7 @@ function Header({
   reviewedAt,
   onSignOut,
 }: {
-  status: "pending" | "verified" | "rejected";
+  status: DoctorVerificationStatus;
   submittedAt: string | null;
   reviewedAt: string | null;
   onSignOut: () => void;
@@ -722,7 +734,7 @@ function StatusPill({
   submittedAt,
   reviewedAt,
 }: {
-  status: "pending" | "verified" | "rejected";
+  status: DoctorVerificationStatus;
   submittedAt: string | null;
   reviewedAt: string | null;
 }) {
@@ -734,11 +746,19 @@ function StatusPill({
       </span>
     );
   }
-  if (status === "rejected") {
+  if (status === "blocked") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1 text-xs font-medium text-rose-800">
         <XCircle className="size-3.5" />
-        Action needed{reviewedAt ? "" : ""}
+        Blocked
+      </span>
+    );
+  }
+  if (status === "rejected") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900">
+        <XCircle className="size-3.5" />
+        Action needed
       </span>
     );
   }
@@ -796,7 +816,7 @@ function AwaitingReviewBanner({ submittedAt }: { submittedAt: string | null }) {
   );
 }
 
-function RejectedBanner({
+function BlockedBanner({
   notes,
   reviewedAt,
 }: {
@@ -806,15 +826,43 @@ function RejectedBanner({
   return (
     <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4">
       <h2 className="flex items-center gap-2 text-base font-semibold text-rose-900">
-        <XCircle className="size-5" /> Verification not approved
+        <XCircle className="size-5" /> Account blocked
       </h2>
       <p className="mt-1 text-sm text-rose-900/90">
+        An administrator blocked your account
+        {reviewedAt ? ` ${formatRelativeIso(reviewedAt)}` : ""}. You cannot use
+        the dashboard or appear on Top Doctors until an admin unblocks you.
+        Contact support if you believe this is a mistake.
+      </p>
+      {notes ? (
+        <p className="mt-3 rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm text-rose-900">
+          <strong className="font-semibold">Message:</strong>{" "}
+          <span className="whitespace-pre-line">{notes}</span>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function RejectedBanner({
+  notes,
+  reviewedAt,
+}: {
+  notes: string | null;
+  reviewedAt: string | null;
+}) {
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+      <h2 className="flex items-center gap-2 text-base font-semibold text-amber-950">
+        <XCircle className="size-5" /> Verification not approved
+      </h2>
+      <p className="mt-1 text-sm text-amber-900/90">
         An admin reviewed your packet
         {reviewedAt ? ` ${formatRelativeIso(reviewedAt)}` : ""} and asked for
         changes. Please update the fields below and resubmit.
       </p>
       {notes ? (
-        <p className="mt-3 rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm text-rose-900">
+        <p className="mt-3 rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm text-amber-950">
           <strong className="font-semibold">Admin note:</strong>{" "}
           <span className="whitespace-pre-line">{notes}</span>
         </p>
