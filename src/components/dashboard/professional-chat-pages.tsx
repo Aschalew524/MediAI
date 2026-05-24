@@ -1014,13 +1014,13 @@ function ResearchAssistantUpgradePage({
             <div className="grid gap-4 lg:grid-cols-2">
               <PricingCard
                 title="Start with Monthly"
-                price="$25/month"
+                price="ETB 1,450/month"
                 description="Billed Monthly"
               />
               <PricingCard
                 title="Start with Yearly for only"
-                price="$25/month"
-                description="Billed Annually $300"
+                price="ETB 1,450/month"
+                description="Billed Annually ETB 17,400"
                 featured
                 badge="Save 50%"
               />
@@ -1029,7 +1029,12 @@ function ResearchAssistantUpgradePage({
 
           <p className="text-sm text-muted-foreground">
             Need more options?{" "}
-            <span className="font-medium text-primary">View more plans</span>
+            <Link
+              href="/dashboard/billing"
+              className="font-medium text-primary underline-offset-2 hover:underline"
+            >
+              View more plans
+            </Link>
           </p>
         </div>
       </section>
