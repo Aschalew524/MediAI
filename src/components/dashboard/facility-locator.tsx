@@ -13,7 +13,6 @@ import {
   Clock,
   ExternalLink,
   Hospital,
-  LocateFixed,
   MapPin,
   Navigation,
   Phone,
@@ -459,7 +458,7 @@ export function FacilityLocatorPage() {
         ) : null}
         {geoStatus === "unavailable" ? (
           <DashboardPanel className="border-amber-200/50 bg-amber-50/40 px-5 py-3">
-            <p className="text-sm font-medium text-foreground">Couldn't get your position</p>
+            <p className="text-sm font-medium text-foreground">Couldn&apos;t get your position</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {geoErrorDetail ??
                 "We couldn't determine your position. Check that location services are on, then tap “Use my location” to try again."}
@@ -479,7 +478,7 @@ export function FacilityLocatorPage() {
           <DashboardPanel className="px-5 py-3">
             <p className="text-sm font-medium text-foreground">Geolocation not available</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              This browser doesn't expose location to web apps, so we can't find facilities near
+              This browser doesn&apos;t expose location to web apps, so we can&apos;t find facilities near
               you automatically.
             </p>
           </DashboardPanel>
