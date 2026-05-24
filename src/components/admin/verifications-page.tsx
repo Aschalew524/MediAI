@@ -15,15 +15,15 @@ import {
 import { isAxiosError } from "axios";
 
 import {
+  ADMIN_BLOCK_NOTE,
   approveProfessionalVerification,
-  blockProfessionalVerification,
   deleteProfessionalVerification,
   getAdminProfessionalVerifications,
+  isBlockedVerificationItem,
   rejectProfessionalVerification,
   unblockProfessionalVerification,
   type AdminProfessionalVerificationItem,
   type AdminVerificationFilter,
-  type AdminVerificationStatus,
 } from "@/lib/admin-ops-api";
 import { messageFromAxiosData } from "@/lib/auth.types";
 import { cn } from "@/lib/utils";
@@ -126,7 +126,7 @@ export function AdminVerificationsPage() {
     setBusyUserId(userId);
     setActionError(null);
     try {
-      await blockProfessionalVerification(userId);
+      await rejectProfessionalVerification(userId, ADMIN_BLOCK_NOTE);
       await load();
     } catch (err) {
       setActionError(
@@ -326,7 +326,7 @@ function VerificationRow({
   const [rejectNotes, setRejectNotes] = useState("");
   const isAwaiting = item.status === "pending" && !!item.submittedAt;
   const isVerified = item.status === "verified";
-  const isBlocked = item.status === "blocked";
+  const isBlocked = isBlockedVerificationItem(item);
   const showApprove = isAwaiting;
   const showReject = isAwaiting;
   const showBlock = isVerified;
@@ -345,10 +345,7 @@ function VerificationRow({
           <p className="truncate text-base font-semibold text-foreground">
             {fullName}
           </p>
-          <StatusBadge
-            status={item.status}
-            hasSubmitted={!!item.submittedAt}
-          />
+          <StatusBadge item={item} hasSubmitted={!!item.submittedAt} />
         </div>
         <p className="text-sm text-muted-foreground">{item.email}</p>
         <dl className="mt-2 grid gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2 md:grid-cols-3">
@@ -574,19 +571,20 @@ function VerificationRow({
 }
 
 function StatusBadge({
-  status,
+  item,
   hasSubmitted,
 }: {
-  status: AdminVerificationStatus;
+  item: AdminProfessionalVerificationItem;
   hasSubmitted: boolean;
 }) {
+  const status = item.status;
   if (status === "verified")
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-800">
         Verified
       </span>
     );
-  if (status === "blocked")
+  if (isBlockedVerificationItem(item))
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800">
         Blocked
