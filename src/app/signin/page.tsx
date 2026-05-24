@@ -20,7 +20,7 @@ import {
 import { postLogin, userFacingAxiosError } from "@/lib/auth-api";
 import { resolvePostLoginDestination } from "@/lib/auth-redirect";
 import {
-  clearAccessToken,
+  clearAllTokens,
   getAccessToken,
 } from "@/lib/auth-storage";
 import api from "@/lib/axios";
@@ -51,7 +51,7 @@ function SignInForm() {
 
   useEffect(() => {
     if (searchParams.get("fresh") === "1") {
-      clearAccessToken();
+      clearAllTokens();
       setExistingSession(null);
       setCheckingSession(false);
       return;
@@ -70,7 +70,7 @@ function SignInForm() {
         const { data } = await api.get<AuthUser>("/auth/me");
         if (!cancelled) setExistingSession(data);
       } catch {
-        clearAccessToken();
+        clearAllTokens();
         if (!cancelled) setExistingSession(null);
       } finally {
         if (!cancelled) setCheckingSession(false);
@@ -137,7 +137,7 @@ function SignInForm() {
   }
 
   function useDifferentAccount() {
-    clearAccessToken();
+    clearAllTokens();
     setExistingSession(null);
     setFormError(null);
   }

@@ -10,8 +10,16 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 
+import { isAxiosError } from "axios";
+
 import api, { subscribeAuthCleared } from "@/lib/axios";
-import { clearAccessToken, getAccessToken } from "@/lib/auth-storage";
+import { postLogout } from "@/lib/auth-api";
+import {
+  clearAllTokens,
+  getAccessToken,
+  getRefreshToken,
+  syncAccessTokenToCookie,
+} from "@/lib/auth-storage";
 import type { AuthUser } from "@/lib/auth.types";
 
 type AuthContextValue = {
@@ -30,6 +38,7 @@ export function DashboardAuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   const loadSession = useCallback(async () => {
+    syncAccessTokenToCookie();
     const token = getAccessToken();
     if (!token) {
       setUser(null);
@@ -38,8 +47,12 @@ export function DashboardAuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data } = await api.get<AuthUser>("/auth/me");
       setUser(data);
-    } catch {
-      clearAccessToken();
+    } catch (err) {
+      // Do not wipe tokens on network blips — the axios interceptor refreshes
+      // expired access tokens and only clears on hard logout.
+      if (isAxiosError(err) && err.response?.status === 401 && !getRefreshToken()) {
+        clearAllTokens();
+      }
       setUser(null);
     }
   }, []);
@@ -69,9 +82,16 @@ export function DashboardAuthProvider({ children }: { children: ReactNode }) {
   }, [loadSession]);
 
   const logout = useCallback(() => {
-    clearAccessToken();
+    const refresh = getRefreshToken();
     setUser(null);
-    router.push("/signin");
+    void (async () => {
+      if (refresh) {
+        await postLogout(refresh);
+      } else {
+        clearAllTokens();
+      }
+      router.push("/signin");
+    })();
   }, [router]);
 
   const value: AuthContextValue = {

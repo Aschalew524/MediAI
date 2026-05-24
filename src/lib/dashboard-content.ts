@@ -288,7 +288,7 @@ export const dashboardCards = [
 
 export const consultDoctorsCard = {
   title: "Consult Top Doctors",
-  description: "Online Consultation with top Doctors from the US and Europe.",
+  description: "Online consultation with verified top doctors across Ethiopia.",
   href: "/dashboard/top-doctors",
 };
 

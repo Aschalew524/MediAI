@@ -157,6 +157,28 @@ export function mapMeProfileToDashboard(
  * "awaiting admin review" once their `professionalProfile` has the required
  * verification fields filled in.
  */
+const PROFILE_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+const PROFILE_PHOTO_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
+
+/** `POST /me/professional/profile-photo` — multipart upload; updates `heroImageUrl`. */
+export async function uploadProfessionalProfilePhoto(
+  file: File,
+): Promise<{ heroImageUrl: string }> {
+  if (file.size > PROFILE_PHOTO_MAX_BYTES) {
+    throw new Error("Photo must be 5 MB or smaller.");
+  }
+  if (!PROFILE_PHOTO_ACCEPT.split(",").includes(file.type)) {
+    throw new Error("Photo must be JPEG, PNG, WebP, or GIF.");
+  }
+  const form = new FormData();
+  form.append("photo", file);
+  const { data } = await api.post<{ heroImageUrl: string }>(
+    "/me/professional/profile-photo",
+    form,
+  );
+  return data;
+}
+
 export async function submitProfessionalVerification(): Promise<GetMeProfileResponse> {
   const { data } = await api.post<{
     profile: MeProfileApi | null;

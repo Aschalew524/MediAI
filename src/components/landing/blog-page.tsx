@@ -192,7 +192,7 @@ export function BlogPage(props: BlogPageProps) {
                   </h2>
                   <p className="max-w-2xl text-sm leading-6 text-foreground/75">
                     Talk to Docus AI Doctor, generate health reports, get them
-                    validated by Top Doctors from the US and Europe.
+                    validated by top doctors across Ethiopia.
                   </p>
                   <LinkButton href="/onboarding" size="lg">
                     Try MediAI for Free
@@ -290,7 +290,7 @@ export function BlogPage(props: BlogPageProps) {
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-primary-foreground/90">
-              <span>✓ 350+ world-renowned Doctors</span>
+              <span>✓ Verified top doctors across Ethiopia</span>
               <span>✓ Virtual health assistant powered by AI</span>
             </div>
           </Container>

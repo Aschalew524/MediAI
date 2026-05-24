@@ -6,6 +6,11 @@ import Image from "next/image";
 import Link from "next/link";
 
 import {
+  usePublicSession,
+  syncSessionBeforeProtectedNav,
+  type PublicSession,
+} from "@/components/auth/public-session-provider";
+import {
   ArrowRight,
   BrainCircuit,
   ChevronRight,
@@ -125,7 +130,111 @@ function LandingHrefLink({
   );
 }
 
+function LandingAuthActions({
+  session,
+  sessionLoading,
+  layout,
+  onNavigate,
+}: {
+  session: PublicSession | null;
+  sessionLoading: boolean;
+  layout: "desktop" | "mobile-compact" | "mobile-menu";
+  onNavigate?: () => void;
+}) {
+  const homeLabel =
+    session?.homeHref === "/admin" ? "Admin console" : "My dashboard";
+
+  if (sessionLoading && layout !== "mobile-menu") {
+    return (
+      <span className="text-sm text-muted-foreground" aria-hidden>
+        …
+      </span>
+    );
+  }
+
+  if (session) {
+    if (layout === "mobile-menu") {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Signed in as{" "}
+            <span className="font-semibold text-foreground">
+              {session.displayName}
+            </span>
+          </p>
+          <Link
+            href={session.homeHref}
+            onClick={() => {
+              syncSessionBeforeProtectedNav();
+              onNavigate?.();
+            }}
+            className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground"
+          >
+            {homeLabel}
+          </Link>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <Link
+          href={session.homeHref}
+          onClick={() => {
+            syncSessionBeforeProtectedNav();
+            onNavigate?.();
+          }}
+          className="inline-flex max-w-48 items-center gap-2 truncate text-sm font-medium text-foreground/90 transition-colors hover:text-primary"
+          title={session.user.email}
+        >
+          <CircleUserRound className="size-4 shrink-0 text-primary" aria-hidden />
+          <span className="truncate">{session.displayName}</span>
+        </Link>
+        {layout === "desktop" ? (
+          <LinkButton href={session.homeHref} size="lg" onClick={syncSessionBeforeProtectedNav}>
+            {homeLabel}
+          </LinkButton>
+        ) : null}
+      </>
+    );
+  }
+
+  if (layout === "mobile-menu") {
+    return (
+      <>
+        <Link
+          href="/signin"
+          onClick={onNavigate}
+          className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-primary/25 text-sm font-medium text-foreground"
+        >
+          Sign In
+        </Link>
+        <LinkButton href="/onboarding" size="lg" onClick={onNavigate}>
+          Get Started For Free
+        </LinkButton>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Link
+        href="/signin"
+        className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
+      >
+        Sign In
+      </Link>
+      {layout === "desktop" ? (
+        <LinkButton href="/onboarding" size="lg">
+          Get Started For Free
+        </LinkButton>
+      ) : null}
+    </>
+  );
+}
+
 export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
+  const { session, isLoading: sessionLoading } = usePublicSession();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
@@ -227,24 +336,19 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
         </nav>
 
         <div className="hidden items-center gap-4 lg:flex">
-          <Link
-            href="/signin?fresh=1"
-            className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
-          >
-            Sign In
-          </Link>
-          <LinkButton href="/onboarding" size="lg">
-            Get Started For Free
-          </LinkButton>
+          <LandingAuthActions
+            session={session}
+            sessionLoading={sessionLoading}
+            layout="desktop"
+          />
         </div>
 
         <div className="flex items-center gap-3 lg:hidden">
-          <Link
-            href="/signin?fresh=1"
-            className="text-sm font-medium text-foreground/80 transition-colors hover:text-primary"
-          >
-            Sign In
-          </Link>
+          <LandingAuthActions
+            session={session}
+            sessionLoading={sessionLoading}
+            layout="mobile-compact"
+          />
           <button
             type="button"
             aria-label="Open navigation menu"
@@ -287,9 +391,12 @@ export function SiteHeader({ navItems }: { navItems: NavItem[] }) {
             ))}
 
             <div className="flex flex-col gap-3 pt-2">
-              <LinkButton href="/onboarding" size="lg">
-                Get Started For Free
-              </LinkButton>
+              <LandingAuthActions
+                session={session}
+                sessionLoading={sessionLoading}
+                layout="mobile-menu"
+                onNavigate={() => setMobileMenuOpen(false)}
+              />
             </div>
           </Container>
         </div>

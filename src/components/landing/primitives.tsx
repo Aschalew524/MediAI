@@ -85,6 +85,7 @@ type LinkButtonProps = {
   href: string;
   children: ReactNode;
   className?: string;
+  onClick?: () => void;
 } & VariantProps<typeof linkButtonVariants>;
 
 export function LinkButton({
@@ -93,10 +94,12 @@ export function LinkButton({
   variant,
   size,
   className,
+  onClick,
 }: LinkButtonProps) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={cn(linkButtonVariants({ variant, size }), className)}
     >
       {children}

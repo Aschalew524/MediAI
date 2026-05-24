@@ -7,6 +7,7 @@ import {
   useState,
   type ChangeEvent,
   type FormEvent,
+  type RefObject,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -15,6 +16,8 @@ import {
   Loader2,
   ShieldAlert,
   Stethoscope,
+  Upload,
+  UserRound,
   XCircle,
 } from "lucide-react";
 
@@ -23,9 +26,11 @@ import { useDashboardMe } from "./dashboard-me-provider";
 import {
   patchMeProfile,
   submitProfessionalVerification,
+  uploadProfessionalProfilePhoto,
   userFacingMeError,
   dispatchMeRefresh,
 } from "@/lib/me-api";
+import { resolveMediaUrl } from "@/lib/resolve-media-url";
 import type { ProfessionalProfile } from "@/lib/dashboard-content";
 import {
   getTopDoctorMatchOptions,
@@ -191,6 +196,9 @@ export function VerifyDoctorPage() {
 
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -443,13 +451,10 @@ export function VerifyDoctorPage() {
               </select>
             </Field>
             <Field label="Years of experience *" htmlFor="yearsOfExperience">
-              <input
+              <DigitsOnlyInput
                 id="yearsOfExperience"
-                type="number"
-                min={0}
-                step={1}
                 value={form.yearsOfExperience}
-                onChange={(e) => setField("yearsOfExperience", e.target.value)}
+                onChange={(v) => setField("yearsOfExperience", v)}
                 className={inputClass}
                 required
               />
@@ -533,10 +538,10 @@ export function VerifyDoctorPage() {
               />
             </Field>
             <Field label="Education year" htmlFor="educationYear">
-              <input
+              <DigitsOnlyInput
                 id="educationYear"
                 value={form.educationYear}
-                onChange={(e) => setField("educationYear", e.target.value)}
+                onChange={(v) => setField("educationYear", v)}
                 className={inputClass}
                 placeholder="e.g. 2014"
               />
@@ -558,15 +563,10 @@ export function VerifyDoctorPage() {
               label="Video consultation fee (USD)"
               htmlFor="videoConsultationFee"
             >
-              <input
+              <DigitsOnlyInput
                 id="videoConsultationFee"
-                type="number"
-                min={0}
-                step={1}
                 value={form.videoConsultationFee}
-                onChange={(e) =>
-                  setField("videoConsultationFee", e.target.value)
-                }
+                onChange={(v) => setField("videoConsultationFee", v)}
                 className={inputClass}
                 placeholder="e.g. 80"
               />
@@ -575,32 +575,44 @@ export function VerifyDoctorPage() {
               label="Written consultation fee (USD)"
               htmlFor="writtenConsultationFee"
             >
-              <input
+              <DigitsOnlyInput
                 id="writtenConsultationFee"
-                type="number"
-                min={0}
-                step={1}
                 value={form.writtenConsultationFee}
-                onChange={(e) =>
-                  setField("writtenConsultationFee", e.target.value)
-                }
+                onChange={(v) => setField("writtenConsultationFee", v)}
                 className={inputClass}
                 placeholder="e.g. 30"
               />
             </Field>
-            <Field
-              label="Profile photo URL"
-              htmlFor="heroImageUrl"
-              hint="Hosted image (https). Leave blank for now if you don't have one."
-            >
-              <input
-                id="heroImageUrl"
-                value={form.heroImageUrl}
-                onChange={(e) => setField("heroImageUrl", e.target.value)}
-                className={inputClass}
-                placeholder="https://..."
-              />
-            </Field>
+            <ProfilePhotoUploadField
+              heroImageUrl={form.heroImageUrl}
+              previewUrl={photoPreview}
+              uploading={photoUploading}
+              inputRef={photoInputRef}
+              onPick={() => photoInputRef.current?.click()}
+              onFile={async (file) => {
+                setError(null);
+                setSuccess(null);
+                const local = URL.createObjectURL(file);
+                setPhotoPreview(local);
+                setPhotoUploading(true);
+                try {
+                  const { heroImageUrl } =
+                    await uploadProfessionalProfilePhoto(file);
+                  setField("heroImageUrl", heroImageUrl);
+                  setPhotoPreview(null);
+                  setSuccess("Profile photo uploaded.");
+                  dispatchMeRefresh();
+                } catch (err) {
+                  setPhotoPreview(null);
+                  setError(
+                    userFacingMeError(err, "Could not upload profile photo."),
+                  );
+                } finally {
+                  setPhotoUploading(false);
+                  URL.revokeObjectURL(local);
+                }
+              }}
+            />
           </div>
 
           <ExperienceListEditor
@@ -672,6 +684,46 @@ export function VerifyDoctorPage() {
 
 const inputClass =
   "block w-full rounded-xl border border-primary/15 bg-white px-3.5 py-2.5 text-sm text-foreground shadow-sm outline-hidden transition placeholder:text-muted-foreground/60 focus:border-primary/60 focus:ring-2 focus:ring-primary/15";
+
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+function DigitsOnlyInput({
+  id,
+  value,
+  onChange,
+  className,
+  placeholder,
+  required,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+  placeholder?: string;
+  required?: boolean;
+}) {
+  return (
+    <input
+      id={id}
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      autoComplete="off"
+      value={value}
+      placeholder={placeholder}
+      required={required}
+      className={className}
+      onChange={(e) => onChange(digitsOnly(e.target.value))}
+      onPaste={(e) => {
+        e.preventDefault();
+        const text = e.clipboardData.getData("text");
+        onChange(digitsOnly(text));
+      }}
+    />
+  );
+}
 
 function Header({
   status,
@@ -847,6 +899,78 @@ function SectionHeader({
       <div>
         <h3 className="text-base font-semibold text-foreground">{title}</h3>
         <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function ProfilePhotoUploadField({
+  heroImageUrl,
+  previewUrl,
+  uploading,
+  inputRef,
+  onPick,
+  onFile,
+}: {
+  heroImageUrl: string;
+  previewUrl: string | null;
+  uploading: boolean;
+  inputRef: RefObject<HTMLInputElement | null>;
+  onPick: () => void;
+  onFile: (file: File) => void | Promise<void>;
+}) {
+  const displaySrc =
+    previewUrl ?? (heroImageUrl.trim() ? resolveMediaUrl(heroImageUrl) : "");
+
+  return (
+    <div className="block space-y-1.5 text-sm sm:col-span-2">
+      <span className="font-medium text-foreground">Profile photo</span>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <div className="relative size-28 shrink-0 overflow-hidden rounded-2xl border border-primary/15 bg-primary/[0.04]">
+          {displaySrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={displaySrc}
+              alt="Profile preview"
+              className="size-full object-cover"
+            />
+          ) : (
+            <div className="flex size-full items-center justify-center text-primary/40">
+              <UserRound className="size-12" />
+            </div>
+          )}
+          {uploading ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/70">
+              <Loader2 className="size-6 animate-spin text-primary" />
+            </div>
+          ) : null}
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void onFile(file);
+            }}
+          />
+          <button
+            type="button"
+            onClick={onPick}
+            disabled={uploading}
+            className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-dashed border-primary/25 bg-primary/[0.03] px-5 text-sm font-medium text-foreground transition-colors hover:bg-primary/5 disabled:opacity-60"
+          >
+            <Upload className="size-4 text-primary" />
+            {heroImageUrl.trim() ? "Replace photo" : "Upload profile photo"}
+          </button>
+          <p className="text-xs text-muted-foreground">
+            JPEG, PNG, WebP, or GIF — max 5 MB. Shown on your public doctor card
+            after verification.
+          </p>
+        </div>
       </div>
     </div>
   );

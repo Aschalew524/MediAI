@@ -105,7 +105,7 @@ export const benefitItems: BenefitItem[] = [
   {
     title: "Expert Second Opinions",
     description:
-      "Validate your health insights with top US and European doctors to make more confident health decisions.",
+      "Validate your health insights with top doctors in Ethiopia to make more confident health decisions.",
     icon: "globe2",
   },
   {
@@ -137,7 +137,7 @@ export const showcaseItems: ShowcaseItem[] = [
     key: "opinions",
     title: "Expert Second Opinions",
     description:
-      "Get the confidence to move forward with your local doctor by validating your diagnosis or treatment strategy with a top medical expert from the US or Europe.",
+      "Get the confidence to move forward with your local doctor by validating your diagnosis or treatment strategy with a leading medical expert in Ethiopia.",
     ctaLabel: "Get Second Opinion",
     href: "/dashboard/top-doctors",
     reverse: true,

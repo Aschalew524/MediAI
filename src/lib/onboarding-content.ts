@@ -93,7 +93,7 @@ export const featureOptions: FeatureOption[] = [
   {
     id: "top-doctors",
     title: "Consultation with Top Doctors",
-    description: "Access 350+ top doctors from the US and Ethiopia.",
+    description: "Access verified top doctors across Ethiopia.",
   },
 ];
 

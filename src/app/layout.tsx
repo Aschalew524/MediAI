@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
-import { SessionCookieSync } from "@/components/auth/session-cookie-sync";
+import { PublicSessionProvider } from "@/components/auth/public-session-provider";
 
 import "./globals.css";
 
@@ -34,8 +34,7 @@ export default function RootLayout({
         className="min-h-full flex flex-col"
         suppressHydrationWarning
       >
-        <SessionCookieSync />
-        {children}
+        <PublicSessionProvider>{children}</PublicSessionProvider>
       </body>
     </html>
   );
