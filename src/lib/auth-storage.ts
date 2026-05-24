@@ -1,14 +1,17 @@
-import { ACCESS_TOKEN_KEY } from "@/lib/auth-constants";
+import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY } from "@/lib/auth-constants";
 
 /**
- * v1: session = JWT in `localStorage` (axios) + same value in a first-party cookie
- * (so Next.js `middleware` can require auth for `/dashboard/*` without a server session).
- * Google OAuth: Nest redirects to `/dashboard?accessToken=<jwt>`; `GoogleOAuthDashboardBootstrap`
- * calls `setAccessToken` then strips the query (middleware allows that first request without cookie).
+ * v2: session = short-lived JWT access token in `localStorage` + first-party
+ * cookie (so Next.js `middleware` guards `/dashboard/*` without a server session),
+ * PLUS a long-lived opaque refresh token in `localStorage` only.
+ *
+ * Refresh flow: Axios 401 interceptor reads the refresh token, calls
+ * POST /auth/refresh, stores the new pair, and retries the original request.
+ * The user never sees the expiry.
  */
-export { ACCESS_TOKEN_KEY };
+export { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY };
 
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7d — align with typical JWT_EXP
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7d — align with REFRESH_TOKEN_EXPIRES
 
 function setSessionCookie(token: string): void {
   if (typeof document === "undefined") return;
@@ -38,6 +41,10 @@ function readTokenFromCookie(): string | null {
     return raw || null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Access token
+// ---------------------------------------------------------------------------
 
 export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -85,4 +92,41 @@ export function syncAccessTokenToCookie(): void {
   if (token) {
     setSessionCookie(token);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Refresh token — localStorage only (never in a cookie)
+// ---------------------------------------------------------------------------
+
+export function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setRefreshToken(token: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(REFRESH_TOKEN_KEY, token);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearRefreshToken(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Clears both access and refresh tokens — call on full logout. */
+export function clearAllTokens(): void {
+  clearAccessToken();
+  clearRefreshToken();
 }

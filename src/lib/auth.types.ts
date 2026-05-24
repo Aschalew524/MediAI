@@ -7,6 +7,8 @@ export type AuthUser = {
 
 export type AuthTokens = {
   accessToken: string;
+  /** Opaque long-lived token. Use POST /auth/refresh to get a new access token. */
+  refreshToken: string;
   user: AuthUser;
 };
 

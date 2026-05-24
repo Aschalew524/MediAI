@@ -2,11 +2,18 @@ import { isAxiosError } from "axios";
 
 import type { AuthTokens } from "@/lib/auth.types";
 import { messageFromAxiosData } from "@/lib/auth.types";
-import { setAccessToken } from "@/lib/auth-storage";
+import {
+  setAccessToken,
+  setRefreshToken,
+  clearAllTokens,
+} from "@/lib/auth-storage";
 import api from "@/lib/axios";
 
 function persistAuthAndReturn(data: AuthTokens): void {
   setAccessToken(data.accessToken);
+  if (data.refreshToken) {
+    setRefreshToken(data.refreshToken);
+  }
 }
 
 export type LoginRequest = { email: string; password: string };
@@ -82,4 +89,31 @@ export async function postForgotPassword(body: ForgotRequest): Promise<void> {
 
 export async function postResetPassword(body: ResetRequest): Promise<void> {
   await api.post("/auth/reset-password", body);
+}
+
+/**
+ * Exchange a refresh token for a new access + refresh token pair.
+ * Persists the new tokens automatically.
+ */
+export async function postRefresh(
+  refreshToken: string,
+): Promise<AuthTokens> {
+  const { data } = await api.post<AuthTokens>("/auth/refresh", {
+    refreshToken,
+  });
+  persistAuthAndReturn(data);
+  return data;
+}
+
+/**
+ * Revoke the refresh token on the server and clear all local tokens.
+ * Call this on explicit user logout.
+ */
+export async function postLogout(refreshToken: string): Promise<void> {
+  try {
+    await api.post("/auth/logout", { refreshToken });
+  } finally {
+    // Always clear local storage even if the request fails
+    clearAllTokens();
+  }
 }

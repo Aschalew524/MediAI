@@ -4,19 +4,12 @@ import type { ReactNode } from "react";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Bell,
-  LayoutDashboard,
-  MessageCircleMore,
-  ShieldCheck,
-  Sparkles,
-  Stethoscope,
-  Users,
-} from "lucide-react";
+import { MessageCircleMore, ShieldCheck } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 import { DashboardProfileMenu } from "./dashboard-profile-menu";
+import { NotificationsBell } from "./notifications-bell";
 import { useUnreadMessages } from "./use-unread-messages";
 import { useDashboardProfile } from "./use-dashboard-profile";
 
@@ -176,18 +169,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 <UnreadBadge count={unreadMessages} />
               ) : null}
             </Link>
-
-            <Link href="/dashboard/notifications">
-              <HeaderIconButton aria-label="Notifications">
-                <Bell className="size-[1.125rem]" />
-              </HeaderIconButton>
-            </Link>
-
-            <span
-              className="mx-0.5 hidden h-8 w-px bg-primary/12 sm:block"
-              aria-hidden
-            />
-
+            <NotificationsBell />
             <DashboardProfileMenu />
           </div>
         </div>
