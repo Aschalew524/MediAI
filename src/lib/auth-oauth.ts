@@ -1,11 +1,11 @@
-import { getApiBaseUrl } from "@/lib/api-origin";
+import { getApiDirectBaseUrl } from "@/lib/api-origin";
 
 /**
  * Full browser navigation to Nest — starts Google OAuth (`302` → Google).
- * Do not `fetch()` this; use `window.location.assign` or `<a href>`.
+ * Must use the real API host (not the `/nest` same-origin proxy).
  */
 export function getGoogleOAuthStartUrl(): string {
-  const base = getApiBaseUrl().replace(/\/$/, "");
+  const base = getApiDirectBaseUrl().replace(/\/$/, "");
   return `${base}/auth/google`;
 }
 

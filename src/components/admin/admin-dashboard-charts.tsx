@@ -11,12 +11,10 @@ import {
   Users,
 } from "lucide-react";
 
-import {
-  monthlyGrowth as defaultMonthlyGrowth,
-  monthlyRevenue as defaultMonthlyRevenue,
-  type MonthlyGrowth,
-  type MonthlyRevenue,
-} from "@/lib/admin-content";
+import type {
+  AdminMonthlyGrowthPoint,
+  AdminMonthlyRevenuePoint,
+} from "@/lib/admin-ops-api";
 import type { AdminBillingSummary } from "@/lib/admin-subscriptions-api";
 import { cn } from "@/lib/utils";
 
@@ -26,52 +24,28 @@ import { DashboardPanel } from "../dashboard/primitives";
 /*  Data helpers                                                              */
 /* -------------------------------------------------------------------------- */
 
-export function mergeLiveUserGrowth(
-  series: MonthlyGrowth[] | undefined | null,
-  liveUserCount: number | null,
-): MonthlyGrowth[] {
-  const base = series?.length ? series : defaultMonthlyGrowth;
-  if (liveUserCount == null || base.length === 0) return base;
-  const next = [...base];
-  next[next.length - 1] = {
-    ...next[next.length - 1]!,
-    users: liveUserCount,
-  };
-  return next;
-}
-
+/** Prefer live `/admin/analytics` series; fall back to txn aggregation when needed. */
 export function resolveMonthlyRevenue(
-  configSeries: MonthlyRevenue[] | undefined | null,
+  analyticsSeries: AdminMonthlyRevenuePoint[] | undefined | null,
   billing: AdminBillingSummary | null,
-): MonthlyRevenue[] {
-  const series = configSeries?.length ? configSeries : defaultMonthlyRevenue;
+): AdminMonthlyRevenuePoint[] {
+  if (analyticsSeries?.length) return analyticsSeries;
+
   const completed = (billing?.transactions ?? []).filter(
     (t) => t.status === "completed",
   );
-  if (completed.length > 0) {
-    const byMonth = new Map<string, number>();
-    for (const txn of completed) {
-      const d = new Date(txn.createdAt);
-      const key = d.toLocaleString("en-US", { month: "short" });
-      byMonth.set(key, (byMonth.get(key) ?? 0) + txn.amountCents);
-    }
-    const months = [...byMonth.entries()].map(([month, revenueCents]) => ({
-      month,
-      revenueCents,
-    }));
-    if (months.length > 0) return months;
-  }
+  if (completed.length === 0) return [];
 
-  if (billing && billing.totalRevenueCents > 0 && series.length > 0) {
-    const configTotal = series.reduce((s, p) => s + p.revenueCents, 0);
-    const scale = configTotal > 0 ? billing.totalRevenueCents / configTotal : 1;
-    return series.map((p) => ({
-      ...p,
-      revenueCents: Math.round(p.revenueCents * scale),
-    }));
+  const byMonth = new Map<string, number>();
+  for (const txn of completed) {
+    const d = new Date(txn.createdAt);
+    const key = d.toLocaleString("en-US", { month: "short" });
+    byMonth.set(key, (byMonth.get(key) ?? 0) + txn.amountCents);
   }
-
-  return series;
+  return [...byMonth.entries()].map(([month, revenueCents]) => ({
+    month,
+    revenueCents,
+  }));
 }
 
 function formatCents(cents: number, currency = "USD") {
@@ -204,10 +178,24 @@ function RevenueMetricPill({ label, value }: { label: string; value: string }) {
 
 export function InteractiveUserGrowthChart({
   data,
+  loading = false,
+  emptyMessage = "No user data for this period yet.",
 }: {
-  data: MonthlyGrowth[] | undefined | null;
+  data: AdminMonthlyGrowthPoint[] | undefined | null;
+  loading?: boolean;
+  emptyMessage?: string;
 }) {
-  const chartData = data?.length ? data : defaultMonthlyGrowth;
+  const chartData = data ?? [];
+
+  if (loading) {
+    return <ChartPanelSkeleton title="User growth" />;
+  }
+
+  if (chartData.length === 0) {
+    return (
+      <ChartEmptyPanel title="User growth" message={emptyMessage} />
+    );
+  }
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const values = useMemo(() => chartData.map((d) => d.users), [chartData]);
   const change = periodChangePercent(values);
@@ -360,11 +348,33 @@ export function InteractiveUserGrowthChart({
 export function InteractiveRevenueChart({
   data,
   currency = "USD",
+  loading = false,
+  paymentProviderConnected = false,
+  emptyMessage = "Revenue will appear here once payments are connected.",
 }: {
-  data: MonthlyRevenue[] | undefined | null;
+  data: AdminMonthlyRevenuePoint[] | undefined | null;
   currency?: string;
+  loading?: boolean;
+  paymentProviderConnected?: boolean;
+  emptyMessage?: string;
 }) {
-  const chartData = data?.length ? data : defaultMonthlyRevenue;
+  const chartData = data ?? [];
+  const allZero =
+    chartData.length > 0 && chartData.every((p) => p.revenueCents === 0);
+
+  if (loading) {
+    return <ChartPanelSkeleton title="Revenue" compact />;
+  }
+
+  if (chartData.length === 0) {
+    return (
+      <ChartEmptyPanel
+        title="Revenue"
+        message={emptyMessage}
+        compact
+      />
+    );
+  }
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const values = useMemo(() => chartData.map((d) => d.revenueCents), [chartData]);
   const change = periodChangePercent(values);
@@ -439,6 +449,10 @@ export function InteractiveRevenueChart({
             {formatCents(hover.revenueCents, currency)}
           </p>
         </div>
+      ) : allZero && !paymentProviderConnected ? (
+        <p className="text-center text-xs text-muted-foreground">
+          No completed payments yet. Connect a provider to track live revenue.
+        </p>
       ) : (
         <p className="text-center text-xs text-muted-foreground">
           Hover a bar to inspect monthly revenue
@@ -505,6 +519,53 @@ function ChartHeader({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function ChartPanelSkeleton({
+  title,
+  compact,
+}: {
+  title: string;
+  compact?: boolean;
+}) {
+  return (
+    <DashboardPanel className="space-y-5 px-6 py-5">
+      <div className="h-6 w-36 animate-pulse rounded-md bg-muted" />
+      <div
+        className={cn(
+          "w-full animate-pulse rounded-xl bg-muted/70",
+          compact ? "h-40" : "h-[200px]",
+        )}
+      />
+      <div className="flex justify-between gap-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-3 flex-1 animate-pulse rounded bg-muted/60" />
+        ))}
+      </div>
+    </DashboardPanel>
+  );
+}
+
+function ChartEmptyPanel({
+  title,
+  message,
+  compact,
+}: {
+  title: string;
+  message: string;
+  compact?: boolean;
+}) {
+  return (
+    <DashboardPanel
+      className={cn(
+        "flex flex-col items-center justify-center gap-2 px-6 py-10 text-center",
+        compact && "py-8",
+      )}
+    >
+      <p className="text-base font-semibold text-foreground">{title}</p>
+      <p className="max-w-xs text-sm text-muted-foreground">{message}</p>
+    </DashboardPanel>
   );
 }
 

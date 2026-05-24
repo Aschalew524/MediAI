@@ -32,7 +32,6 @@ import {
 import {
   InteractiveRevenueChart,
   InteractiveUserGrowthChart,
-  mergeLiveUserGrowth,
   resolveMonthlyRevenue,
   TotalRevenueHeroCard,
 } from "@/components/admin/admin-dashboard-charts";
@@ -50,16 +49,17 @@ import {
   type SubscriptionPlanWritePayload,
 } from "@/lib/admin-subscriptions-api";
 import {
+  getAdminAnalytics,
   getAdminRecentActivity,
   getAdminSummary,
   getAdminUsers,
   type AdminActivityItem,
   type AdminActivityType,
+  type AdminAnalyticsResponse,
   type AdminSummaryResponse,
   type AdminUserListItem,
 } from "@/lib/admin-ops-api";
 import { getFriendlyAxiosMessage } from "@/lib/axios-error-messages";
-import { useAdminConfig } from "@/lib/hooks/use-app-config";
 import { cn } from "@/lib/utils";
 
 import {
@@ -88,7 +88,6 @@ const LIVE_SUMMARY_STATS: LiveSummaryStat[] = [
 ];
 
 export function AdminDashboardPage() {
-  const { data: config } = useAdminConfig();
   const [summary, setSummary] = useState<AdminSummaryResponse | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -97,18 +96,20 @@ export function AdminDashboardPage() {
   const [billingLoading, setBillingLoading] = useState(true);
   const [billingError, setBillingError] = useState<string | null>(null);
 
+  const [analytics, setAnalytics] = useState<AdminAnalyticsResponse | null>(
+    null,
+  );
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+
   const [activity, setActivity] = useState<AdminActivityItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [activityError, setActivityError] = useState<string | null>(null);
 
-  const userGrowthData = useMemo(
-    () => mergeLiveUserGrowth(config.monthlyGrowth, summary?.userCount ?? null),
-    [config.monthlyGrowth, summary?.userCount],
-  );
-
   const revenueChartData = useMemo(
-    () => resolveMonthlyRevenue(config.monthlyRevenue, billing),
-    [config.monthlyRevenue, billing],
+    () =>
+      resolveMonthlyRevenue(analytics?.monthlyRevenue, billing),
+    [analytics?.monthlyRevenue, billing],
   );
 
   useEffect(() => {
@@ -119,15 +120,19 @@ export function AdminDashboardPage() {
       setSummaryLoading(true);
       setActivityLoading(true);
       setBillingLoading(true);
+      setAnalyticsLoading(true);
       setSummaryError(null);
       setActivityError(null);
       setBillingError(null);
+      setAnalyticsError(null);
 
-      const [summaryRes, activityRes, billingRes] = await Promise.allSettled([
-        getAdminSummary({ signal: ac.signal }),
-        getAdminRecentActivity({ limit: 12, signal: ac.signal }),
-        getAdminBillingSummary({ signal: ac.signal }),
-      ]);
+      const [summaryRes, activityRes, billingRes, analyticsRes] =
+        await Promise.allSettled([
+          getAdminSummary({ signal: ac.signal }),
+          getAdminRecentActivity({ limit: 12, signal: ac.signal }),
+          getAdminBillingSummary({ signal: ac.signal }),
+          getAdminAnalytics({ signal: ac.signal }),
+        ]);
 
       if (cancelled) return;
 
@@ -169,6 +174,19 @@ export function AdminDashboardPage() {
         );
       }
       setBillingLoading(false);
+
+      if (analyticsRes.status === "fulfilled") {
+        setAnalytics(analyticsRes.value);
+      } else {
+        setAnalytics(null);
+        setAnalyticsError(
+          getFriendlyAxiosMessage(
+            analyticsRes.reason,
+            "Could not load chart data.",
+          ),
+        );
+      }
+      setAnalyticsLoading(false);
     }
 
     void load();
@@ -222,12 +240,27 @@ export function AdminDashboardPage() {
           ))}
         </div>
 
+        {analyticsError ? (
+          <DashboardPanel className="border-destructive/20 bg-destructive/5 px-6 py-4">
+            <p className="text-sm font-medium text-destructive">
+              {analyticsError}
+            </p>
+          </DashboardPanel>
+        ) : null}
+
         <div className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-          <InteractiveUserGrowthChart data={userGrowthData} />
+          <InteractiveUserGrowthChart
+            data={analytics?.monthlyUserGrowth}
+            loading={analyticsLoading}
+          />
           <aside className="space-y-4">
             <InteractiveRevenueChart
               data={revenueChartData}
               currency={billing?.currency ?? "USD"}
+              loading={analyticsLoading || billingLoading}
+              paymentProviderConnected={
+                billing?.paymentProviderConnected ?? false
+              }
             />
           </aside>
         </div>
@@ -243,14 +276,19 @@ export function AdminDashboardPage() {
 }
 
 export function AdminRevenuePage() {
-  const { data: config } = useAdminConfig();
   const [billing, setBilling] = useState<AdminBillingSummary | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
   const [billingError, setBillingError] = useState<string | null>(null);
 
+  const [analytics, setAnalytics] = useState<AdminAnalyticsResponse | null>(
+    null,
+  );
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+
   const revenueChartData = useMemo(
-    () => resolveMonthlyRevenue(config.monthlyRevenue, billing),
-    [config.monthlyRevenue, billing],
+    () => resolveMonthlyRevenue(analytics?.monthlyRevenue, billing),
+    [analytics?.monthlyRevenue, billing],
   );
 
   useEffect(() => {
@@ -258,21 +296,42 @@ export function AdminRevenuePage() {
     const ac = new AbortController();
     setBillingLoading(true);
     setBillingError(null);
-    void getAdminBillingSummary({ signal: ac.signal })
-      .then((summary) => {
-        if (!cancelled) setBilling(summary);
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setBilling(null);
-          setBillingError(
-            getFriendlyAxiosMessage(e, "Could not load revenue data."),
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setBillingLoading(false);
-      });
+    setAnalyticsLoading(true);
+    setAnalyticsError(null);
+
+    void Promise.allSettled([
+      getAdminBillingSummary({ signal: ac.signal }),
+      getAdminAnalytics({ signal: ac.signal }),
+    ]).then(([billingRes, analyticsRes]) => {
+      if (cancelled) return;
+
+      if (billingRes.status === "fulfilled") {
+        setBilling(billingRes.value);
+      } else {
+        setBilling(null);
+        setBillingError(
+          getFriendlyAxiosMessage(
+            billingRes.reason,
+            "Could not load revenue data.",
+          ),
+        );
+      }
+      setBillingLoading(false);
+
+      if (analyticsRes.status === "fulfilled") {
+        setAnalytics(analyticsRes.value);
+      } else {
+        setAnalytics(null);
+        setAnalyticsError(
+          getFriendlyAxiosMessage(
+            analyticsRes.reason,
+            "Could not load chart data.",
+          ),
+        );
+      }
+      setAnalyticsLoading(false);
+    });
+
     return () => {
       cancelled = true;
       ac.abort();
@@ -294,10 +353,22 @@ export function AdminRevenuePage() {
           error={billingError}
         />
 
+        {analyticsError ? (
+          <DashboardPanel className="border-destructive/20 bg-destructive/5 px-6 py-4">
+            <p className="text-sm font-medium text-destructive">
+              {analyticsError}
+            </p>
+          </DashboardPanel>
+        ) : null}
+
         <div className="grid gap-4 lg:grid-cols-2">
           <InteractiveRevenueChart
             data={revenueChartData}
             currency={billing?.currency ?? "USD"}
+            loading={analyticsLoading || billingLoading}
+            paymentProviderConnected={
+              billing?.paymentProviderConnected ?? false
+            }
           />
           <DashboardPanel className="space-y-4 px-6 py-5">
             <div className="flex items-center gap-2">

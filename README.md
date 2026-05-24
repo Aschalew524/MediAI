@@ -35,7 +35,19 @@ Copy `.env.example` to `.env.local` and set your backend base URL:
 cp .env.example .env.local
 ```
 
-`src/lib/axios.ts` reads `NEXT_PUBLIC_API_URL` and uses it as the default Axios base URL.
+`src/lib/axios.ts` reads `NEXT_PUBLIC_API_URL` and uses it as the Axios base URL.
+
+**Vercel (frontend — [medi-ai-theta.vercel.app](https://medi-ai-theta.vercel.app/)):** set **only**:
+
+```text
+NEXT_PUBLIC_API_URL=https://medi-ai-backend.vercel.app/api
+```
+
+Do **not** set this to `medi-ai-theta.vercel.app` (that is the Next.js site, not the API). Redeploy after saving.
+
+The app proxies API calls through `/nest/*` on the same origin so sign-in works even before backend CORS is updated.
+
+**Vercel (backend — medi-ai-backend.vercel.app):** set `DATABASE_URL` (Neon pooled), `JWT_SECRET`, and `FRONTEND_URL=https://medi-ai-theta.vercel.app`. See `MediAI_backend/docs/DEPLOYMENT_VERCEL.md`.
 
 ## Learn More
 

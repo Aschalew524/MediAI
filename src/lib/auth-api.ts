@@ -29,6 +29,23 @@ export function userFacingAxiosError(
   if (!isAxiosError(err)) {
     return fallback;
   }
+  if (!err.response) {
+    const code = err.code;
+    const base = String(err.config?.baseURL ?? "");
+    if (code === "ERR_NETWORK" || code === "ECONNABORTED") {
+      if (base.includes("localhost:4000")) {
+        return (
+          "Could not reach the API at localhost:4000. Either start MediAI_backend locally " +
+          "(with PostgreSQL) or set NEXT_PUBLIC_API_URL=https://medi-ai-backend.vercel.app/api in .env and restart `npm run dev`."
+        );
+      }
+      return (
+        "Could not reach the API server (network or CORS). Confirm NEXT_PUBLIC_API_URL " +
+        "is https://medi-ai-backend.vercel.app/api and redeploy the frontend; on the API project set " +
+        "FRONTEND_URL=https://medi-ai-theta.vercel.app and redeploy the backend."
+      );
+    }
+  }
   const status = err.response?.status;
   const path = String(err.config?.url ?? "");
   if (status === 401) {
@@ -50,9 +67,23 @@ export function userFacingAxiosError(
     return "Too many attempts. Please wait a moment and try again.";
   }
   if (status === 503) {
+    const serverMsg = messageFromAxiosData(err.response?.data);
+    const base = String(err.config?.baseURL ?? "");
+    if (serverMsg) {
+      if (base.includes("medi-ai-backend.vercel.app")) {
+        return `${serverMsg} (production API — set DATABASE_URL on the Vercel backend project and run prisma migrate deploy on that database.)`;
+      }
+      return serverMsg;
+    }
+    if (base.includes("localhost:4000")) {
+      return (
+        "Database is unavailable on your local API. Start PostgreSQL (docker compose in MediAI_backend) " +
+        "or point NEXT_PUBLIC_API_URL to https://medi-ai-backend.vercel.app/api in MediAI/.env."
+      );
+    }
     return (
-      messageFromAxiosData(err.response?.data) ??
-        "Database is unavailable. Ensure PostgreSQL is running and DATABASE_URL user/password match your server (e.g. password for role `medi_ai`)."
+      "Database is unavailable on the API server. For the deployed backend, set DATABASE_URL in Vercel " +
+      "(Neon pooled URL) and run `npx prisma migrate deploy` against that database."
     );
   }
   if (status === 422) {
