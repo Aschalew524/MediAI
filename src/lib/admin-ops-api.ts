@@ -190,7 +190,59 @@ export function isBlockedVerificationItem(
 ): boolean {
   if (item.status === "blocked") return true;
   const notes = item.notes?.toLowerCase() ?? "";
-  return notes.includes("blocked by an administrator");
+  return (
+    notes.includes("blocked by an administrator") ||
+    notes.includes("blocked by administrator") ||
+    notes.includes("account was blocked")
+  );
+}
+
+const BLOCKED_LIST_SCAN_PAGE_SIZE = 500;
+
+async function fetchBlockedVerificationList(options?: {
+  page?: number;
+  pageSize?: number;
+  signal?: AbortSignal;
+}): Promise<AdminProfessionalVerificationsResponse> {
+  const page = options?.page ?? 1;
+  const pageSize = options?.pageSize ?? 100;
+
+  const get = (status: string, scanPage: number, scanSize: number) =>
+    api.get<AdminProfessionalVerificationsResponse>(
+      "/admin/professional-verifications",
+      {
+        params: { status, page: scanPage, pageSize: scanSize },
+        signal: options?.signal,
+      },
+    );
+
+  // 1) Native `blocked` filter (new backend with OR query).
+  try {
+    const { data } = await get("blocked", page, pageSize);
+    const items = data.items.filter(isBlockedVerificationItem);
+    if (items.length > 0) {
+      return { ...data, items, total: items.length, page, pageSize };
+    }
+  } catch (err) {
+    if (!isBlockedStatusQueryError(err)) throw err;
+  }
+
+  // 2) Doctors blocked via reject + admin note (`rejected` in DB).
+  const { data: rejectedData } = await get("rejected", 1, BLOCKED_LIST_SCAN_PAGE_SIZE);
+  let items = rejectedData.items.filter(isBlockedVerificationItem);
+
+  // 3) Last resort — scan all professionals (older data / odd statuses).
+  if (items.length === 0) {
+    const { data: allData } = await get("all", 1, BLOCKED_LIST_SCAN_PAGE_SIZE);
+    items = allData.items.filter(isBlockedVerificationItem);
+  }
+
+  return {
+    items,
+    total: items.length,
+    page: 1,
+    pageSize: Math.max(items.length, 1),
+  };
 }
 
 function isBlockedStatusQueryError(err: unknown): boolean {
@@ -219,24 +271,7 @@ export async function getAdminProfessionalVerifications(options?: {
   if (options?.pageSize) params.pageSize = options.pageSize;
 
   if (requested === "blocked") {
-    try {
-      params.status = "blocked";
-      const { data } = await api.get<AdminProfessionalVerificationsResponse>(
-        "/admin/professional-verifications",
-        { params, signal: options?.signal },
-      );
-      return data;
-    } catch (err) {
-      if (!isBlockedStatusQueryError(err)) throw err;
-      // Older API: only pending|verified|rejected|awaiting|all — use rejected + filter.
-    }
-    params.status = "rejected";
-    const { data } = await api.get<AdminProfessionalVerificationsResponse>(
-      "/admin/professional-verifications",
-      { params, signal: options?.signal },
-    );
-    const items = data.items.filter(isBlockedVerificationItem);
-    return { ...data, items, total: items.length };
+    return fetchBlockedVerificationList(options);
   }
 
   if (requested) params.status = requested;
@@ -272,13 +307,19 @@ export async function unblockProfessionalVerification(
   try {
     await api.post(`/admin/professional-verifications/${userId}/unblock`);
   } catch (err) {
-    // Older deployed APIs only had approve — restoring verified is equivalent.
-    if (
-      isAxiosError(err) &&
-      (err.response?.status === 404 || err.response?.status === 405)
-    ) {
+    if (!isAxiosError(err)) throw err;
+    const status = err.response?.status;
+    // Older APIs: no /unblock — approve restores verified access.
+    if (status === 404 || status === 405) {
       await approveProfessionalVerification(userId);
       return;
+    }
+    if (status === 400) {
+      const msg = JSON.stringify(err.response?.data ?? "").toLowerCase();
+      if (msg.includes("blocked") || msg.includes("unblock")) {
+        await approveProfessionalVerification(userId);
+        return;
+      }
     }
     throw err;
   }
