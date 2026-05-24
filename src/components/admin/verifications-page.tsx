@@ -56,8 +56,8 @@ export function AdminVerificationsPage() {
       setError(null);
       try {
         const data = await getAdminProfessionalVerifications({
-          page,
-          pageSize,
+          page: filter === "blocked" ? 1 : page,
+          pageSize: filter === "blocked" ? 100 : pageSize,
           status: filter,
           signal,
         });
@@ -76,6 +76,10 @@ export function AdminVerificationsPage() {
     },
     [filter, page, pageSize],
   );
+
+  useEffect(() => {
+    if (filter === "blocked") setPage(1);
+  }, [filter]);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -193,8 +197,9 @@ export function AdminVerificationsPage() {
             <BadgeCheck className="size-6 text-primary" /> Doctor verifications
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Approve or reject applications awaiting review. Block or delete
-            verified doctors. Unblock doctors you previously blocked.
+            {filter === "blocked"
+              ? "Doctors you blocked lose dashboard access. Use Unblock to restore verified status."
+              : "Approve or reject applications awaiting review. Block or delete verified doctors. Unblock from the Blocked tab."}
           </p>
         </div>
         <button
@@ -253,7 +258,9 @@ export function AdminVerificationsPage() {
         </div>
       ) : items.length === 0 ? (
         <div className="rounded-3xl border border-primary/15 bg-white px-6 py-12 text-center text-sm text-muted-foreground">
-          No doctors match the current filter.
+          {filter === "blocked"
+            ? "No blocked doctors. Blocked accounts appear here after you block a verified doctor."
+            : "No doctors match the current filter."}
         </div>
       ) : (
         <ul className="space-y-3">
@@ -261,6 +268,7 @@ export function AdminVerificationsPage() {
             <VerificationRow
               key={item.userId}
               item={item}
+              listFilter={filter}
               busy={busyUserId === item.userId}
               onApprove={() => handleApprove(item.userId)}
               onReject={(notes) => handleReject(item.userId, notes)}
@@ -272,7 +280,7 @@ export function AdminVerificationsPage() {
         </ul>
       )}
 
-      {totalPages > 1 ? (
+      {filter !== "blocked" && totalPages > 1 ? (
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
             Page {page} of {totalPages} — {total} doctor
@@ -308,6 +316,7 @@ export function AdminVerificationsPage() {
 
 function VerificationRow({
   item,
+  listFilter,
   busy,
   onApprove,
   onReject,
@@ -316,6 +325,7 @@ function VerificationRow({
   onDelete,
 }: {
   item: AdminProfessionalVerificationItem;
+  listFilter: AdminVerificationFilter;
   busy: boolean;
   onApprove: () => void;
   onReject: (notes: string) => void;
@@ -326,13 +336,14 @@ function VerificationRow({
   const [open, setOpen] = useState(false);
   const [rejectMode, setRejectMode] = useState(false);
   const [rejectNotes, setRejectNotes] = useState("");
+  const isBlockedList = listFilter === "blocked";
   const isAwaiting = item.status === "pending" && !!item.submittedAt;
   const isVerified = item.status === "verified";
   const isBlocked = isBlockedVerificationItem(item);
-  const showApprove = isAwaiting;
-  const showReject = isAwaiting;
-  const showBlock = isVerified;
-  const showUnblock = isBlocked;
+  const showApprove = !isBlockedList && isAwaiting;
+  const showReject = !isBlockedList && isAwaiting;
+  const showBlock = !isBlockedList && isVerified;
+  const showUnblock = isBlockedList || isBlocked;
   const prof = item.professionalProfile ?? {};
   const documents = item.documents ?? [];
   const fullName = stringFrom(prof, "fullName") ?? item.email;
@@ -390,9 +401,11 @@ function VerificationRow({
           {item.notes ? (
             <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-900">
               <strong className="font-semibold">
-                {item.status === "rejected"
-                  ? "Rejection reason:"
-                  : "Admin note:"}
+                {isBlocked || isBlockedList
+                  ? "Block note:"
+                  : item.status === "rejected"
+                    ? "Rejection reason:"
+                    : "Admin note:"}
               </strong>{" "}
               {item.notes}
             </p>
@@ -404,6 +417,21 @@ function VerificationRow({
           Actions
         </p>
         <div className="flex flex-wrap items-center gap-2">
+          {showUnblock ? (
+            <button
+              type="button"
+              onClick={onUnblock}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {busy ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="size-3.5" />
+              )}
+              Unblock
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -455,21 +483,6 @@ function VerificationRow({
                 <XCircle className="size-3.5" />
               )}
               Block
-            </button>
-          ) : null}
-          {showUnblock ? (
-            <button
-              type="button"
-              onClick={onUnblock}
-              disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-600 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-50"
-            >
-              {busy ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <CheckCircle2 className="size-3.5" />
-              )}
-              Unblock
             </button>
           ) : null}
           <button
