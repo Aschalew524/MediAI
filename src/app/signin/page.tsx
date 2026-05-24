@@ -37,7 +37,6 @@ function SignInForm() {
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
   const [formError, setFormError] = useState<string | null>(null);
-  const [dbPreflightError, setDbPreflightError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingSession, setExistingSession] = useState<AuthUser | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -81,28 +80,6 @@ function SignInForm() {
       cancelled = true;
     };
   }, [searchParams]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        await api.get("/health/database");
-        if (!cancelled) setDbPreflightError(null);
-      } catch (err) {
-        if (!cancelled) {
-          setDbPreflightError(
-            userFacingAxiosError(
-              err,
-              "Database is unavailable. Ensure PostgreSQL is running and DATABASE_URL user/password match your server (e.g. password for role `medi_ai`).",
-            ),
-          );
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     const err = searchParams.get("error");
@@ -172,8 +149,8 @@ function SignInForm() {
           Sign in to continue to the app.
         </p>
       ) : null}
-      {dbPreflightError || formError ? (
-        <AuthFormErrorAlert message={dbPreflightError ?? formError ?? ""} />
+      {formError ? (
+        <AuthFormErrorAlert message={formError} />
       ) : null}
 
       {checkingSession ? (

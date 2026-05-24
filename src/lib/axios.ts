@@ -10,10 +10,7 @@ import {
 import { getApiBaseUrl } from "@/lib/api-origin";
 import { redirectToSignInWithCurrentPath } from "@/lib/redirect-signin";
 
-const baseURL = getApiBaseUrl();
-
 const api = axios.create({
-  baseURL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -43,6 +40,7 @@ function onRefreshFailure(err: unknown) {
 // Request interceptor — attach access token
 // ---------------------------------------------------------------------------
 api.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
   const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -112,7 +110,7 @@ api.interceptors.response.use(
         const { data } = await axios.post<{
           accessToken: string;
           refreshToken: string;
-        }>(`${baseURL}/auth/refresh`, { refreshToken: storedRefreshToken });
+        }>(`${getApiBaseUrl()}/auth/refresh`, { refreshToken: storedRefreshToken });
 
         setAccessToken(data.accessToken);
         setRefreshToken(data.refreshToken);

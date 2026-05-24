@@ -23,6 +23,42 @@ export async function getAdminSummary(
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Dashboard chart time-series                                               */
+/* -------------------------------------------------------------------------- */
+
+export type AdminMonthlyGrowthPoint = {
+  month: string;
+  /** Cumulative users at month-end (all roles). */
+  users: number;
+  /** New registrations during the month. */
+  signups: number;
+};
+
+export type AdminMonthlyRevenuePoint = {
+  month: string;
+  revenueCents: number;
+};
+
+/** Mirrors `AdminAnalyticsResponseDto` from MediAI_backend. */
+export type AdminAnalyticsResponse = {
+  monthlyUserGrowth: AdminMonthlyGrowthPoint[];
+  monthlyRevenue: AdminMonthlyRevenuePoint[];
+  generatedAt: string;
+};
+
+export async function getAdminAnalytics(
+  options?: { months?: number; signal?: AbortSignal },
+): Promise<AdminAnalyticsResponse> {
+  const params: Record<string, number> = {};
+  if (options?.months) params.months = options.months;
+  const { data } = await api.get<AdminAnalyticsResponse>("/admin/analytics", {
+    params,
+    signal: options?.signal,
+  });
+  return data;
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Recent activity feed                                                      */
 /* -------------------------------------------------------------------------- */
 
