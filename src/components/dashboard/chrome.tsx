@@ -1,10 +1,17 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageCircleMore, ShieldCheck } from "lucide-react";
+import {
+  LayoutDashboard,
+  MessageCircleMore,
+  ShieldCheck,
+  Sparkles,
+  Stethoscope,
+  Users,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -96,7 +103,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const unreadMessages = useUnreadMessages();
 
   if (bypassShell) {
-    return <div className="min-h-screen bg-background">{children}</motionless>;
+    return <div className="min-h-screen bg-background">{children}</div>;
   }
 
   return (
@@ -150,12 +157,12 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 );
               })}
             </nav>
-          </motionless>
+          </div>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
             <Link
               href="/dashboard/messages"
-              className="relative inline-flex"
+              className="relative inline-flex md:hidden"
               aria-label={
                 unreadMessages > 0
                   ? `Messages (${unreadMessages} unread)`
@@ -169,14 +176,19 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 <UnreadBadge count={unreadMessages} />
               ) : null}
             </Link>
+
             <NotificationsBell />
+            <span
+              className="mx-0.5 hidden h-8 w-px bg-primary/12 sm:block"
+              aria-hidden
+            />
             <DashboardProfileMenu />
           </div>
         </div>
       </header>
 
       {children}
-    </motionless>
+    </div>
   );
 }
 
@@ -195,7 +207,7 @@ function HeaderIconButton({
   children,
   className,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+}: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"
@@ -215,6 +227,6 @@ export function TrustBadge() {
     <div className="inline-flex items-center gap-2 rounded-full bg-primary/6 px-3 py-1.5 text-xs font-medium text-primary">
       <ShieldCheck className="size-4" />
       <span>Privacy-first health profile</span>
-    </motionless>
+    </div>
   );
 }
