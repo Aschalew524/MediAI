@@ -1014,13 +1014,13 @@ function ResearchAssistantUpgradePage({
             <div className="grid gap-4 lg:grid-cols-2">
               <PricingCard
                 title="Start with Monthly"
-                price="ETB 1,450/month"
+                price="ETB 299.00/month"
                 description="Billed Monthly"
               />
               <PricingCard
                 title="Start with Yearly for only"
-                price="ETB 1,450/month"
-                description="Billed Annually ETB 17,400"
+                price="ETB 299.00/month"
+                description="Billed Annually ETB 2,990.00"
                 featured
                 badge="Save 50%"
               />
