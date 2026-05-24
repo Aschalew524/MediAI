@@ -311,19 +311,18 @@ function VerificationRow({
 
   return (
     <li className="rounded-2xl border border-primary/15 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-base font-semibold text-foreground">
-              {fullName}
-            </p>
-            <StatusBadge
-              status={item.status}
-              hasSubmitted={!!item.submittedAt}
-            />
-          </div>
-          <p className="text-sm text-muted-foreground">{item.email}</p>
-          <dl className="mt-2 grid gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2 md:grid-cols-3">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="truncate text-base font-semibold text-foreground">
+            {fullName}
+          </p>
+          <StatusBadge
+            status={item.status}
+            hasSubmitted={!!item.submittedAt}
+          />
+        </div>
+        <p className="text-sm text-muted-foreground">{item.email}</p>
+        <dl className="mt-2 grid gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2 md:grid-cols-3">
             <div>
               <dt className="inline font-medium text-foreground">
                 Specialty:
@@ -365,7 +364,12 @@ function VerificationRow({
               {item.notes}
             </p>
           ) : null}
-        </div>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-2 border-t border-primary/10 pt-4">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Actions
+        </p>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -410,7 +414,7 @@ function VerificationRow({
               type="button"
               onClick={onBlock}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 transition hover:bg-amber-100 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-400 bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-950 transition hover:bg-amber-200 disabled:opacity-50"
             >
               {busy ? (
                 <Loader2 className="size-3.5 animate-spin" />
@@ -424,14 +428,15 @@ function VerificationRow({
             type="button"
             onClick={onDelete}
             disabled={busy}
-            className="inline-flex items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs font-semibold text-destructive transition hover:bg-destructive/15 disabled:opacity-50"
+            aria-label={`Delete doctor ${fullName}`}
+            className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-50"
           >
             {busy ? (
               <Loader2 className="size-3.5 animate-spin" />
             ) : (
               <Trash2 className="size-3.5" />
             )}
-            Delete
+            Delete doctor
           </button>
         </div>
       </div>
