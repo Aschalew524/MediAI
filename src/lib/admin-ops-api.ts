@@ -2,6 +2,8 @@
  * Nest admin ops API (`/admin/summary`, `/admin/users`, `/admin/recent-activity`,
  * …). All endpoints require a JWT whose `appRole === "admin"`.
  */
+import { isAxiosError } from "axios";
+
 import api from "@/lib/axios";
 
 /** Mirrors `AdminSummaryResponseDto` from MediAI_backend. */
@@ -214,16 +216,36 @@ export async function rejectProfessionalVerification(
   });
 }
 
+/** Shown to the doctor when an admin blocks a verified account. */
+export const ADMIN_BLOCK_NOTE =
+  "This account was blocked by an administrator. Contact support if you believe this is a mistake.";
+
 export async function unblockProfessionalVerification(
   userId: string,
 ): Promise<void> {
-  await api.post(`/admin/professional-verifications/${userId}/unblock`);
+  try {
+    await api.post(`/admin/professional-verifications/${userId}/unblock`);
+  } catch (err) {
+    // Older deployed APIs only had approve — restoring verified is equivalent.
+    if (
+      isAxiosError(err) &&
+      (err.response?.status === 404 || err.response?.status === 405)
+    ) {
+      await approveProfessionalVerification(userId);
+      return;
+    }
+    throw err;
+  }
 }
 
+/**
+ * Block a verified doctor. Uses POST /reject (always deployed) with the
+ * standard block note; newer backends map that to `blocked` status.
+ */
 export async function blockProfessionalVerification(
   userId: string,
 ): Promise<void> {
-  await api.post(`/admin/professional-verifications/${userId}/block`);
+  await rejectProfessionalVerification(userId, ADMIN_BLOCK_NOTE);
 }
 
 export async function deleteProfessionalVerification(
