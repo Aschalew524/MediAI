@@ -1,10 +1,6 @@
 export type MeasurementSystem = "imperial" | "metric";
 export type SexAtBirth = "male" | "female" | "other" | null;
-export type PreferredFeature =
-  | "ai-doctor"
-  | "top-doctors"
-  | "lab-test-interpretation"
-  | null;
+export type PreferredFeature = "ai-doctor" | "top-doctors" | null;
 
 /** Matches `HealthcareFacilityType` from the API (`GET /api/health-facilities`). */
 export type FacilityType = "hospital" | "pharmacy" | "clinic";

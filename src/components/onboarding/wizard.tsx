@@ -246,10 +246,6 @@ export function OnboardingWizard() {
       router.push("/dashboard/top-doctors");
       return;
     }
-    if (feature === "lab-test-interpretation") {
-      router.push("/dashboard/lab-test-interpretation");
-      return;
-    }
     router.push("/dashboard");
   }
 

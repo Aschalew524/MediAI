@@ -70,11 +70,7 @@ type PersonalFormLike = {
   heightInches: string;
   heightCm: string;
   sexAtBirth: "male" | "female" | "other" | null;
-  preferredFeature:
-    | "ai-doctor"
-    | "top-doctors"
-    | "lab-test-interpretation"
-    | null;
+  preferredFeature: "ai-doctor" | "top-doctors" | null;
 };
 
 export function buildPersonalOnboardingBody(
