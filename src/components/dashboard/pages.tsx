@@ -66,6 +66,7 @@ import { cn } from "@/lib/utils";
 import { useDashboardAuth } from "@/components/auth/dashboard-auth-provider";
 import { useDashboardMe } from "./dashboard-me-provider";
 import { HealthConcernsPanel } from "./health-concerns-panel";
+import { HealthQuotesCard } from "./health-quotes-card";
 import { NotificationsInbox } from "./notifications-inbox";
 
 import {
@@ -133,6 +134,8 @@ export function DashboardHomePage() {
             </div>
           </DashboardPanel>
         </Link>
+
+        <HealthQuotesCard />
 
         <div>
           <div className="mb-4 flex items-end justify-between gap-3">
@@ -302,6 +305,8 @@ function ProfessionalDashboardHomePage({
           </div>
         </div>
       </DashboardPanel>
+
+      <HealthQuotesCard />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <ProfessionalDashboardCard

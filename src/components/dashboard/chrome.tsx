@@ -15,6 +15,7 @@ import {
 
 import { cn } from "@/lib/utils";
 
+import { DevApiIndicator } from "./dev-api-indicator";
 import { DashboardProfileMenu } from "./dashboard-profile-menu";
 import { NotificationsBell } from "./notifications-bell";
 import { useUnreadMessages } from "./use-unread-messages";
@@ -160,6 +161,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
+            <DevApiIndicator />
             <Link
               href="/dashboard/messages"
               className="relative inline-flex md:hidden"

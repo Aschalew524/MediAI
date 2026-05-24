@@ -26,6 +26,9 @@ export async function getAdminSummary(
 /*  Dashboard chart time-series                                               */
 /* -------------------------------------------------------------------------- */
 
+/** Must match `ADMIN_ANALYTICS_DEFAULT_MONTHS` on the backend. */
+export const ADMIN_CHART_MONTHS = 6;
+
 export type AdminMonthlyGrowthPoint = {
   month: string;
   /** Cumulative users at month-end (all roles). */
@@ -49,10 +52,9 @@ export type AdminAnalyticsResponse = {
 export async function getAdminAnalytics(
   options?: { months?: number; signal?: AbortSignal },
 ): Promise<AdminAnalyticsResponse> {
-  const params: Record<string, number> = {};
-  if (options?.months) params.months = options.months;
+  const months = options?.months ?? ADMIN_CHART_MONTHS;
   const { data } = await api.get<AdminAnalyticsResponse>("/admin/analytics", {
-    params,
+    params: { months },
     signal: options?.signal,
   });
   return data;
@@ -205,4 +207,16 @@ export async function rejectProfessionalVerification(
   await api.post(`/admin/professional-verifications/${userId}/reject`, {
     notes,
   });
+}
+
+export async function blockProfessionalVerification(
+  userId: string,
+): Promise<void> {
+  await api.post(`/admin/professional-verifications/${userId}/block`);
+}
+
+export async function deleteProfessionalVerification(
+  userId: string,
+): Promise<void> {
+  await api.delete(`/admin/professional-verifications/${userId}`);
 }

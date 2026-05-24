@@ -60,8 +60,8 @@ import {
   type AdminUserListItem,
 } from "@/lib/admin-ops-api";
 import { buildFallbackAnalytics } from "@/lib/admin-analytics-fallback";
+import { getAdminAnalyticsLoadMessage } from "@/lib/admin-analytics-errors";
 import { getFriendlyAxiosMessage } from "@/lib/axios-error-messages";
-import { isAxiosError } from "axios";
 import { cn } from "@/lib/utils";
 
 import {
@@ -179,23 +179,14 @@ export function AdminDashboardPage() {
 
       if (analyticsRes.status === "fulfilled") {
         setAnalytics(analyticsRes.value);
+        setAnalyticsError(null);
       } else {
         const summaryData =
           summaryRes.status === "fulfilled" ? summaryRes.value : null;
         const billingData =
           billingRes.status === "fulfilled" ? billingRes.value : null;
         setAnalytics(buildFallbackAnalytics(summaryData, billingData));
-        const isMissingRoute =
-          isAxiosError(analyticsRes.reason) &&
-          analyticsRes.reason.response?.status === 404;
-        setAnalyticsError(
-          isMissingRoute
-            ? "Chart API not deployed yet — showing estimates from summary and billing. Redeploy MediAI_backend to enable /admin/analytics."
-            : getFriendlyAxiosMessage(
-                analyticsRes.reason,
-                "Could not load chart data.",
-              ),
-        );
+        setAnalyticsError(getAdminAnalyticsLoadMessage(analyticsRes.reason));
       }
       setAnalyticsLoading(false);
     }
@@ -252,8 +243,8 @@ export function AdminDashboardPage() {
         </div>
 
         {analyticsError ? (
-          <DashboardPanel className="border-destructive/20 bg-destructive/5 px-6 py-4">
-            <p className="text-sm font-medium text-destructive">
+          <DashboardPanel className="border-amber-500/25 bg-amber-500/5 px-6 py-4">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
               {analyticsError}
             </p>
           </DashboardPanel>
@@ -263,12 +254,13 @@ export function AdminDashboardPage() {
           <InteractiveUserGrowthChart
             data={analytics?.monthlyUserGrowth}
             loading={analyticsLoading}
+            emptyMessage="No user registrations in the last six months yet."
           />
           <aside className="space-y-4">
             <InteractiveRevenueChart
               data={revenueChartData}
               currency={billing?.currency ?? "ETB"}
-              loading={analyticsLoading || billingLoading}
+              loading={analyticsLoading}
             />
           </aside>
         </div>
@@ -333,17 +325,7 @@ export function AdminRevenuePage() {
         const billingData =
           billingRes.status === "fulfilled" ? billingRes.value : null;
         setAnalytics(buildFallbackAnalytics(null, billingData));
-        const isMissingRoute =
-          isAxiosError(analyticsRes.reason) &&
-          analyticsRes.reason.response?.status === 404;
-        setAnalyticsError(
-          isMissingRoute
-            ? "Chart API not deployed yet — showing billing data only. Redeploy MediAI_backend for full analytics."
-            : getFriendlyAxiosMessage(
-                analyticsRes.reason,
-                "Could not load chart data.",
-              ),
-        );
+        setAnalyticsError(getAdminAnalyticsLoadMessage(analyticsRes.reason));
       }
       setAnalyticsLoading(false);
     });
@@ -370,8 +352,8 @@ export function AdminRevenuePage() {
         />
 
         {analyticsError ? (
-          <DashboardPanel className="border-destructive/20 bg-destructive/5 px-6 py-4">
-            <p className="text-sm font-medium text-destructive">
+          <DashboardPanel className="border-amber-500/25 bg-amber-500/5 px-6 py-4">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
               {analyticsError}
             </p>
           </DashboardPanel>
@@ -381,7 +363,7 @@ export function AdminRevenuePage() {
           <InteractiveRevenueChart
             data={revenueChartData}
             currency={billing?.currency ?? "ETB"}
-            loading={analyticsLoading || billingLoading}
+            loading={analyticsLoading}
           />
           <DashboardPanel className="space-y-4 px-6 py-5">
             <div className="flex items-center gap-2">

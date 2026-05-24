@@ -1,14 +1,23 @@
 import type { NextConfig } from "next";
 import path from "path";
 
-import { PRODUCTION_API_BASE } from "./src/lib/api-origin";
+import {
+  LOCAL_API_BASE,
+  PRODUCTION_API_BASE,
+} from "./src/lib/api-origin";
 
-const LOCAL_API = "http://localhost:4000/api";
+function isLocalApiDevEnabled(): boolean {
+  const flag = process.env.NEXT_PUBLIC_USE_LOCAL_API?.trim().toLowerCase();
+  return flag === "1" || flag === "true" || flag === "yes";
+}
 
 function readDirectApiUrl(): string {
+  if (isLocalApiDevEnabled()) {
+    return LOCAL_API_BASE;
+  }
   const raw = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (raw) return raw.replace(/\/$/, "");
-  return process.env.NODE_ENV === "production" ? PRODUCTION_API_BASE : LOCAL_API;
+  return process.env.NODE_ENV === "production" ? PRODUCTION_API_BASE : LOCAL_API_BASE;
 }
 
 /** `https://medi-ai-backend.vercel.app` from `.../api` */
@@ -22,6 +31,7 @@ const nextConfig: NextConfig = {
   },
   env: {
     NEXT_PUBLIC_API_URL: readDirectApiUrl(),
+    NEXT_PUBLIC_USE_LOCAL_API: process.env.NEXT_PUBLIC_USE_LOCAL_API ?? "",
   },
   async rewrites() {
     const nestOrigin = nestOriginFromApiBase(readDirectApiUrl());

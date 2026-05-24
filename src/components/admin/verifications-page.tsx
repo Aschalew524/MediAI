@@ -4,17 +4,21 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BadgeCheck,
+  Ban,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   Loader2,
   RefreshCw,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import { isAxiosError } from "axios";
 
 import {
   approveProfessionalVerification,
+  blockProfessionalVerification,
+  deleteProfessionalVerification,
   getAdminProfessionalVerifications,
   rejectProfessionalVerification,
   type AdminProfessionalVerificationItem,
@@ -112,6 +116,54 @@ export function AdminVerificationsPage() {
     }
   }
 
+  async function handleBlock(userId: string, email: string) {
+    if (
+      !window.confirm(
+        `Block ${email}? They will lose verified status and no longer appear on Top Doctors.`,
+      )
+    ) {
+      return;
+    }
+    setBusyUserId(userId);
+    setActionError(null);
+    try {
+      await blockProfessionalVerification(userId);
+      await load();
+    } catch (err) {
+      setActionError(
+        messageFromAxiosData(
+          isAxiosError(err) ? err.response?.data : undefined,
+        ) ?? "Could not block this doctor.",
+      );
+    } finally {
+      setBusyUserId(null);
+    }
+  }
+
+  async function handleDelete(userId: string, email: string) {
+    if (
+      !window.confirm(
+        `Permanently delete ${email}? This removes their account, profile, and bookings. This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setBusyUserId(userId);
+    setActionError(null);
+    try {
+      await deleteProfessionalVerification(userId);
+      await load();
+    } catch (err) {
+      setActionError(
+        messageFromAxiosData(
+          isAxiosError(err) ? err.response?.data : undefined,
+        ) ?? "Could not delete this doctor.",
+      );
+    } finally {
+      setBusyUserId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -191,6 +243,8 @@ export function AdminVerificationsPage() {
               busy={busyUserId === item.userId}
               onApprove={() => handleApprove(item.userId)}
               onReject={(notes) => handleReject(item.userId, notes)}
+              onBlock={() => handleBlock(item.userId, item.email)}
+              onDelete={() => handleDelete(item.userId, item.email)}
             />
           ))}
         </ul>
@@ -235,11 +289,15 @@ function VerificationRow({
   busy,
   onApprove,
   onReject,
+  onBlock,
+  onDelete,
 }: {
   item: AdminProfessionalVerificationItem;
   busy: boolean;
   onApprove: () => void;
   onReject: (notes: string) => void;
+  onBlock: () => void;
+  onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [rejectMode, setRejectMode] = useState(false);
@@ -347,6 +405,34 @@ function VerificationRow({
               {rejectMode ? "Cancel" : "Reject"}
             </button>
           ) : null}
+          {item.status === "verified" ? (
+            <button
+              type="button"
+              onClick={onBlock}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 transition hover:bg-amber-100 disabled:opacity-50"
+            >
+              {busy ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Ban className="size-3.5" />
+              )}
+              Block
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs font-semibold text-destructive transition hover:bg-destructive/15 disabled:opacity-50"
+          >
+            {busy ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="size-3.5" />
+            )}
+            Delete
+          </button>
         </div>
       </div>
 
