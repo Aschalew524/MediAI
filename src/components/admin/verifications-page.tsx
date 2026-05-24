@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BadgeCheck,
-  Ban,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -17,10 +16,10 @@ import { isAxiosError } from "axios";
 
 import {
   approveProfessionalVerification,
-  blockProfessionalVerification,
   deleteProfessionalVerification,
   getAdminProfessionalVerifications,
   rejectProfessionalVerification,
+  unblockProfessionalVerification,
   type AdminProfessionalVerificationItem,
   type AdminVerificationFilter,
   type AdminVerificationStatus,
@@ -31,7 +30,7 @@ import { cn } from "@/lib/utils";
 const FILTERS: { id: AdminVerificationFilter; label: string }[] = [
   { id: "awaiting", label: "Awaiting review" },
   { id: "verified", label: "Verified" },
-  { id: "rejected", label: "Rejected" },
+  { id: "rejected", label: "Blocked" },
   { id: "pending", label: "All pending" },
   { id: "all", label: "All doctors" },
 ];
@@ -99,46 +98,44 @@ export function AdminVerificationsPage() {
     }
   }
 
-  async function handleReject(userId: string, notes: string) {
+  async function handleBlock(userId: string, notes: string) {
     setBusyUserId(userId);
     setActionError(null);
     try {
+      // Keep using the rejection endpoint to record notes while presenting it
+      // as a "Block" action in the UI.
       await rejectProfessionalVerification(userId, notes);
       await load();
     } catch (err) {
       setActionError(
         messageFromAxiosData(
           isAxiosError(err) ? err.response?.data : undefined,
-        ) ?? "Rejection failed. Please try again.",
+        ) ?? "Blocking failed. Please try again.",
       );
     } finally {
       setBusyUserId(null);
     }
   }
 
-  async function handleBlock(userId: string, email: string) {
-    if (
-      !window.confirm(
-        `Block ${email}? They will lose verified status and no longer appear on Top Doctors.`,
-      )
-    ) {
-      return;
-    }
+  async function handleUnblock(userId: string, email: string) {
+    if (!window.confirm(`Unblock ${email}?`)) return;
     setBusyUserId(userId);
     setActionError(null);
     try {
-      await blockProfessionalVerification(userId);
+      await unblockProfessionalVerification(userId);
       await load();
     } catch (err) {
       setActionError(
         messageFromAxiosData(
           isAxiosError(err) ? err.response?.data : undefined,
-        ) ?? "Could not block this doctor.",
+        ) ?? "Could not unblock this doctor.",
       );
     } finally {
       setBusyUserId(null);
     }
   }
+
+  
 
   async function handleDelete(userId: string, email: string) {
     if (
@@ -172,7 +169,7 @@ export function AdminVerificationsPage() {
             <BadgeCheck className="size-6 text-primary" /> Doctor verifications
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Approve or reject professional accounts. Verified doctors can use
+            Approve or block professional accounts. Verified doctors can use
             the dashboard and appear on the public Top Doctors page.
           </p>
         </div>
@@ -242,8 +239,8 @@ export function AdminVerificationsPage() {
               item={item}
               busy={busyUserId === item.userId}
               onApprove={() => handleApprove(item.userId)}
-              onReject={(notes) => handleReject(item.userId, notes)}
-              onBlock={() => handleBlock(item.userId, item.email)}
+              onBlock={(notes) => handleBlock(item.userId, notes)}
+              onUnblock={() => handleUnblock(item.userId, item.email)}
               onDelete={() => handleDelete(item.userId, item.email)}
             />
           ))}
@@ -288,19 +285,19 @@ function VerificationRow({
   item,
   busy,
   onApprove,
-  onReject,
   onBlock,
+  onUnblock,
   onDelete,
 }: {
   item: AdminProfessionalVerificationItem;
   busy: boolean;
   onApprove: () => void;
-  onReject: (notes: string) => void;
-  onBlock: () => void;
+  onBlock: (notes: string) => void;
+  onUnblock: () => void;
   onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [rejectMode, setRejectMode] = useState(false);
+  const [blockMode, setBlockMode] = useState(false);
   const [notes, setNotes] = useState("");
   const prof = item.professionalProfile ?? {};
   const fullName = stringFrom(prof, "fullName") ?? item.email;
@@ -360,7 +357,7 @@ function VerificationRow({
           </dl>
           {item.notes ? (
             <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-900">
-              <strong className="font-semibold">Previous rejection note:</strong>{" "}
+              <strong className="font-semibold">Previous block note:</strong>{" "}
               {item.notes}
             </p>
           ) : null}
@@ -401,27 +398,27 @@ function VerificationRow({
           {item.status !== "rejected" ? (
             <button
               type="button"
-              onClick={() => setRejectMode((v) => !v)}
+              onClick={() => setBlockMode((v) => !v)}
               disabled={busy}
               className="inline-flex items-center gap-1.5 rounded-full border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50"
             >
               <XCircle className="size-3.5" />
-              {rejectMode ? "Cancel" : "Reject"}
+              {blockMode ? "Cancel" : "Block"}
             </button>
           ) : null}
-          {item.status === "verified" ? (
+          {item.status === "rejected" ? (
             <button
               type="button"
-              onClick={onBlock}
+              onClick={onUnblock}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-full border border-amber-400 bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-950 transition hover:bg-amber-200 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-600 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-50"
             >
               {busy ? (
                 <Loader2 className="size-3.5 animate-spin" />
               ) : (
-                <Ban className="size-3.5" />
+                <CheckCircle2 className="size-3.5" />
               )}
-              Block
+              Unblock
             </button>
           ) : null}
           <button
@@ -441,13 +438,13 @@ function VerificationRow({
         </div>
       </div>
 
-      {rejectMode ? (
+      {blockMode ? (
         <form
           onSubmit={(e) => {
             e.preventDefault();
             if (!notes.trim()) return;
-            onReject(notes.trim());
-            setRejectMode(false);
+            onBlock(notes.trim());
+            setBlockMode(false);
             setNotes("");
           }}
           className="mt-3 space-y-2 rounded-xl border border-rose-200 bg-rose-50/50 p-3"
@@ -470,7 +467,7 @@ function VerificationRow({
               className="inline-flex items-center gap-1.5 rounded-full bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:opacity-50"
             >
               {busy ? <Loader2 className="size-3.5 animate-spin" /> : null}
-              Send rejection
+              Send block
             </button>
           </div>
         </form>
@@ -541,7 +538,7 @@ function StatusBadge({
   if (status === "rejected")
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-800">
-        Rejected
+        Blocked
       </span>
     );
   return (
