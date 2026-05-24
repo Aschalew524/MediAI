@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -12,19 +13,25 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
   Clock,
+  FileText,
   Loader2,
   ShieldAlert,
   Stethoscope,
+  Upload,
   XCircle,
 } from "lucide-react";
 
 import { useDashboardAuth } from "@/components/auth/dashboard-auth-provider";
 import { useDashboardMe } from "./dashboard-me-provider";
 import {
+  listVerificationDocuments,
   patchMeProfile,
   submitProfessionalVerification,
+  uploadVerificationDocument,
   userFacingMeError,
   dispatchMeRefresh,
+  type VerificationDocumentKind,
+  type VerificationDocumentSummary,
 } from "@/lib/me-api";
 import type {
   DoctorVerificationStatus,
@@ -242,6 +249,33 @@ export function VerifyDoctorPage() {
   const isRejected = status === "rejected";
   const isBlocked = status === "blocked";
   const formLocked = isBlocked;
+  const canUploadDocuments = status !== "verified" && !isBlocked;
+
+  const [documents, setDocuments] = useState<VerificationDocumentSummary[]>([]);
+  const [docsLoading, setDocsLoading] = useState(true);
+  const [uploadingKind, setUploadingKind] =
+    useState<VerificationDocumentKind | null>(null);
+
+  const refreshDocuments = useCallback(async () => {
+    try {
+      const items = await listVerificationDocuments();
+      setDocuments(items);
+    } catch {
+      setDocuments([]);
+    } finally {
+      setDocsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshDocuments();
+  }, [refreshDocuments]);
+
+  const docByKind = useCallback(
+    (kind: VerificationDocumentKind) =>
+      documents.find((d) => d.kind === kind),
+    [documents],
+  );
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -286,7 +320,31 @@ export function VerifyDoctorPage() {
     if (!form.bio.trim()) missing.push("Professional bio");
     const yrs = parseInt(form.yearsOfExperience, 10);
     if (!Number.isFinite(yrs) || yrs < 0) missing.push("Years of experience");
+    if (!docByKind("medical_license")) missing.push("Medical license document");
+    if (!docByKind("degree")) missing.push("Degree / diploma document");
     return missing;
+  }
+
+  async function handleDocumentUpload(
+    kind: VerificationDocumentKind,
+    file: File,
+  ) {
+    setError(null);
+    setUploadingKind(kind);
+    try {
+      await uploadVerificationDocument(kind, file);
+      await refreshDocuments();
+      setSuccess(
+        kind === "medical_license"
+          ? "License document uploaded."
+          : "Degree document uploaded.",
+      );
+      setTimeout(() => setSuccess(null), 2500);
+    } catch (err) {
+      setError(userFacingMeError(err, "Could not upload document."));
+    } finally {
+      setUploadingKind(null);
+    }
   }
 
   async function saveDraft(e?: FormEvent) {
@@ -497,6 +555,34 @@ export function VerifyDoctorPage() {
           </Field>
 
           <SectionHeader
+            icon={<FileText className="size-5 opacity-70" />}
+            title="Verification documents (required)"
+            description="Upload a clear photo or PDF of your medical license and your medical degree. Max 5 MB each (PDF, JPG, or PNG)."
+          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <VerificationDocumentUploadCard
+              label="Medical license"
+              hint="Must match the license number above."
+              kind="medical_license"
+              document={docByKind("medical_license")}
+              loading={docsLoading}
+              uploading={uploadingKind === "medical_license"}
+              disabled={!canUploadDocuments}
+              onUpload={(file) => void handleDocumentUpload("medical_license", file)}
+            />
+            <VerificationDocumentUploadCard
+              label="Degree / diploma"
+              hint="Medical degree or equivalent qualification."
+              kind="degree"
+              document={docByKind("degree")}
+              loading={docsLoading}
+              uploading={uploadingKind === "degree"}
+              disabled={!canUploadDocuments}
+              onUpload={(file) => void handleDocumentUpload("degree", file)}
+            />
+          </div>
+
+          <SectionHeader
             icon={<Stethoscope className="size-5 opacity-70" />}
             title="Public profile (optional)"
             description="What patients see on your Top Doctors page. You can fill these later — only the section above is required to submit for verification."
@@ -684,6 +770,108 @@ export function VerifyDoctorPage() {
 
 const inputClass =
   "block w-full rounded-xl border border-primary/15 bg-white px-3.5 py-2.5 text-sm text-foreground shadow-sm outline-hidden transition placeholder:text-muted-foreground/60 focus:border-primary/60 focus:ring-2 focus:ring-primary/15";
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function VerificationDocumentUploadCard({
+  label,
+  hint,
+  kind,
+  document,
+  loading,
+  uploading,
+  disabled,
+  onUpload,
+}: {
+  label: string;
+  hint: string;
+  kind: VerificationDocumentKind;
+  document: VerificationDocumentSummary | undefined;
+  loading: boolean;
+  uploading: boolean;
+  disabled: boolean;
+  onUpload: (file: File) => void;
+}) {
+  const inputId = `verification-doc-${kind}`;
+
+  return (
+    <div className="rounded-xl border border-primary/15 bg-white p-4 shadow-sm">
+      <p className="text-sm font-semibold text-foreground">{label}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
+      {loading ? (
+        <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" /> Loading…
+        </p>
+      ) : document ? (
+        <div className="mt-3 space-y-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+            <CheckCircle2 className="size-3.5 shrink-0" />
+            <span className="font-medium">
+              {document.originalName} ({formatBytes(document.byteSize)})
+            </span>
+          </div>
+          {!disabled ? (
+            <label
+              htmlFor={inputId}
+              className={cn(
+                "inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-primary hover:underline",
+                uploading && "pointer-events-none opacity-60",
+              )}
+            >
+              {uploading ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : null}
+              Replace file
+              <input
+                id={inputId}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
+                className="sr-only"
+                disabled={uploading}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) onUpload(file);
+                }}
+              />
+            </label>
+          ) : null}
+        </div>
+      ) : (
+        <label
+          htmlFor={disabled ? undefined : inputId}
+          className={cn(
+            "mt-3 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-primary/25 bg-primary/3 px-4 py-6 text-center text-xs text-muted-foreground transition hover:bg-primary/5",
+            (disabled || uploading) && "pointer-events-none opacity-60",
+          )}
+        >
+          {uploading ? (
+            <Loader2 className="size-5 animate-spin text-primary" />
+          ) : (
+            <Upload className="size-5 text-primary" />
+          )}
+          {uploading ? "Uploading…" : "Choose file"}
+          <input
+            id={inputId}
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
+            className="sr-only"
+            disabled={disabled || uploading}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) onUpload(file);
+            }}
+          />
+        </label>
+      )}
+    </div>
+  );
+}
 
 function Header({
   status,

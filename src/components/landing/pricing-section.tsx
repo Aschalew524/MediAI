@@ -15,6 +15,7 @@ import {
   type SubscriptionInterval,
   type SubscriptionPlan,
 } from "@/lib/payments-api";
+import { rememberPendingChapaTxRef } from "@/lib/chapa-pending-tx";
 import { cn } from "@/lib/utils";
 
 import { Container } from "./primitives";
@@ -272,18 +273,15 @@ export function PricingSection() {
     try {
       const payment = await initiateSubscriptionPayment(planId, interval);
       if (payment.freeGranted) {
-        // No Chapa redirect — the free row is already active. Send the user
-        // to their dashboard instead of leaving them on a marketing page.
-        window.location.assign("/dashboard/ai-doctor");
+        const snapshot = await getMySubscription();
+        setSubscription(snapshot);
         return;
       }
-      if (payment.checkoutUrl) {
-        window.location.assign(payment.checkoutUrl);
-        return;
+      if (!payment.checkoutUrl) {
+        throw new Error("Checkout URL missing from payment response.");
       }
-      setError(
-        "The subscription was started but we didn't get a checkout link from the gateway. Please try again.",
-      );
+      rememberPendingChapaTxRef(payment.txRef);
+      window.location.assign(payment.checkoutUrl);
     } catch (err: unknown) {
       setError(
         userFacingPaymentError(

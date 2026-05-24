@@ -37,6 +37,7 @@ function SignInForm() {
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
   const [formError, setFormError] = useState<string | null>(null);
+  const [dbPreflightError, setDbPreflightError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingSession, setExistingSession] = useState<AuthUser | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -80,6 +81,28 @@ function SignInForm() {
       cancelled = true;
     };
   }, [searchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await api.get("/health/database");
+        if (!cancelled) setDbPreflightError(null);
+      } catch (err) {
+        if (!cancelled) {
+          setDbPreflightError(
+            userFacingAxiosError(
+              err,
+              "The API is not responding. If using Vercel, redeploy the backend after setting DATABASE_URL and JWT_SECRET.",
+            ),
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const err = searchParams.get("error");
@@ -149,8 +172,8 @@ function SignInForm() {
           Sign in to continue to the app.
         </p>
       ) : null}
-      {formError ? (
-        <AuthFormErrorAlert message={formError} />
+      {formError || dbPreflightError ? (
+        <AuthFormErrorAlert message={formError ?? dbPreflightError ?? ""} />
       ) : null}
 
       {checkingSession ? (

@@ -164,6 +164,15 @@ export type AdminVerificationFilter =
   | "awaiting"
   | "all";
 
+export type AdminVerificationDocumentSummary = {
+  id: string;
+  kind: "medical_license" | "degree";
+  originalName: string;
+  mimeType: string;
+  byteSize: number;
+  uploadedAt: string;
+};
+
 /** Mirrors `AdminProfessionalVerificationItemDto`. */
 export type AdminProfessionalVerificationItem = {
   userId: string;
@@ -175,6 +184,7 @@ export type AdminProfessionalVerificationItem = {
   notes: string | null;
   createdAt: string;
   professionalProfile: Record<string, unknown>;
+  documents: AdminVerificationDocumentSummary[];
 };
 
 export type AdminProfessionalVerificationsResponse = {
@@ -300,6 +310,17 @@ export async function rejectProfessionalVerification(
 /** Shown to the doctor when an admin blocks a verified account. */
 export const ADMIN_BLOCK_NOTE =
   "This account was blocked by an administrator. Contact support if you believe this is a mistake.";
+
+export async function fetchAdminVerificationDocumentBlob(
+  userId: string,
+  documentId: string,
+): Promise<Blob> {
+  const { data } = await api.get<Blob>(
+    `/admin/professional-verifications/${userId}/documents/${documentId}/download`,
+    { responseType: "blob" },
+  );
+  return data;
+}
 
 export async function unblockProfessionalVerification(
   userId: string,

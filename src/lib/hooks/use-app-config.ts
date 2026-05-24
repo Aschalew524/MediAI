@@ -168,6 +168,7 @@ export function useChatConfig() {
       chatHistoryItems: fallbackChatHistoryItems,
       seededPersonalConversation: [...fallbackSeededPersonalConversation],
       ragEnabled: false,
+      assistantTrial: { enabled: true, limit: 3 },
     }),
     [],
   );

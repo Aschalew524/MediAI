@@ -157,6 +157,53 @@ export function mapMeProfileToDashboard(
  * "awaiting admin review" once their `professionalProfile` has the required
  * verification fields filled in.
  */
+export type VerificationDocumentKind = "medical_license" | "degree";
+
+export type VerificationDocumentSummary = {
+  id: string;
+  kind: VerificationDocumentKind;
+  originalName: string;
+  mimeType: string;
+  byteSize: number;
+  uploadedAt: string;
+};
+
+export async function listVerificationDocuments(): Promise<
+  VerificationDocumentSummary[]
+> {
+  const { data } = await api.get<{ items: VerificationDocumentSummary[] }>(
+    "/me/professional/verification-documents",
+  );
+  return data.items ?? [];
+}
+
+export async function uploadVerificationDocument(
+  kind: VerificationDocumentKind,
+  file: File,
+): Promise<VerificationDocumentSummary> {
+  const form = new FormData();
+  form.append("kind", kind);
+  form.append("file", file);
+  const { data } = await api.post<VerificationDocumentSummary>(
+    "/me/professional/verification-documents",
+    form,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  return data;
+}
+
+export async function deleteVerificationDocument(id: string): Promise<void> {
+  await api.delete(`/me/professional/verification-documents/${id}`);
+}
+
+export async function fetchVerificationDocumentBlob(id: string): Promise<Blob> {
+  const { data } = await api.get<Blob>(
+    `/me/professional/verification-documents/${id}/download`,
+    { responseType: "blob" },
+  );
+  return data;
+}
+
 export async function submitProfessionalVerification(): Promise<GetMeProfileResponse> {
   const { data } = await api.post<{
     profile: MeProfileApi | null;
