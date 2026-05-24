@@ -209,6 +209,12 @@ export async function rejectProfessionalVerification(
   });
 }
 
+export async function unblockProfessionalVerification(
+  userId: string,
+): Promise<void> {
+  await api.post(`/admin/professional-verifications/${userId}/unblock`);
+}
+
 export async function blockProfessionalVerification(
   userId: string,
 ): Promise<void> {
