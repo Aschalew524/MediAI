@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { isAxiosError } from "axios";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   chapaReturnBookingId,
   chapaReturnHasRefQuery,
   chapaReturnSubscriptionId,
 } from "@/lib/chapa-return-query";
+import { consumePendingChapaTxRef } from "@/lib/chapa-pending-tx";
 import { getApiBaseUrl } from "@/lib/api-origin";
 import {
   finalizeConsultationPayment,
@@ -22,22 +23,39 @@ type SyncState =
   | { phase: "noop" }
   | { phase: "error"; message: string };
 
+function resolveReturnQueryString(initial: string): string {
+  if (chapaReturnHasRefQuery(initial)) {
+    return initial;
+  }
+  const pending = consumePendingChapaTxRef();
+  if (!pending) {
+    return initial;
+  }
+  const u = new URLSearchParams(initial);
+  u.set("tx_ref", pending);
+  return u.toString();
+}
+
 export function ChapaReturnClient({
   kind,
-  queryString,
+  queryString: initialQueryString,
 }: {
   kind: string;
   queryString: string;
 }) {
-  const hasTxRef = chapaReturnHasRefQuery(queryString);
-  const bookingId = chapaReturnBookingId(queryString);
-  const subscriptionId = chapaReturnSubscriptionId(queryString);
-  // Either path can drive verification: the public callback (when Chapa
-  // included a tx_ref on the redirect) or the authenticated finalize
-  // route (when only our own id is in the URL, which is the common
-  // dev/sandbox case). Subscriptions take precedence for the explicit
-  // id check because the Chapa `return_url` carries both `kind=` and
-  // either `subscriptionId=` or `bookingId=`.
+  const [queryString] = useState(() => resolveReturnQueryString(initialQueryString));
+  const hasTxRef = useMemo(
+    () => chapaReturnHasRefQuery(queryString),
+    [queryString],
+  );
+  const bookingId = useMemo(
+    () => chapaReturnBookingId(queryString),
+    [queryString],
+  );
+  const subscriptionId = useMemo(
+    () => chapaReturnSubscriptionId(queryString),
+    [queryString],
+  );
   const canSync = hasTxRef || Boolean(bookingId || subscriptionId);
 
   const [state, setState] = useState<SyncState>(() =>
@@ -99,6 +117,15 @@ export function ChapaReturnClient({
           await finalizeConsultationPayment(bookingId);
           if (cancelled) return;
           setState({ phase: "ok" });
+          return;
+        }
+
+        if (!cancelled) {
+          setState({
+            phase: "error",
+            message:
+              "Payment reference was incomplete. Refresh your dashboard or billing page in a moment.",
+          });
         }
       } catch (error: unknown) {
         if (cancelled) return;

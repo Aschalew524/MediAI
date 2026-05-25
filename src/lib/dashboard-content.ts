@@ -63,7 +63,11 @@ export type ProfessionalProfile = {
   attachedHistoryFileName?: string;
 };
 
-export type DoctorVerificationStatus = "pending" | "verified" | "rejected";
+export type DoctorVerificationStatus =
+  | "pending"
+  | "verified"
+  | "rejected"
+  | "blocked";
 
 export type DoctorVerificationSnapshot = {
   status: DoctorVerificationStatus;

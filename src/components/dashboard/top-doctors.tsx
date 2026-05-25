@@ -37,10 +37,7 @@ import {
   userFacingPaymentError,
   type BillingConsultation,
 } from "@/lib/payments-api";
-import {
-  listDoctorAvailabilitySlots,
-  type AvailabilitySlot,
-} from "@/lib/consultations-api";
+import { rememberPendingChapaTxRef } from "@/lib/chapa-pending-tx";
 import {
   getTopDoctorById,
   getTopDoctorMatchOptions,
@@ -52,6 +49,10 @@ import {
   type ConditionCategory,
   type EnumOption,
 } from "@/lib/top-doctors-api";
+import {
+  listDoctorAvailabilitySlots,
+  type AvailabilitySlot,
+} from "@/lib/consultations-api";
 import { type ConsultationType, type TopDoctor } from "@/lib/top-doctors-content";
 import { startConversationWithDoctor } from "@/lib/services/messages-api";
 
@@ -875,26 +876,36 @@ function VideoConsultationModal({
   }, [doctor.id]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm">
-      <div className="relative w-full max-w-4xl rounded-2xl border border-primary/15 bg-white p-4 shadow-[0_35px_120px_-50px_rgba(0,0,0,0.55)] sm:p-6 md:p-8">
-        <button
-          type="button"
-          aria-label="Close consultation modal"
-          onClick={onClose}
-          className="absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-full text-primary transition-colors hover:bg-muted"
-        >
-          <X className="size-5" />
-        </button>
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/25 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="consultation-modal-title"
+    >
+      <div className="mx-auto flex min-h-full w-full max-w-4xl items-start justify-center py-2 sm:items-center sm:py-4">
+        <div className="relative max-h-[min(92dvh,calc(100vh-2rem))] w-full overflow-y-auto overscroll-contain rounded-2xl border border-primary/15 bg-white p-4 shadow-[0_35px_120px_-50px_rgba(0,0,0,0.55)] sm:p-6 md:p-8">
+          <div className="sticky top-0 z-10 -mr-1 flex justify-end bg-white/95 pb-2 backdrop-blur-sm">
+            <button
+              type="button"
+              aria-label="Close consultation modal"
+              onClick={onClose}
+              className="inline-flex size-8 items-center justify-center rounded-full text-primary transition-colors hover:bg-muted"
+            >
+              <X className="size-5" />
+            </button>
+          </div>
 
-        <div className="space-y-2 pt-4 text-center">
-          <h2 className="text-2xl font-bold tracking-tight">Book a consultation</h2>
+        <div className="space-y-2 text-center">
+          <h2 id="consultation-modal-title" className="text-2xl font-bold tracking-tight">
+            Book a consultation
+          </h2>
           <p className="text-sm text-muted-foreground">
             Pick an open time slot, then submit your request. The doctor will confirm from their dashboard.
           </p>
         </div>
 
         <form
-          className="mt-6 grid gap-6 lg:mt-8 lg:grid-cols-[1fr_1fr]"
+          className="mt-6 grid gap-6 pb-2 lg:mt-8 lg:grid-cols-[1fr_1fr]"
           onSubmit={async (event) => {
             event.preventDefault();
             setPaymentError(null);
@@ -922,19 +933,12 @@ function VideoConsultationModal({
                 startsAt: selectedSlot,
                 patientNotes: details || undefined,
               });
-              setBooked(true);
-              // Step 2 — hand off to Chapa. Until the patient pays, the
-              // backend keeps the booking at `pending_payment` and the
-              // doctor's inbox stays empty (Phase 3 anti-spam rule). Only
-              // after the Chapa webhook flips the row to
-              // `pending_doctor_approval` will the doctor see this request.
               const payment = await initiateConsultationPayment(booking.id);
-              // Consultations always return a Chapa checkoutUrl; the type
-              // marks it optional only because Phase 7's free-plan
-              // subscriptions share the same response shape.
-              if (typeof window !== "undefined" && payment.checkoutUrl) {
-                window.location.href = payment.checkoutUrl;
+              if (!payment.checkoutUrl) {
+                throw new Error("Checkout URL missing from payment response.");
               }
+              rememberPendingChapaTxRef(payment.txRef);
+              window.location.assign(payment.checkoutUrl);
             } catch (error: unknown) {
               setPaymentError(
                 userFacingPaymentError(
@@ -1097,6 +1101,7 @@ function VideoConsultationModal({
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );
