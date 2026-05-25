@@ -226,27 +226,32 @@ async function fetchBlockedVerificationList(options?: {
       },
     );
 
-  // 1) Native `blocked` filter (new backend with OR query).
+  // 1) Prefer server-side `status=blocked` (rejected + admin block note).
   try {
     const { data } = await get("blocked", page, pageSize);
     const items = data.items.filter(isBlockedVerificationItem);
-    if (items.length > 0) {
-      return { ...data, items, total: items.length, page, pageSize };
-    }
+    return { ...data, items, total: items.length, page, pageSize };
   } catch (err) {
-    if (!isBlockedStatusQueryError(err)) throw err;
+    if (!isBlockedListFallbackError(err)) throw err;
   }
 
-  // 2) Doctors blocked via reject + admin note (`rejected` in DB).
-  const { data: rejectedData } = await get("rejected", 1, BLOCKED_LIST_SCAN_PAGE_SIZE);
+  // 2) Older API: no `blocked` filter — scan `rejected` then `all`.
+  const { data: rejectedData } = await get(
+    "rejected",
+    1,
+    BLOCKED_LIST_SCAN_PAGE_SIZE,
+  );
   let items = rejectedData.items.filter(isBlockedVerificationItem);
-
-  // 3) Last resort — scan all professionals (older data / odd statuses).
-  if (items.length === 0) {
-    const { data: allData } = await get("all", 1, BLOCKED_LIST_SCAN_PAGE_SIZE);
-    items = allData.items.filter(isBlockedVerificationItem);
+  if (items.length > 0) {
+    return {
+      items,
+      total: items.length,
+      page: 1,
+      pageSize: Math.max(items.length, 1),
+    };
   }
-
+  const { data: allData } = await get("all", 1, BLOCKED_LIST_SCAN_PAGE_SIZE);
+  items = allData.items.filter(isBlockedVerificationItem);
   return {
     items,
     total: items.length,
@@ -255,8 +260,11 @@ async function fetchBlockedVerificationList(options?: {
   };
 }
 
-function isBlockedStatusQueryError(err: unknown): boolean {
-  if (!isAxiosError(err) || err.response?.status !== 400) return false;
+function isBlockedListFallbackError(err: unknown): boolean {
+  if (!isAxiosError(err)) return false;
+  const status = err.response?.status;
+  if (status === 500 || status === 502 || status === 503) return true;
+  if (status !== 400) return false;
   const body = err.response?.data;
   const text =
     typeof body === "string"
