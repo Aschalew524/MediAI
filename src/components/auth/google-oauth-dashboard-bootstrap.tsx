@@ -11,7 +11,7 @@ const MAX_TOKEN_CHARS = 12_000;
 /**
  * Nest `GET /api/auth/google/callback` redirects to
  * `/dashboard?accessToken=<jwt>&refreshToken=<opaque>`.
- * Persists both tokens (localStorage + cookie for access token),
+ * Persists both tokens (localSto  rage + cookie for access token),
  * strips both from the URL, then refreshes auth so `/auth/me` runs.
  */
 export function GoogleOAuthDashboardBootstrap() {
