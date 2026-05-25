@@ -41,6 +41,9 @@ function onRefreshFailure(err: unknown) {
 // ---------------------------------------------------------------------------
 api.interceptors.request.use((config) => {
   config.baseURL = getApiBaseUrl();
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
   const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

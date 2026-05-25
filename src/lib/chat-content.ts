@@ -72,10 +72,10 @@ export const seededPersonalConversation = [
 
 export function getAssistantPrompt(mode: ChatMode) {
   if (mode === "personal") {
-    return "I'm here to support with any health-related questions based on your personal profile.";
+    return "Ask about symptoms or health concerns — I'll reply in clear sections. If something is urgent, I'll point you to Find Nearby Facilities so you can locate care quickly.";
   }
 
-  return "I'm here to support with any general health-related questions.";
+  return "Ask any general health question — I'll reply in organized sections. If you need advice tailored to your health profile, I'll suggest switching to Personal AI Doctor.";
 }
 
 export function getReplyForMode(mode: ChatMode, message: string) {

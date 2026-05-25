@@ -42,6 +42,7 @@ import {
 } from "@/lib/services/app-content";
 import { cn } from "@/lib/utils";
 
+import { ChatMessageContent } from "./chat-message-content";
 import { DashboardActionButton, DashboardContainer, DashboardPage, DashboardPanel } from "./primitives";
 import {
   ProfessionalChatConversationPage,
@@ -642,9 +643,9 @@ export function ChatConversationPage({
                           Report Issue
                         </button>
                       </div>
-                      <p className="mt-3 text-base leading-7 text-foreground/90">
-                        {message.content}
-                      </p>
+                      <div className="mt-3">
+                        <ChatMessageContent content={message.content} />
+                      </div>
                       {message.citations?.length ? (
                         <ChatCitations citations={message.citations} />
                       ) : null}

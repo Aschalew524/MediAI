@@ -27,6 +27,7 @@ import {
   X,
 } from "lucide-react";
 
+import { resolveMediaUrl } from "@/lib/resolve-media-url";
 import { cn } from "@/lib/utils";
 import { getFriendlyAxiosMessage } from "@/lib/axios-error-messages";
 import {
@@ -1120,7 +1121,7 @@ function DoctorImage({
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
-  const trimmed = src?.trim() ?? "";
+  const trimmed = resolveMediaUrl(src);
   const isRemote = /^https?:\/\//i.test(trimmed) || trimmed.startsWith("data:");
   // `next/image` only accepts (a) absolute http(s)/data URLs or (b) paths
   // rooted at "/" (served from /public). Anything else — relative paths
