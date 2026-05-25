@@ -52,6 +52,8 @@ export function AdminVerificationsPage() {
     async (signal?: AbortSignal) => {
       setIsLoading(true);
       setError(null);
+      setItems([]);
+      setTotal(0);
       try {
         const data = await getAdminProfessionalVerifications({
           page: filter === "blocked" ? 1 : page,
@@ -63,6 +65,8 @@ export function AdminVerificationsPage() {
         setTotal(data.total);
       } catch (err) {
         if (isAxiosError(err) && err.code === "ERR_CANCELED") return;
+        setItems([]);
+        setTotal(0);
         setError(
           messageFromAxiosData(
             isAxiosError(err) ? err.response?.data : undefined,
@@ -341,7 +345,7 @@ function VerificationRow({
   const showApprove = !isBlockedList && isAwaiting;
   const showReject = !isBlockedList && isAwaiting;
   const showBlock = !isBlockedList && isVerified;
-  const showUnblock = isBlockedList || isBlocked;
+  const showUnblock = isBlocked;
   const prof = item.professionalProfile ?? {};
   const fullName = stringFrom(prof, "fullName") ?? item.email;
   const specialty = stringFrom(prof, "specialty") ?? "—";
@@ -414,21 +418,6 @@ function VerificationRow({
           Actions
         </p>
         <div className="flex flex-wrap items-center gap-2">
-          {showUnblock ? (
-            <button
-              type="button"
-              onClick={onUnblock}
-              disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {busy ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <CheckCircle2 className="size-3.5" />
-              )}
-              Unblock
-            </button>
-          ) : null}
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -480,6 +469,21 @@ function VerificationRow({
                 <XCircle className="size-3.5" />
               )}
               Block
+            </button>
+          ) : null}
+          {showUnblock ? (
+            <button
+              type="button"
+              onClick={onUnblock}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {busy ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="size-3.5" />
+              )}
+              Unblock
             </button>
           ) : null}
           <button
