@@ -322,6 +322,14 @@ export function VerifyDoctorPage() {
     if (!Number.isFinite(yrs) || yrs < 0) missing.push("Years of experience");
     if (!docByKind("medical_license")) missing.push("Medical license document");
     if (!docByKind("degree")) missing.push("Degree / diploma document");
+    const videoFee = parseInt(form.videoConsultationFee, 10);
+    const writtenFee = parseInt(form.writtenConsultationFee, 10);
+    if (!Number.isFinite(videoFee) || videoFee <= 0) {
+      missing.push("Video consultation fee (must be greater than 0)");
+    }
+    if (!Number.isFinite(writtenFee) || writtenFee <= 0) {
+      missing.push("Written consultation fee (must be greater than 0)");
+    }
     return missing;
   }
 

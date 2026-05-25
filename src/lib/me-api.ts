@@ -41,6 +41,21 @@ export type GetMeProfileResponse = {
   aiDoctorSetupCompleted: boolean;
 };
 
+function formatMeErrorBody(data: unknown, base: string): string {
+  if (data && typeof data === "object" && "missing" in data) {
+    const missing = (data as { missing?: unknown }).missing;
+    if (Array.isArray(missing) && missing.length > 0) {
+      const labels = missing.map((m) =>
+        typeof m === "string"
+          ? m.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+          : String(m),
+      );
+      return `${base} Missing: ${labels.join(", ")}.`;
+    }
+  }
+  return base;
+}
+
 export function userFacingMeError(
   err: unknown,
   fallback: string,
@@ -49,16 +64,31 @@ export function userFacingMeError(
     return fallback;
   }
   const status = err.response?.status;
+  const data = err.response?.data;
   if (status === 400) {
-    return messageFromAxiosData(err.response?.data) ?? "Please check your input";
+    const base =
+      messageFromAxiosData(data) ?? "Please check your input and try again.";
+    return formatMeErrorBody(data, base);
   }
   if (status === 403) {
-    return messageFromAxiosData(err.response?.data) ?? "This action is not allowed for your account";
+    return messageFromAxiosData(data) ?? "This action is not allowed for your account";
   }
   if (status === 404) {
-    return messageFromAxiosData(err.response?.data) ?? "No profile found. Complete onboarding first.";
+    return messageFromAxiosData(data) ?? "No profile found. Complete onboarding first.";
   }
-  return messageFromAxiosData(err.response?.data) ?? fallback;
+  if (status === 503) {
+    return (
+      messageFromAxiosData(data) ??
+      "The API database or file storage is not ready. Try again later or contact support."
+    );
+  }
+  if (status === 500) {
+    return (
+      messageFromAxiosData(data) ??
+      "The server could not complete this request. If uploads fail, an administrator may need to run database migrations on the API."
+    );
+  }
+  return messageFromAxiosData(data) ?? fallback;
 }
 
 export type MeProfileApi = {
